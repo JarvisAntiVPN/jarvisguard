@@ -1,0 +1,7 @@
+name: Jarvis
+main: dev.flamingomg.jarvis.JarvisBungeePlugin
+version: 0.5.14
+author: TheFlamingOMG
+description: Cliente anti-VPN/proxy SaaS para BungeeCord
+softdepends:
+  - floodgate
