@@ -53,6 +53,7 @@ public final class AntiVpnCommand extends Command implements TabExecutor {
 
                 if (!sender.hasPermission("jarvis.admin")) { noPermission(sender); return; }
                 config.reload();
+                client.ensureReady();
                 client.cache().invalidateAll();
                 client.fetchAndSyncBans(banCache);
                 send(sender, pre().append(Component.text(m("cmd.reloaded"), NamedTextColor.GREEN)));

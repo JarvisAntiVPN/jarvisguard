@@ -18,11 +18,20 @@ public final class PairingClient {
 
     private final ConfigManager config;
     private final Logger logger;
-    private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(6)).build();
+
+    private final java.util.concurrent.ExecutorService httpExecutor =
+            java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor();
+    private final HttpClient http = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(6)).executor(httpExecutor).build();
 
     public PairingClient(ConfigManager config, Logger logger) {
         this.config = config;
         this.logger = logger;
+    }
+
+    public void shutdown() {
+        try { http.close(); } catch (Exception ignored) {}
+        httpExecutor.shutdownNow();
     }
 
     private String base() {

@@ -26,12 +26,14 @@ import java.nio.file.Path;
 @Plugin(
         id = "jarvis",
         name = "Jarvis",
-        version = "0.5.14",
+        version = JarvisPlugin.VERSION,
         description = "Cliente anti-VPN/proxy SaaS para Velocity",
         authors = {"TheFlamingOMG"},
         dependencies = {@Dependency(id = "floodgate", optional = true)}
 )
 public final class JarvisPlugin {
+
+    public static final String VERSION = "0.5.15";
 
     private static final int BSTATS_PLUGIN_ID = 31671;
 
@@ -101,7 +103,7 @@ public final class JarvisPlugin {
         this.pairing = new dev.flamingomg.jarvis.client.PairingClient(config, logger);
         if (isBlank(config.getString("backend.license-key", ""))) startPairingFlow();
 
-        logger.info("Jarvis v0.5.14 client (SaaS) active.");
+        logger.info("Jarvis v{} client (SaaS) active.", VERSION);
     }
 
     private void startPairingFlow() {
@@ -115,7 +117,7 @@ public final class JarvisPlugin {
 
     private void requestAndPrintPairing() {
         String server = "Velocity " + proxy.getVersion().getVersion();
-        dev.flamingomg.jarvis.client.PairingClient.Start s = pairing.start(null, server, "0.5.14");
+        dev.flamingomg.jarvis.client.PairingClient.Start s = pairing.start(null, server, VERSION);
         if (s == null || s.verificationUri() == null) {
             pairDeviceCode = null;
             logger.warn("[Jarvis] Couldn't generate the linking link; retrying shortly. "
@@ -190,7 +192,10 @@ public final class JarvisPlugin {
 
     @Subscribe
     public void onProxyShutdown(ProxyShutdownEvent event) {
+
         if (syncClient != null) syncClient.stop();
+        if (jarvisClient != null) jarvisClient.shutdown();
+        if (pairing != null) pairing.shutdown();
         logger.info("Jarvis stopped.");
     }
 }

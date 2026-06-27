@@ -52,14 +52,18 @@ public final class SyncClient {
     private final BanCache banCache;
     private final Plugin plugin;
     private final HttpClient http;
+
+    private final java.util.concurrent.ExecutorService httpExecutor =
+            dev.flamingomg.jarvis.client.HttpExecutors.daemonHttpExecutor("jarvis-sync-http");
     private final ScheduledExecutorService scheduler;
     private final AtomicBoolean running = new AtomicBoolean(false);
-
-    private final AtomicBoolean initialBansSynced = new AtomicBoolean(false);
 
     private static final int RECONNECT_BASE_SEC = 5;
     private static final int RECONNECT_MAX_SEC = 60;
     private int reconnectDelaySec = RECONNECT_BASE_SEC;
+
+    private static final long RESYNC_PERIOD_MS = 12 * 60_000L;
+    private static final long RESYNC_JITTER_MS = 3 * 60_000L;
 
     private static final long SSE_STALE_MS = 60_000L;
     private volatile long lastActivityMs = 0L;
@@ -77,7 +81,7 @@ public final class SyncClient {
         this.jarvisClient = jarvisClient;
         this.banCache = banCache;
         this.plugin = plugin;
-        this.http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
+        this.http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).executor(httpExecutor).build();
         this.scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread t = new Thread(r, "jarvis-sync"); t.setDaemon(true); return t;
         });
@@ -87,12 +91,27 @@ public final class SyncClient {
         running.set(true);
         scheduler.execute(this::connect);
         watchdog.scheduleAtFixedRate(this::checkStale, SSE_STALE_MS, SSE_STALE_MS / 2, TimeUnit.MILLISECONDS);
+        scheduleResync();
+    }
+
+    private void scheduleResync() {
+        long delay = RESYNC_PERIOD_MS + java.util.concurrent.ThreadLocalRandom.current().nextLong(0, RESYNC_JITTER_MS);
+        watchdog.schedule(() -> {
+            try {
+                dev.flamingomg.jarvis.security.HmacSigner s = jarvisClient.signer();
+                if (running.get() && s != null && s.hasSecret()) jarvisClient.fetchAndSyncBans(banCache);
+            } catch (Throwable t) { logger.fine("[sync] periodic resync failed: " + t.toString()); }
+            if (running.get()) scheduleResync();
+        }, delay, TimeUnit.MILLISECONDS);
     }
 
     public void stop() {
         running.set(false);
         scheduler.shutdownNow();
         watchdog.shutdownNow();
+
+        dev.flamingomg.jarvis.client.HttpExecutors.closeQuietly(http);
+        dev.flamingomg.jarvis.client.HttpExecutors.shutdownQuietly(httpExecutor);
     }
 
     private void checkStale() {
@@ -118,14 +137,6 @@ public final class SyncClient {
             scheduler.schedule(this::connect, 5, TimeUnit.SECONDS);
             return;
         }
-
-        if (initialBansSynced.compareAndSet(false, true)) {
-            try {
-                jarvisClient.fetchAndSyncBans(banCache);
-            } catch (Throwable t) {
-                logger.fine("[sync] initial ban resync failed: " + t);
-            }
-        }
         String backendUrl = config.getString("backend.url", ConfigManager.DEFAULT_BACKEND_URL);
         String licenseKey = config.getString("backend.license-key", "");
         long ts = System.currentTimeMillis();
@@ -135,7 +146,7 @@ public final class SyncClient {
                 .header("X-License-Key", licenseKey)
                 .header("X-Timestamp", String.valueOf(ts))
                 .header("X-Signature", signature)
-                .header("X-Connector-Version", "0.5.14")
+                .header("X-Connector-Version", dev.flamingomg.jarvis.JarvisPaperPlugin.VERSION)
                 .header("X-Connector-Platform", "paper")
                 .header("Accept", "text/event-stream")
                 .GET()
@@ -147,8 +158,12 @@ public final class SyncClient {
                 reconnectDelaySec = RECONNECT_BASE_SEC;
                 lastActivityMs = System.currentTimeMillis();
                 streamThread = Thread.currentThread();
-                try {
-                    resp.body().forEach(this::processLine);
+
+                try { jarvisClient.fetchAndSyncBans(banCache); }
+                catch (Throwable t) { logger.fine("[sync] resync on connect failed: " + t.toString()); }
+
+                try (java.util.stream.Stream<String> body = resp.body()) {
+                    body.forEach(this::processLine);
                 } finally {
                     streamThread = null;
                 }
@@ -164,7 +179,9 @@ public final class SyncClient {
         if (running.get()) {
             int delay = reconnectDelaySec;
             reconnectDelaySec = Math.min(reconnectDelaySec * 2, RECONNECT_MAX_SEC);
-            scheduler.schedule(this::connect, delay, TimeUnit.SECONDS);
+
+            int jitter = delay <= 1 ? 0 : java.util.concurrent.ThreadLocalRandom.current().nextInt(0, delay);
+            scheduler.schedule(this::connect, delay + jitter, TimeUnit.SECONDS);
         }
     }
 
@@ -303,6 +320,7 @@ public final class SyncClient {
           + "reset|black|dark_blue|dark_green|dark_aqua|dark_red|dark_purple|gold|gr[ae]y|dark_gr[ae]y|blue|"
           + "green|aqua|red|light_purple|yellow|white|b|i|u|st|em)(:[^>]*)?>", java.util.regex.Pattern.CASE_INSENSITIVE);
     private static final java.util.regex.Pattern LEGACY_HEX = java.util.regex.Pattern.compile("[&§]#([0-9a-fA-F]{6})");
+    private static final java.util.regex.Pattern LEGACY_AMP = java.util.regex.Pattern.compile("&([0-9a-fk-orA-FK-OR])");
 
     private static String normalizeLegacy(String msg) {
         String norm = LEGACY_HEX.matcher(msg).replaceAll(mr -> {
@@ -310,7 +328,7 @@ public final class SyncClient {
             for (char c : mr.group(1).toCharArray()) sb.append('§').append(c);
             return sb.toString();
         });
-        return norm.replaceAll("&([0-9a-fk-orA-FK-OR])", "§$1");
+        return LEGACY_AMP.matcher(norm).replaceAll("§$1");
     }
 
     private static String renderStr(String msg, boolean safe) {

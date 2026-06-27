@@ -44,7 +44,11 @@ public final class AntiVpnCommand implements CommandExecutor, TabCompleter {
                 if (!sender.hasPermission("jarvis.admin")) { sender.sendMessage(PRE + "§c" + m("cmd.noperm")); return true; }
                 config.reload();
                 client.cache().invalidateAll();
-                client.fetchAndSyncBans(banCache);
+
+                Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+                    client.ensureReady();
+                    client.fetchAndSyncBans(banCache);
+                });
                 sender.sendMessage(PRE + "§a" + m("cmd.reloaded"));
             }
             default -> sendHelp(sender);

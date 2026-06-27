@@ -40,6 +40,7 @@ public final class DetectionListener implements Listener, PluginMessageListener 
           + "reset|black|dark_blue|dark_green|dark_aqua|dark_red|dark_purple|gold|gr[ae]y|dark_gr[ae]y|blue|"
           + "green|aqua|red|light_purple|yellow|white|b|i|u|st|em)(:[^>]*)?>", java.util.regex.Pattern.CASE_INSENSITIVE);
     private static final java.util.regex.Pattern LEGACY_HEX = java.util.regex.Pattern.compile("[&§]#([0-9a-fA-F]{6})");
+    private static final java.util.regex.Pattern LEGACY_AMP = java.util.regex.Pattern.compile("&([0-9a-fk-orA-FK-OR])");
 
     private final Plugin plugin;
     private final JarvisClient client;
@@ -51,7 +52,9 @@ public final class DetectionListener implements Listener, PluginMessageListener 
 
     private final Cache<UUID, Long> sessionStart = Caffeine.newBuilder().maximumSize(20_000).build();
 
-    private final Cache<String, Boolean> bypassNames = Caffeine.newBuilder().maximumSize(10_000).build();
+    private final Cache<String, Boolean> bypassNames = Caffeine.newBuilder().maximumSize(10_000)
+
+            .expireAfterAccess(java.time.Duration.ofDays(7)).build();
 
     private final Cache<UUID, String> clientBrands = Caffeine.newBuilder().maximumSize(20_000).build();
 
@@ -79,7 +82,7 @@ public final class DetectionListener implements Listener, PluginMessageListener 
         boolean bedrock = (uuid != null && bedrockDetector.isBedrockPlayer(uuid))
                 || bedrockDetector.isBedrockUsername(name);
 
-        if (isBypassed(name) || (name != null && bypassNames.getIfPresent(name.toLowerCase()) != null)) return;
+        if (isBypassed(name) || (name != null && bypassNames.getIfPresent(name.toLowerCase(java.util.Locale.ROOT)) != null)) return;
 
         boolean bedrockBypass = bedrock && config.getBoolean("floodgate.bypass-bedrock", false);
 
@@ -93,7 +96,7 @@ public final class DetectionListener implements Listener, PluginMessageListener 
                 return;
             }
             int maxPerIp = client.maxAccountsPerIp();
-            if (maxPerIp > 0 && countOnlineFromIp(ip) >= maxPerIp) {
+            if (maxPerIp > 0 && atLeastNFromSameIp(ip, maxPerIp)) {
                 deny(event, config.getString("messages.maxperip", Messages.get(client.locale(), "maxperip")));
                 return;
             }
@@ -134,8 +137,21 @@ public final class DetectionListener implements Listener, PluginMessageListener 
         event.disallow(AsyncPlayerPreLoginEvent.Result.KICK_OTHER, renderBranded(msg));
     }
 
+    private volatile boolean warnedBadFallback = false;
+
     private void applyFallbackPolicy(AsyncPlayerPreLoginEvent event, String name, String ip) {
-        String policy = config.getString("fallback.policy", config.getString("unknown.policy", "ALLOW")).toUpperCase();
+
+        String def = config.getString("fallback.policy", config.getString("unknown.policy", "ALLOW")).trim().toUpperCase();
+        String policy;
+        if ("ALLOW".equals(def) || "BLOCK".equals(def)) {
+            policy = def;
+        } else {
+            policy = "ALLOW";
+            if (!warnedBadFallback) {
+                warnedBadFallback = true;
+                logger.warning("[jarvis] fallback.policy invalido ('" + def + "'); se asume ALLOW.");
+            }
+        }
         if ("BLOCK".equals(policy)) {
             deny(event, config.getString("messages.block", Messages.get(client.locale(), "block")));
             logger.warning("[jarvis] UNKNOWN (degraded) -> BLOCK applied to " + name + " (" + ip + ")");
@@ -146,7 +162,10 @@ public final class DetectionListener implements Listener, PluginMessageListener 
     public void onJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
         sessionStart.put(player.getUniqueId(), System.currentTimeMillis());
-        if (player.hasPermission("jarvis.bypass")) bypassNames.put(player.getName().toLowerCase(), Boolean.TRUE);
+        String lname = player.getName().toLowerCase(java.util.Locale.ROOT);
+
+        if (player.hasPermission("jarvis.bypass")) bypassNames.put(lname, Boolean.TRUE);
+        else bypassNames.invalidate(lname);
         maybeRecordPlayerSeen(player);
     }
 
@@ -227,32 +246,43 @@ public final class DetectionListener implements Listener, PluginMessageListener 
             for (char c : mr.group(1).toCharArray()) sb.append('§').append(c);
             return sb.toString();
         });
-        norm = norm.replaceAll("&([0-9a-fk-orA-FK-OR])", "§$1");
+        norm = LEGACY_AMP.matcher(norm).replaceAll("§$1");
         return LegacyComponentSerializer.builder().character('§').hexColors().build().deserialize(norm);
     }
 
-    private String renderBranded(String msg) {
-        String wm = Messages.get(client.locale(), "watermark");
-        Component branding = Component.newline().append(Component.newline())
+    private record Branding(String locale, Component component) {}
+    private volatile Branding branding;
+
+    private Component brandingFor(String locale) {
+        Branding b = branding;
+        if (b != null && locale.equals(b.locale())) return b.component();
+        String wm = Messages.get(locale, "watermark");
+        Component component = Component.newline().append(Component.newline())
                 .append(MM.deserialize("<dark_gray>🛡 " + MM.escapeTags(wm)
                         + "</dark_gray> <gradient:#00ff9c:#22e0d8><bold>jarvisguard.com</bold></gradient>"));
-        return LEGACY.serialize(renderComponent(msg).append(branding));
+        branding = new Branding(locale, component);
+        return component;
     }
 
-    private long countOnlineFromIp(String ip) {
-        long n = 0;
+    private String renderBranded(String msg) {
+
+        return LEGACY.serialize(renderComponent(msg).append(brandingFor(client.locale())));
+    }
+
+    private boolean atLeastNFromSameIp(String ip, int n) {
+        int count = 0;
         for (Player p : Bukkit.getOnlinePlayers()) {
             InetSocketAddress a = p.getAddress();
-            if (a != null && a.getAddress() != null && ip.equals(a.getAddress().getHostAddress())) n++;
+            if (a != null && a.getAddress() != null && ip.equals(a.getAddress().getHostAddress())) {
+                if (++count >= n) return true;
+            }
         }
-        return n;
+        return false;
     }
 
     private boolean isBypassed(String username) {
-        if (username == null) return false;
-        return config.getList("bypass.usernames").stream()
-                .filter(java.util.Objects::nonNull)
-                .anyMatch(u -> u.toString().equalsIgnoreCase(username));
+
+        return username != null && config.bypassUsernames().contains(username.toLowerCase(java.util.Locale.ROOT));
     }
 
     private void notifyStaff(String name, String ip) {

@@ -23,6 +23,8 @@ public final class ConfigManager {
     private final Logger logger;
     private volatile Map<String, Object> root = Collections.emptyMap();
 
+    private volatile java.util.Set<String> bypassSet = Collections.emptySet();
+
     public ConfigManager(Path dataDirectory, Logger logger) {
         this.dataDirectory = dataDirectory;
         this.logger = logger;
@@ -40,12 +42,27 @@ public final class ConfigManager {
                 Map<String, Object> loaded = new Yaml().load(in);
                 this.root = normalize(loaded != null ? loaded : new java.util.LinkedHashMap<>());
             }
+            rebuildBypassSet();
             logger.debug("Jarvis client configuration loaded.");
         } catch (IOException | RuntimeException e) {
 
             logger.error("Couldn't load {}; using default values.", FILE_NAME, e);
             this.root = Collections.emptyMap();
+            rebuildBypassSet();
         }
+    }
+
+    private void rebuildBypassSet() {
+        java.util.Set<String> set = new java.util.HashSet<>();
+        for (Object o : getList("bypass.usernames")) {
+            if (o == null) continue;
+            set.add(o.toString().toLowerCase(java.util.Locale.ROOT).trim());
+        }
+        this.bypassSet = java.util.Collections.unmodifiableSet(set);
+    }
+
+    public java.util.Set<String> bypassUsernames() {
+        return bypassSet;
     }
 
     @SuppressWarnings("unchecked")

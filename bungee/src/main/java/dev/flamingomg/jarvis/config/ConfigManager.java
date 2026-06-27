@@ -23,6 +23,8 @@ public final class ConfigManager {
     private final Logger logger;
     private volatile Map<String, Object> root = Collections.emptyMap();
 
+    private volatile java.util.Set<String> bypassSet = Collections.emptySet();
+
     public ConfigManager(Path dataDirectory, Logger logger) {
         this.dataDirectory = dataDirectory;
         this.logger = logger;
@@ -46,6 +48,21 @@ public final class ConfigManager {
             logger.log(java.util.logging.Level.SEVERE, "Couldn't load " + FILE_NAME + "; using default values.", e);
             this.root = Collections.emptyMap();
         }
+        rebuildBypassSet();
+    }
+
+    private void rebuildBypassSet() {
+        java.util.Set<String> set = new java.util.HashSet<>();
+        for (Object o : getList("bypass.usernames")) {
+            if (o == null) continue;
+            String s = o.toString().trim().toLowerCase(java.util.Locale.ROOT);
+            if (!s.isEmpty()) set.add(s);
+        }
+        this.bypassSet = java.util.Collections.unmodifiableSet(set);
+    }
+
+    public java.util.Set<String> bypassUsernames() {
+        return bypassSet;
     }
 
     @SuppressWarnings("unchecked")

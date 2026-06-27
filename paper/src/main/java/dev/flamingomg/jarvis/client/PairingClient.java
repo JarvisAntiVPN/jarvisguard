@@ -18,7 +18,11 @@ public final class PairingClient {
 
     private final ConfigManager config;
     private final Logger logger;
-    private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(6)).build();
+
+    private final java.util.concurrent.ExecutorService httpExecutor =
+            HttpExecutors.daemonHttpExecutor("jarvis-pair");
+    private final HttpClient http = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(6)).executor(httpExecutor).build();
 
     public PairingClient(ConfigManager config, Logger logger) {
         this.config = config;
@@ -67,6 +71,11 @@ public final class PairingClient {
         } catch (Exception e) {
             return new String[]{"error", null};
         }
+    }
+
+    public void shutdown() {
+        HttpExecutors.closeQuietly(http);
+        HttpExecutors.shutdownQuietly(httpExecutor);
     }
 
     private static String str(Object o) { return o == null ? null : String.valueOf(o); }

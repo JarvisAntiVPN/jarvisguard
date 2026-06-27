@@ -50,6 +50,7 @@ public final class AntiVpnCommand implements SimpleCommand {
 
                 if (!src.hasPermission("jarvis.admin")) { noPermission(src); return; }
                 config.reload();
+                client.ensureReady();
                 client.cache().invalidateAll();
                 client.fetchAndSyncBans(banCache);
                 src.sendMessage(pre().append(Component.text(m("cmd.reloaded"), NamedTextColor.GREEN)));

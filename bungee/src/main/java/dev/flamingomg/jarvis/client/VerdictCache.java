@@ -12,8 +12,8 @@ public final class VerdictCache {
 
     public VerdictCache(int maxEntries, int ttlSeconds) {
         this.cache = Caffeine.newBuilder()
-                .maximumSize(maxEntries)
-                .expireAfterWrite(Duration.ofSeconds(ttlSeconds))
+                .maximumSize(Math.max(0, maxEntries))
+                .expireAfterWrite(Duration.ofSeconds(Math.max(0, ttlSeconds)))
                 .build();
     }
 

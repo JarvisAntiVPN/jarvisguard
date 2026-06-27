@@ -23,6 +23,8 @@ public final class ConfigManager {
     private final Logger logger;
     private volatile Map<String, Object> root = Collections.emptyMap();
 
+    private volatile java.util.Set<String> bypassSet = Collections.emptySet();
+
     public ConfigManager(Path dataDirectory, Logger logger) {
         this.dataDirectory = dataDirectory;
         this.logger = logger;
@@ -40,12 +42,28 @@ public final class ConfigManager {
                 Map<String, Object> loaded = new Yaml().load(in);
                 this.root = normalize(loaded != null ? loaded : new java.util.LinkedHashMap<>());
             }
+            rebuildBypassSet();
             logger.fine("Jarvis client configuration loaded.");
         } catch (IOException | RuntimeException e) {
 
             logger.log(java.util.logging.Level.SEVERE, "Couldn't load " + FILE_NAME + "; using default values.", e);
             this.root = Collections.emptyMap();
+            this.bypassSet = Collections.emptySet();
         }
+    }
+
+    private void rebuildBypassSet() {
+        java.util.Set<String> set = new java.util.HashSet<>();
+        for (Object o : getList("bypass.usernames")) {
+            if (o == null) continue;
+            String u = String.valueOf(o).toLowerCase(java.util.Locale.ROOT).trim();
+            if (!u.isEmpty()) set.add(u);
+        }
+        this.bypassSet = set;
+    }
+
+    public java.util.Set<String> bypassUsernames() {
+        return bypassSet;
     }
 
     @SuppressWarnings("unchecked")

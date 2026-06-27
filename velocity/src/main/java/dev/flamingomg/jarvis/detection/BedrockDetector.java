@@ -29,7 +29,8 @@ public final class BedrockDetector {
     }
 
     public boolean isBedrockPlayer(UUID uuid) {
-        if (!floodgatePresent) {
+
+        if (!floodgatePresent || uuid == null) {
             return false;
         }
         try {

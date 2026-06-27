@@ -22,7 +22,7 @@ import java.util.Map;
 
 public final class JarvisPaperPlugin extends JavaPlugin {
 
-    private static final String VERSION = "0.5.14";
+    public static final String VERSION = "0.5.15";
 
     private static final int BSTATS_PLUGIN_ID = 31883;
 
@@ -90,7 +90,10 @@ public final class JarvisPaperPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+
         if (syncClient != null) syncClient.stop();
+        if (jarvisClient != null) jarvisClient.shutdown();
+        if (pairing != null) pairing.shutdown();
         getLogger().info("Jarvis stopped.");
     }
 

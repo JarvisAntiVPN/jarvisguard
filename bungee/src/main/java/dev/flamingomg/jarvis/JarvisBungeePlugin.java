@@ -18,7 +18,7 @@ public final class JarvisBungeePlugin extends Plugin {
 
     private static final int BSTATS_PLUGIN_ID = 31796;
 
-    private static final String VERSION = "0.5.14";
+    public static final String VERSION = "0.5.15";
 
     private ConfigManager config;
     private JarvisClient jarvisClient;
@@ -157,7 +157,10 @@ public final class JarvisBungeePlugin extends Plugin {
 
     @Override
     public void onDisable() {
+
         if (syncClient != null) syncClient.stop();
+        if (jarvisClient != null) jarvisClient.shutdown();
+        if (pairing != null) pairing.shutdown();
         getLogger().info("Jarvis stopped.");
     }
 }

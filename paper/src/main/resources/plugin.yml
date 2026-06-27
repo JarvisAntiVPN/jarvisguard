@@ -1,9 +1,8 @@
 name: Jarvis
 main: dev.flamingomg.jarvis.JarvisPaperPlugin
-version: 0.5.14
+version: 0.5.15
 author: TheFlamingOMG
 description: Cliente anti-VPN/proxy SaaS para Paper/Spigot (servidor sin proxy)
-# api-version mínima del rango soportado; servidores más nuevos (1.21/26.x) cargan plugins con api-version antigua.
 api-version: '1.18'
 softdepend: [floodgate]
 commands:

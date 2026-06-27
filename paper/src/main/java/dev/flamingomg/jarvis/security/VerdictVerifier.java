@@ -14,7 +14,27 @@ public final class VerdictVerifier {
 
     private static final PublicKey PUB = load();
 
+    private static final ThreadLocal<Signature> ED = ThreadLocal.withInitial(() -> {
+        try { return Signature.getInstance("Ed25519"); } catch (Exception e) { return null; }
+    });
+    private static final ThreadLocal<java.security.MessageDigest> SHA = ThreadLocal.withInitial(() -> {
+        try { return java.security.MessageDigest.getInstance("SHA-256"); } catch (Exception e) { return null; }
+    });
+
     private VerdictVerifier() {}
+
+    public static boolean verifyBans(long timestamp, String body, String sigB64) {
+        if (PUB == null || sigB64 == null || sigB64.isEmpty()) return false;
+        try {
+            Signature sig = ED.get();
+            if (sig == null) return false;
+            sig.initVerify(PUB);
+            sig.update(("bans:" + timestamp + ":" + sha256Hex(body)).getBytes(StandardCharsets.UTF_8));
+            return sig.verify(Base64.getDecoder().decode(sigB64));
+        } catch (Exception e) {
+            return false;
+        }
+    }
 
     private static PublicKey load() {
         try {
@@ -32,7 +52,8 @@ public final class VerdictVerifier {
     public static boolean verify(long timestamp, String verdict, String sigB64) {
         if (PUB == null || sigB64 == null || sigB64.isEmpty()) return false;
         try {
-            Signature sig = Signature.getInstance("Ed25519");
+            Signature sig = ED.get();
+            if (sig == null) return false;
             sig.initVerify(PUB);
             sig.update((timestamp + ":" + verdict).getBytes(StandardCharsets.UTF_8));
             return sig.verify(Base64.getDecoder().decode(sigB64));
@@ -46,7 +67,8 @@ public final class VerdictVerifier {
         try {
             String payload = timestamp + ":" + verdict + ":" + (ip == null ? "" : ip)
                     + ":" + (username == null ? "" : username);
-            Signature sig = Signature.getInstance("Ed25519");
+            Signature sig = ED.get();
+            if (sig == null) return false;
             sig.initVerify(PUB);
             sig.update(payload.getBytes(StandardCharsets.UTF_8));
             return sig.verify(Base64.getDecoder().decode(sigB64));
@@ -58,7 +80,8 @@ public final class VerdictVerifier {
     public static boolean verifyEvent(String canonical, String sigB64) {
         if (PUB == null || canonical == null || sigB64 == null || sigB64.isEmpty()) return false;
         try {
-            Signature sig = Signature.getInstance("Ed25519");
+            Signature sig = ED.get();
+            if (sig == null) return false;
             sig.initVerify(PUB);
             sig.update(canonical.getBytes(StandardCharsets.UTF_8));
             return sig.verify(Base64.getDecoder().decode(sigB64));
@@ -71,7 +94,8 @@ public final class VerdictVerifier {
         if (PUB == null || msgSigB64 == null || msgSigB64.isEmpty()) return false;
         try {
             String payload = timestamp + ":" + verdict + ":" + sha256Hex(message);
-            Signature sig = Signature.getInstance("Ed25519");
+            Signature sig = ED.get();
+            if (sig == null) return false;
             sig.initVerify(PUB);
             sig.update(payload.getBytes(StandardCharsets.UTF_8));
             return sig.verify(Base64.getDecoder().decode(msgSigB64));
@@ -82,8 +106,10 @@ public final class VerdictVerifier {
 
     static String sha256Hex(String s) {
         try {
-            byte[] d = java.security.MessageDigest.getInstance("SHA-256")
-                    .digest((s == null ? "" : s).getBytes(StandardCharsets.UTF_8));
+            var md = SHA.get();
+            if (md == null) return "";
+            md.reset();
+            byte[] d = md.digest((s == null ? "" : s).getBytes(StandardCharsets.UTF_8));
             StringBuilder sb = new StringBuilder(64);
             for (byte b : d) sb.append(Character.forDigit((b >> 4) & 0xF, 16)).append(Character.forDigit(b & 0xF, 16));
             return sb.toString();

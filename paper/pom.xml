@@ -6,17 +6,17 @@
 
     <groupId>dev.flamingomg</groupId>
     <artifactId>jarvis-paper</artifactId>
-    <version>0.5.14</version>
+    <version>0.5.15</version>
     <packaging>jar</packaging>
 
     <name>Jarvis</name>
     <description>Cliente SaaS anti-VPN/proxy para Paper/Spigot (servidor de juego, sin proxy)</description>
 
     <properties>
-        <!-- Java 17: cubre Minecraft 1.18 hasta la última (26.x) en un solo jar. -->
+
         <maven.compiler.release>17</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <!-- Compilo contra spigot-api (mínimo común): el jar carga en Spigot, Paper y forks. Adventure va SHADEADO. -->
+
         <spigot.version>1.18.2-R0.1-SNAPSHOT</spigot.version>
         <adventure.core.version>4.17.0</adventure.core.version>
     </properties>
@@ -50,8 +50,6 @@
             <scope>provided</scope>
         </dependency>
 
-        <!-- Adventure: shadeado y reubicado (Spigot puro no lo trae; en Paper convive sin chocar por el relocate).
-             Render a texto legacy §+hex → APIs universales de Bukkit (cargan en todo 1.18→26.x). -->
         <dependency>
             <groupId>net.kyori</groupId>
             <artifactId>adventure-api</artifactId>
@@ -95,6 +93,13 @@
             <artifactId>bstats-bukkit</artifactId>
             <version>3.0.2</version>
         </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>5.10.2</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -104,6 +109,11 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.13.0</version>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.5</version>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
