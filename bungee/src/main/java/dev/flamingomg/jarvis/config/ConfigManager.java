@@ -15,9 +15,7 @@ public final class ConfigManager {
 
     private static final String FILE_NAME = "config.yml";
 
-    private static final String PRODUCTION_BACKEND_URL = "https://connector.jarvisguard.com";
-    public static final String DEFAULT_BACKEND_URL =
-            System.getProperty("jarvis.backend", PRODUCTION_BACKEND_URL);
+    public static final String DEFAULT_BACKEND_URL = "https://connector.jarvisguard.com";
 
     private final Path dataDirectory;
     private final Logger logger;
@@ -28,6 +26,36 @@ public final class ConfigManager {
     public ConfigManager(Path dataDirectory, Logger logger) {
         this.dataDirectory = dataDirectory;
         this.logger = logger;
+    }
+
+    private static final String SECRET_CACHE_FILE = ".connector-secret";
+
+    public String readCachedSecret(String forLicenseKey) {
+        if (forLicenseKey == null || forLicenseKey.isBlank()) return null;
+        try {
+            Path f = dataDirectory.resolve(SECRET_CACHE_FILE);
+            if (Files.notExists(f)) return null;
+            var lines = Files.readAllLines(f);
+            if (lines.size() >= 2 && forLicenseKey.equals(lines.get(0).trim())) {
+                String s = lines.get(1).trim();
+                return s.isBlank() ? null : s;
+            }
+        } catch (Exception ignore) {}
+        return null;
+    }
+
+    public void writeCachedSecret(String licenseKey, String secret) {
+        if (licenseKey == null || licenseKey.isBlank() || secret == null || secret.isBlank()) return;
+        try {
+            Files.createDirectories(dataDirectory);
+            Path f = dataDirectory.resolve(SECRET_CACHE_FILE);
+            Files.write(f, java.util.List.of(licenseKey, secret));
+            try { java.io.File jf = f.toFile(); jf.setReadable(false, false); jf.setReadable(true, true); } catch (Exception ignore) {}
+        } catch (Exception ignore) {}
+    }
+
+    public void clearCachedSecret() {
+        try { Files.deleteIfExists(dataDirectory.resolve(SECRET_CACHE_FILE)); } catch (Exception ignore) {}
     }
 
     public void load() {

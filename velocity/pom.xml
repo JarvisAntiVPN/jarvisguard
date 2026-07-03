@@ -6,11 +6,11 @@
 
     <groupId>dev.flamingomg</groupId>
     <artifactId>jarvis</artifactId>
-    <version>0.5.15</version>
+    <version>0.5.17</version>
     <packaging>jar</packaging>
 
     <name>Jarvis</name>
-    <description>Cliente SaaS anti-VPN/proxy para Velocity</description>
+    <description>Anti-VPN/proxy client for Velocity</description>
 
     <properties>
         <maven.compiler.release>21</maven.compiler.release>
@@ -140,6 +140,7 @@
                                         <exclude>META-INF/*.RSA</exclude>
                                         <exclude>module-info.class</exclude>
                                         <exclude>META-INF/maven/**</exclude>
+                                        <exclude>META-INF/proguard/**</exclude>
                                     </excludes>
                                 </filter>
                             </filters>

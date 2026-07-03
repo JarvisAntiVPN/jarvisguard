@@ -30,7 +30,7 @@ public final class PairingClient {
     }
 
     private String base() {
-        return config.getString("backend.url", ConfigManager.DEFAULT_BACKEND_URL);
+        return ConfigManager.DEFAULT_BACKEND_URL;
     }
 
     public record Start(String deviceCode, String userCode, String verificationUri, int interval, int expiresIn) {}
@@ -53,7 +53,7 @@ public final class PairingClient {
             return new Start(str(m.get("deviceCode")), str(m.get("userCode")), str(m.get("verificationUri")),
                     num(m.get("interval"), 5), num(m.get("expiresIn"), 600));
         } catch (Exception e) {
-            logger.fine("[jarvis] pair/start failed: " + e.getMessage());
+            logger.fine("pair/start failed: " + e.getMessage());
             return null;
         }
     }

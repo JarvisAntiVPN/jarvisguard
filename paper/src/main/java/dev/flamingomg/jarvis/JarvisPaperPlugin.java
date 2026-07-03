@@ -22,7 +22,7 @@ import java.util.Map;
 
 public final class JarvisPaperPlugin extends JavaPlugin {
 
-    public static final String VERSION = "0.5.15";
+    public static final String VERSION = "0.5.17";
 
     private static final int BSTATS_PLUGIN_ID = 31883;
 
@@ -85,7 +85,7 @@ public final class JarvisPaperPlugin extends JavaPlugin {
         this.pairing = new PairingClient(config, getLogger());
         if (isBlank(config.getString("backend.license-key", ""))) startPairingFlow();
 
-        getLogger().info("Jarvis v" + VERSION + " client (SaaS) active.");
+        getLogger().info("Jarvis v" + VERSION + " client active.");
     }
 
     @Override
@@ -121,7 +121,7 @@ public final class JarvisPaperPlugin extends JavaPlugin {
         PairingClient.Start s = pairing.start(null, server, VERSION);
         if (s == null || s.verificationUri() == null) {
             pairDeviceCode = null;
-            getLogger().warning("[Jarvis] Couldn't generate the linking link; retrying shortly. "
+            getLogger().warning("Couldn't generate the linking link; retrying shortly. "
                     + "Alternative: /antivpn key <license>");
             return;
         }
@@ -139,7 +139,7 @@ public final class JarvisPaperPlugin extends JavaPlugin {
             getLogger().warning("  (manual alternative:  /antivpn key <license> )");
             getLogger().warning("=============================================================");
         } else {
-            getLogger().warning("[Jarvis] Linking link renewed (the previous one expired): " + s.verificationUri());
+            getLogger().warning("Linking link renewed (the previous one expired): " + s.verificationUri());
         }
     }
 
@@ -155,7 +155,7 @@ public final class JarvisPaperPlugin extends JavaPlugin {
     }
 
     private void applyPairedKey(String key) {
-        if (!config.setKey(key)) { getLogger().warning("[Jarvis] Couldn't save the linked key."); return; }
+        if (!config.setKey(key)) { getLogger().warning("Couldn't save the linked key."); return; }
         getServer().getScheduler().runTaskAsynchronously(this, () -> {
             if (jarvisClient.ensureReady()) jarvisClient.fetchAndSyncBans(banCache);
             getLogger().info("================================================================");

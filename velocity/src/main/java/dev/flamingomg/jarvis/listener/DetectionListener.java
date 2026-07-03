@@ -113,7 +113,7 @@ public final class DetectionListener {
         try {
             verdictFuture = client.requestVerdictAsync(ip, name, bedrockFinal, premium);
         } catch (Throwable t) {
-            logger.warn("[jarvis] Error starting the verdict for {} ({}): {}", name, ip, t.toString());
+            logger.warn("Error starting the verdict for {} ({}): {}", name, ip, t.toString());
             applyFallbackPolicy(event, name, ip);
             return null;
         }
@@ -121,7 +121,7 @@ public final class DetectionListener {
         return EventTask.resumeWhenComplete(verdictFuture.handle((verdict, err) -> {
             try {
                 if (err != null || verdict == null) {
-                    logger.debug("[jarvis] Error getting the verdict for {} ({}): {}", name, ip,
+                    logger.debug("Error getting the verdict for {} ({}): {}", name, ip,
                             err != null ? err.toString() : "null response");
                     applyFallbackPolicy(event, name, ip);
                     return null;
@@ -150,7 +150,7 @@ public final class DetectionListener {
                     notifyStaff(name, ip);
                 }
             } catch (Exception e) {
-                logger.warn("[jarvis] Exception applying the verdict for {} ({}): {}", name, ip, e.toString());
+                logger.warn("Exception applying the verdict for {} ({}): {}", name, ip, e.toString());
                 applyFallbackPolicy(event, name, ip);
             }
             return null;
@@ -167,14 +167,14 @@ public final class DetectionListener {
         if (!"ALLOW".equals(policy) && !"BLOCK".equals(policy)) {
             if (!warnedBadFallback) {
                 warnedBadFallback = true;
-                logger.warn("[jarvis] fallback.policy='{}' no reconocido; se asume ALLOW (valores válidos: ALLOW/BLOCK).", raw);
+                logger.warn("unrecognized fallback.policy='{}'; assuming ALLOW (valid values: ALLOW/BLOCK).", raw);
             }
             policy = "ALLOW";
         }
         if ("BLOCK".equals(policy)) {
             String msg = config.getString("messages.block", dev.flamingomg.jarvis.i18n.Messages.get(client.locale(), "block"));
             event.setResult(ResultedEvent.ComponentResult.denied(renderBranded(msg)));
-            logger.warn("[jarvis] UNKNOWN (degraded) → BLOCK applied to {} ({})", name, ip);
+            logger.warn("UNKNOWN (degraded) → BLOCK applied to {} ({})", name, ip);
         }
     }
 

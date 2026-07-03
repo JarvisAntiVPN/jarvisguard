@@ -1,23 +1,23 @@
 name: Jarvis
 main: dev.flamingomg.jarvis.JarvisPaperPlugin
-version: 0.5.15
+version: 0.5.17
 author: TheFlamingOMG
-description: Cliente anti-VPN/proxy SaaS para Paper/Spigot (servidor sin proxy)
+description: Anti-VPN/proxy client for Paper/Spigot (no proxy)
 api-version: '1.18'
 softdepend: [floodgate]
 commands:
   antivpn:
-    description: Gestiona el cliente Jarvis Anti-VPN (key/stats/reload)
+    description: Manages the Jarvis Anti-VPN client (key/stats/reload)
     usage: /antivpn <key|stats|reload>
     aliases: [jarvis, avpn]
     permission: jarvis.command
 permissions:
   jarvis.command:
-    description: Acceso al comando /antivpn
+    description: Access to the /antivpn command
     default: op
   jarvis.admin:
-    description: Subcomandos de administración y avisos de staff
+    description: Admin subcommands and staff notifications
     default: op
   jarvis.bypass:
-    description: El jugador se salta la detección anti-VPN
+    description: Lets the player skip anti-VPN detection
     default: false

@@ -6,11 +6,11 @@
 
     <groupId>dev.flamingomg</groupId>
     <artifactId>jarvis-paper</artifactId>
-    <version>0.5.15</version>
+    <version>0.5.17</version>
     <packaging>jar</packaging>
 
     <name>Jarvis</name>
-    <description>Cliente SaaS anti-VPN/proxy para Paper/Spigot (servidor de juego, sin proxy)</description>
+    <description>Anti-VPN/proxy client for Paper/Spigot (no proxy)</description>
 
     <properties>
 
@@ -159,6 +159,7 @@
                                         <exclude>META-INF/*.RSA</exclude>
                                         <exclude>module-info.class</exclude>
                                         <exclude>META-INF/maven/**</exclude>
+                                        <exclude>META-INF/proguard/**</exclude>
                                     </excludes>
                                 </filter>
                             </filters>

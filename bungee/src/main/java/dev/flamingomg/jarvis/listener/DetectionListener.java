@@ -124,7 +124,7 @@ public final class DetectionListener implements Listener {
         try {
             verdictFuture = client.requestVerdictAsync(ip, name, bedrockFinal, premium);
         } catch (Throwable t) {
-            logger.warning("[jarvis] Error starting the verdict for " + name + " (" + ip + "): " + t.getMessage());
+            logger.warning("Error starting the verdict for " + name + " (" + ip + "): " + t.getMessage());
             applyFallbackPolicy(event, name, ip);
             event.completeIntent(plugin);
             return;
@@ -133,7 +133,7 @@ public final class DetectionListener implements Listener {
             try {
                 if (err != null || verdict == null) {
 
-                    logger.fine("[jarvis] Error getting the verdict for " + name + " (" + ip + "): "
+                    logger.fine("Error getting the verdict for " + name + " (" + ip + "): "
                             + (err != null ? err.getMessage() : "respuesta nula"));
                     applyFallbackPolicy(event, name, ip);
                     return;
@@ -165,7 +165,7 @@ public final class DetectionListener implements Listener {
 
             } catch (Exception e) {
 
-                logger.warning("[jarvis] Exception applying the verdict for " + name + " (" + ip + "): " + e.getMessage());
+                logger.warning("Exception applying the verdict for " + name + " (" + ip + "): " + e.getMessage());
 
                 applyFallbackPolicy(event, name, ip);
             } finally {
@@ -185,7 +185,7 @@ public final class DetectionListener implements Listener {
         if (!"ALLOW".equals(policy) && !"BLOCK".equals(policy)) {
             if (!warnedBadFallback) {
                 warnedBadFallback = true;
-                logger.warning("[jarvis] fallback.policy inválido ('" + raw + "'); se asume ALLOW (valores válidos: ALLOW/BLOCK).");
+                logger.warning("invalid fallback.policy ('" + raw + "'); assuming ALLOW (valid values: ALLOW/BLOCK).");
             }
             policy = "ALLOW";
         }
@@ -193,7 +193,7 @@ public final class DetectionListener implements Listener {
             String msg = config.getString("messages.block", dev.flamingomg.jarvis.i18n.Messages.get(client.locale(), "block"));
             event.setCancelled(true);
             event.setCancelReason(serialize(renderBranded(msg)));
-            logger.warning("[jarvis] UNKNOWN (degraded) → BLOCK applied to " + name + " (" + ip + ")");
+            logger.warning("UNKNOWN (degraded) → BLOCK applied to " + name + " (" + ip + ")");
         }
 
     }

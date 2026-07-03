@@ -109,7 +109,7 @@ public final class DetectionListener implements Listener, PluginMessageListener 
             long timeoutMs = config.getInt("backend.timeout-ms", 500) + 4500L;
             verdict = client.requestVerdictAsync(ip, name, bedrock, premium).get(timeoutMs, TimeUnit.MILLISECONDS);
         } catch (Throwable t) {
-            logger.fine("[jarvis] Error getting the verdict for " + name + " (" + ip + "): " + t.getMessage());
+            logger.fine("Error getting the verdict for " + name + " (" + ip + "): " + t.getMessage());
             applyFallbackPolicy(event, name, ip);
             return;
         }
@@ -149,12 +149,12 @@ public final class DetectionListener implements Listener, PluginMessageListener 
             policy = "ALLOW";
             if (!warnedBadFallback) {
                 warnedBadFallback = true;
-                logger.warning("[jarvis] fallback.policy invalido ('" + def + "'); se asume ALLOW.");
+                logger.warning("invalid fallback.policy ('" + def + "'); assuming ALLOW.");
             }
         }
         if ("BLOCK".equals(policy)) {
             deny(event, config.getString("messages.block", Messages.get(client.locale(), "block")));
-            logger.warning("[jarvis] UNKNOWN (degraded) -> BLOCK applied to " + name + " (" + ip + ")");
+            logger.warning("UNKNOWN (degraded) -> BLOCK applied to " + name + " (" + ip + ")");
         }
     }
 

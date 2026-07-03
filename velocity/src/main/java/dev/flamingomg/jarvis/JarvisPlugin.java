@@ -27,13 +27,13 @@ import java.nio.file.Path;
         id = "jarvis",
         name = "Jarvis",
         version = JarvisPlugin.VERSION,
-        description = "Cliente anti-VPN/proxy SaaS para Velocity",
+        description = "Anti-VPN/proxy client for Velocity",
         authors = {"TheFlamingOMG"},
         dependencies = {@Dependency(id = "floodgate", optional = true)}
 )
 public final class JarvisPlugin {
 
-    public static final String VERSION = "0.5.15";
+    public static final String VERSION = "0.5.17";
 
     private static final int BSTATS_PLUGIN_ID = 31671;
 
@@ -103,7 +103,7 @@ public final class JarvisPlugin {
         this.pairing = new dev.flamingomg.jarvis.client.PairingClient(config, logger);
         if (isBlank(config.getString("backend.license-key", ""))) startPairingFlow();
 
-        logger.info("Jarvis v{} client (SaaS) active.", VERSION);
+        logger.info("Jarvis v{} client active.", VERSION);
     }
 
     private void startPairingFlow() {
@@ -120,7 +120,7 @@ public final class JarvisPlugin {
         dev.flamingomg.jarvis.client.PairingClient.Start s = pairing.start(null, server, VERSION);
         if (s == null || s.verificationUri() == null) {
             pairDeviceCode = null;
-            logger.warn("[Jarvis] Couldn't generate the linking link; retrying shortly. "
+            logger.warn("Couldn't generate the linking link; retrying shortly. "
                     + "Alternative: /antivpn key <license>");
             return;
         }
@@ -138,7 +138,7 @@ public final class JarvisPlugin {
             logger.warn("  (manual alternative:  /antivpn key <license> )");
             logger.warn("============================================================");
         } else {
-            logger.warn("[Jarvis] Linking link renewed (the previous one expired): {}", s.verificationUri());
+            logger.warn("Linking link renewed (the previous one expired): {}", s.verificationUri());
         }
     }
 
@@ -158,7 +158,7 @@ public final class JarvisPlugin {
     }
 
     private void applyPairedKey(String key) {
-        if (!config.setKey(key)) { logger.warn("[Jarvis] Couldn't save the linked key."); return; }
+        if (!config.setKey(key)) { logger.warn("Couldn't save the linked key."); return; }
         proxy.getScheduler().buildTask(this, () -> {
             boolean ok = jarvisClient.ensureReady();
             if (ok) jarvisClient.fetchAndSyncBans(banCache);

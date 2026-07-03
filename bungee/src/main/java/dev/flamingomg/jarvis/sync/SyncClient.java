@@ -138,7 +138,7 @@ public final class SyncClient {
             scheduler.schedule(this::connect, 5, TimeUnit.SECONDS);
             return;
         }
-        String backendUrl = config.getString("backend.url", ConfigManager.DEFAULT_BACKEND_URL);
+        String backendUrl = ConfigManager.DEFAULT_BACKEND_URL;
         String licenseKey = config.getString("backend.license-key", "");
         long ts = System.currentTimeMillis();
         String signature = signer.sign(HmacSigner.requestPayload(ts, "sync", licenseKey));

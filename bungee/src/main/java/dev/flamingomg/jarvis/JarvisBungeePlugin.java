@@ -18,7 +18,7 @@ public final class JarvisBungeePlugin extends Plugin {
 
     private static final int BSTATS_PLUGIN_ID = 31796;
 
-    public static final String VERSION = "0.5.15";
+    public static final String VERSION = "0.5.17";
 
     private ConfigManager config;
     private JarvisClient jarvisClient;
@@ -67,7 +67,7 @@ public final class JarvisBungeePlugin extends Plugin {
         this.pairing = new dev.flamingomg.jarvis.client.PairingClient(config, getLogger());
         if (isBlank(config.getString("backend.license-key", ""))) startPairingFlow();
 
-        getLogger().info("Jarvis v" + VERSION + " client (SaaS) active.");
+        getLogger().info("Jarvis v" + VERSION + " client active.");
     }
 
     private void startPairingFlow() {
@@ -81,7 +81,7 @@ public final class JarvisBungeePlugin extends Plugin {
         dev.flamingomg.jarvis.client.PairingClient.Start s = pairing.start(null, server, VERSION);
         if (s == null || s.verificationUri() == null) {
             pairDeviceCode = null;
-            getLogger().warning("[Jarvis] Couldn't generate the linking link; retrying shortly. "
+            getLogger().warning("Couldn't generate the linking link; retrying shortly. "
                     + "Alternative: /antivpn key <license>");
             return;
         }
@@ -99,7 +99,7 @@ public final class JarvisBungeePlugin extends Plugin {
             getLogger().warning("  (manual alternative:  /antivpn key <license> )");
             getLogger().warning("============================================================");
         } else {
-            getLogger().warning("[Jarvis] Linking link renewed (the previous one expired): " + s.verificationUri());
+            getLogger().warning("Linking link renewed (the previous one expired): " + s.verificationUri());
         }
     }
 
@@ -119,7 +119,7 @@ public final class JarvisBungeePlugin extends Plugin {
     }
 
     private void applyPairedKey(String key) {
-        if (!config.setKey(key)) { getLogger().warning("[Jarvis] Couldn't save the linked key."); return; }
+        if (!config.setKey(key)) { getLogger().warning("Couldn't save the linked key."); return; }
         getProxy().getScheduler().runAsync(this, () -> {
             boolean ok = jarvisClient.ensureReady();
             if (ok) jarvisClient.fetchAndSyncBans(banCache);
@@ -151,7 +151,7 @@ public final class JarvisBungeePlugin extends Plugin {
             jarvisClient.reportPresence(players.size(), players);
         } catch (Exception e) {
 
-            getLogger().fine("[Jarvis] reportPresence falló: " + e.getMessage());
+            getLogger().fine("reportPresence failed: " + e.getMessage());
         }
     }
 

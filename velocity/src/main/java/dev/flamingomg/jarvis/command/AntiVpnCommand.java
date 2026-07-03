@@ -119,7 +119,7 @@ public final class AntiVpnCommand implements SimpleCommand {
     }
 
     private static Component pre() {
-        return Component.text("[Jarvis] ", NamedTextColor.AQUA, TextDecoration.BOLD);
+        return Component.text("", NamedTextColor.AQUA, TextDecoration.BOLD);
     }
 
     private static Component kv(String label, String value) {

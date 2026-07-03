@@ -2,3 +2,6 @@ key: "CHANGE_ME"
 
 bypass:
   usernames: []
+
+messages:
+  notify-staff: true
