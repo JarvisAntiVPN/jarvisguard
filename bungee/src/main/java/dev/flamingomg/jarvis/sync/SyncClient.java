@@ -135,7 +135,9 @@ public final class SyncClient {
         if (signer == null || !signer.hasSecret()) {
 
             jarvisClient.ensureReady();
-            scheduler.schedule(this::connect, 5, TimeUnit.SECONDS);
+
+            long delaySec = jarvisClient.keyRejected() ? 60 : 5;
+            scheduler.schedule(this::connect, delaySec, TimeUnit.SECONDS);
             return;
         }
         String backendUrl = ConfigManager.DEFAULT_BACKEND_URL;
@@ -154,29 +156,34 @@ public final class SyncClient {
                 .GET()
                 .build();
 
+        streamThread = Thread.currentThread();
+        lastActivityMs = System.currentTimeMillis();
         try {
             HttpResponse<Stream<String>> resp = http.send(request, HttpResponse.BodyHandlers.ofLines());
             if (resp.statusCode() == 200) {
                 reconnectDelaySec = RECONNECT_BASE_SEC;
                 lastActivityMs = System.currentTimeMillis();
-                streamThread = Thread.currentThread();
 
                 try { jarvisClient.fetchAndSyncBans(banCache); }
                 catch (Throwable t) { logger.fine("[sync] resync on connect failed: " + t.toString()); }
+                jarvisClient.refreshConfig();
+                jarvisClient.sendServerIcon();
                 try (java.util.stream.Stream<String> body = resp.body()) {
 
                     body.forEach(this::processLine);
-                } finally {
-                    streamThread = null;
                 }
             } else if (running.get()) {
+                int sc = resp.statusCode();
 
-                logger.fine("[sync] SSE rejected HTTP " + resp.statusCode());
+                if (sc == 401 || sc == 403) jarvisClient.onSyncRejected(sc);
+                logger.fine("[sync] SSE rejected HTTP " + sc);
             }
         } catch (Exception e) {
             if (running.get()) {
                 logger.fine("[sync] SSE connection lost, retrying in " + reconnectDelaySec + "s: " + e.getMessage());
             }
+        } finally {
+            streamThread = null;
         }
 
         if (running.get()) {
@@ -227,12 +234,14 @@ public final class SyncClient {
                 return;
             }
             switch (currentEvent) {
+                case "global-ban"  -> handleBan(data);
                 case "kick"        -> handleKick(data);
                 case "message"     -> handleMessage(data);
                 case "unban"       -> handleUnban(data);
                 case "clean-cache" -> handleCleanCache();
                 case "config"      -> handleConfig(data);
-                default            -> handleBan(data);
+
+                default            -> logUnknownEvent(currentEvent);
             }
         } catch (Exception e) {
             logger.warning("[sync] Error processing event '" + currentEvent + "': " + e.getMessage());
@@ -240,6 +249,16 @@ public final class SyncClient {
 
             currentEvent = "";
         }
+    }
+
+    private static final long UNKNOWN_LOG_THROTTLE_MS = 60_000L;
+    private volatile long lastUnknownLogMs = 0L;
+
+    private void logUnknownEvent(String type) {
+        long now = System.currentTimeMillis();
+        if (now - lastUnknownLogMs < UNKNOWN_LOG_THROTTLE_MS) return;
+        lastUnknownLogMs = now;
+        logger.fine("[sync] evento SSE desconocido: " + type);
     }
 
     private void handleConfig(String data) {
@@ -250,6 +269,8 @@ public final class SyncClient {
         }
         String loc = extractField(data, "ownerLocale");
         if (loc != null && !loc.isBlank()) jarvisClient.setLocale(loc);
+
+        jarvisClient.refreshConfig();
     }
 
     private void handleCleanCache() {

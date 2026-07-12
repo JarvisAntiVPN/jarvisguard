@@ -33,7 +33,7 @@ import java.nio.file.Path;
 )
 public final class JarvisPlugin {
 
-    public static final String VERSION = "0.5.17";
+    public static final String VERSION = "0.5.19";
 
     private static final int BSTATS_PLUGIN_ID = 31671;
 
@@ -161,10 +161,15 @@ public final class JarvisPlugin {
         if (!config.setKey(key)) { logger.warn("Couldn't save the linked key."); return; }
         proxy.getScheduler().buildTask(this, () -> {
             boolean ok = jarvisClient.ensureReady();
-            if (ok) jarvisClient.fetchAndSyncBans(banCache);
-            logger.info("================================================================");
-            logger.info("  Jarvis linked successfully. Protection active.");
-            logger.info("================================================================");
+
+            if (ok) {
+                jarvisClient.fetchAndSyncBans(banCache);
+                logger.info("================================================================");
+                logger.info("  " + dev.flamingomg.jarvis.i18n.Messages.get(jarvisClient.locale(), "log.pairedProtected"));
+                logger.info("================================================================");
+            } else {
+                logger.warn(dev.flamingomg.jarvis.i18n.Messages.get(jarvisClient.locale(), "log.pairedUnprotected"));
+            }
         }).schedule();
     }
 
@@ -178,16 +183,21 @@ public final class JarvisPlugin {
     }
 
     private void reportPresence() {
-        java.util.List<java.util.Map<String, Object>> players = new java.util.ArrayList<>();
-        for (com.velocitypowered.api.proxy.Player p : proxy.getAllPlayers()) {
-            java.util.Map<String, Object> entry = new java.util.LinkedHashMap<>();
-            entry.put("name", p.getUsername());
-            entry.put("uuid", p.getUniqueId().toString());
-            entry.put("server", p.getCurrentServer()
-                    .map(s -> s.getServerInfo().getName()).orElse(""));
-            players.add(entry);
+        try {
+            java.util.List<java.util.Map<String, Object>> players = new java.util.ArrayList<>();
+            for (com.velocitypowered.api.proxy.Player p : proxy.getAllPlayers()) {
+                java.util.Map<String, Object> entry = new java.util.LinkedHashMap<>();
+                entry.put("name", p.getUsername());
+                entry.put("uuid", p.getUniqueId().toString());
+                entry.put("server", p.getCurrentServer()
+                        .map(s -> s.getServerInfo().getName()).orElse(""));
+                players.add(entry);
+            }
+            jarvisClient.reportPresence(players.size(), players);
+        } catch (Exception e) {
+
+            logger.debug("reportPresence failed: {}", e.getMessage());
         }
-        jarvisClient.reportPresence(players.size(), players);
     }
 
     @Subscribe

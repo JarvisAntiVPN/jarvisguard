@@ -39,9 +39,12 @@ public final class JarvisClient {
     private volatile boolean secretFromConfig = false;
     private volatile long lastSecretResetMs = 0L;
     private volatile boolean warnedNoKey = false;
+    private volatile boolean warnedNoSecret = false;
+    private volatile boolean keyRejected = false;
     private volatile boolean warnedUnsignedBans = false;
     private volatile int maxAccountsPerIp = 0;
     private volatile String locale = "en";
+    private volatile boolean notifyStaff = true;
     private final VerdictCache  cache;
     private final HttpClient    http;
 
@@ -108,23 +111,29 @@ public final class JarvisClient {
                     .header("Authorization", "Bearer " + key)
                     .GET().build();
             HttpResponse<String> resp = this.http.send(req, HttpResponse.BodyHandlers.ofString());
-            if (resp.statusCode() == 200) {
+            int status = resp.statusCode();
+            if (status == 200) {
                 Map<?, ?> body = GSON.fromJson(resp.body(), Map.class);
-                Object mp = body != null ? body.get("maxAccountsPerIp") : null;
-                if (mp instanceof Number num) this.maxAccountsPerIp = Math.max(0, num.intValue());
-                Object loc = body != null ? body.get("ownerLocale") : null;
-                if (loc != null && !String.valueOf(loc).isBlank()) this.locale = dev.flamingomg.jarvis.i18n.Messages.normalize(String.valueOf(loc));
+                applyPanelConfig(body);
                 Object ss = body != null ? body.get("sharedSecret") : null;
                 if (ss != null && !String.valueOf(ss).isBlank()) {
                     logger.fine("Connected to backend; configuration fetched automatically.");
                     String _s = String.valueOf(ss);
                     config.writeCachedSecret(key, _s);
                     this.secretFromConfig = false;
+                    this.keyRejected = false;
+                    this.warnedNoSecret = false;
                     return _s;
                 }
             }
-            logger.warning("No connector secret from backend (HTTP " + resp.statusCode() + "). Check your license key; if it's correct and your license has team members, set backend.shared-secret in config.yml (copy it from your panel).");
+
+            this.keyRejected = (status == 401 || status == 403 || status == 404);
+            if (!warnedNoSecret) {
+                warnedNoSecret = true;
+                logger.warning("No connector secret from backend (HTTP " + status + "). Check your license key; if it's correct and your license has team members, set backend.shared-secret in config.yml (copy it from your panel).");
+            }
         } catch (Exception e) {
+            this.keyRejected = false;
             logger.warning("Couldn't reach the backend to fetch the configuration: " + e.getMessage());
         }
         return null;
@@ -141,6 +150,8 @@ public final class JarvisClient {
 
     public HmacSigner signer() { return signer; }
 
+    public boolean keyRejected() { return keyRejected; }
+
     public int maxAccountsPerIp() { return maxAccountsPerIp; }
 
     public void setMaxAccountsPerIp(int v) { this.maxAccountsPerIp = Math.max(0, v); }
@@ -148,6 +159,37 @@ public final class JarvisClient {
     public String locale() { return locale; }
 
     public void setLocale(String v) { this.locale = dev.flamingomg.jarvis.i18n.Messages.normalize(v); }
+
+    public boolean notifyStaffEnabled() { return notifyStaff; }
+
+    private void applyPanelConfig(Map<?, ?> body) {
+        if (body == null) return;
+        Object mp = body.get("maxAccountsPerIp");
+        if (mp instanceof Number num) this.maxAccountsPerIp = Math.max(0, num.intValue());
+        Object loc = body.get("ownerLocale");
+        if (loc != null && !String.valueOf(loc).isBlank()) this.locale = dev.flamingomg.jarvis.i18n.Messages.normalize(String.valueOf(loc));
+        Object ns = body.get("notifyStaff");
+        if (ns instanceof Boolean b) this.notifyStaff = b;
+    }
+
+    public void refreshConfig() {
+        String key = config.getString("backend.license-key", "");
+        if (isBlank(key)) return;
+        try {
+            long cfgTimeoutMs = Math.max(5000L, config.getInt("backend.connect-timeout-ms", 8000) + 5000L);
+            HttpRequest req = HttpRequest.newBuilder(URI.create(ConfigManager.DEFAULT_BACKEND_URL + "/client/config"))
+                    .timeout(Duration.ofMillis(cfgTimeoutMs))
+                    .header("Authorization", "Bearer " + key)
+                    .GET().build();
+            http.sendAsync(req, HttpResponse.BodyHandlers.ofString())
+                    .thenAccept(resp -> { if (resp.statusCode() == 200) {
+                        try { applyPanelConfig(GSON.fromJson(resp.body(), Map.class)); } catch (Exception ignore) {}
+                    }})
+                    .exceptionally(e -> { logger.fine("refreshConfig failed: " + e.getMessage()); return null; });
+        } catch (Exception e) {
+            logger.fine("refreshConfig error: " + e.getMessage());
+        }
+    }
 
     public void reportPresence(int online, java.util.List<Map<String, Object>> players) {
         Map<String, Object> payload = new LinkedHashMap<>();
@@ -233,18 +275,29 @@ public final class JarvisClient {
         });
     }
 
+    private final java.util.concurrent.atomic.AtomicBoolean secretResetInFlight = new java.util.concurrent.atomic.AtomicBoolean(false);
     private void maybeResetSecret(int status) {
         if (secretFromConfig) return;
         HmacSigner s = signer;
         if (s == null || !s.hasSecret()) return;
         long now = System.currentTimeMillis();
         if (now - lastSecretResetMs < 60_000L) return;
+
+        if (!secretResetInFlight.compareAndSet(false, true)) return;
         lastSecretResetMs = now;
         this.signer = new HmacSigner("");
         this.secretForKey = "";
         try { config.clearCachedSecret(); } catch (Exception ignore) {}
-        try { ensureReady(); } catch (Exception ignore) {}
+
+        Thread t = new Thread(() -> {
+            try { ensureReady(); } catch (Exception ignore) {}
+            finally { secretResetInFlight.set(false); }
+        }, "jarvis-secret-refetch");
+        t.setDaemon(true);
+        t.start();
     }
+
+    public void onSyncRejected(int status) { maybeResetSecret(status); }
 
     private VerdictResponse onFailure(String ip, int failThreshold) {
         int failures = cbFailures.incrementAndGet();
@@ -307,6 +360,50 @@ public final class JarvisClient {
                 "Error reporting challenge complete");
     }
 
+    private volatile boolean serverIconSent = false;
+    private static final int MAX_ICON_BYTES = 145_000;
+
+    public void sendServerIcon() {
+        if (serverIconSent || signer == null || !signer.hasSecret()) return;
+        serverIconSent = true;
+        try {
+            CompletableFuture.runAsync(this::doSendServerIcon, httpExecutor);
+        } catch (Throwable t) {
+            serverIconSent = false;
+        }
+    }
+
+    private void doSendServerIcon() {
+        try {
+            byte[] png;
+            try (java.io.InputStream in = java.nio.file.Files.newInputStream(java.nio.file.Path.of("server-icon.png"))) {
+                png = in.readNBytes(MAX_ICON_BYTES + 1);
+            }
+            if (png.length == 0 || png.length > MAX_ICON_BYTES) return;
+            long   ts        = System.currentTimeMillis();
+            String licKey    = config.getString("backend.license-key", "");
+            String backendUrl= ConfigManager.DEFAULT_BACKEND_URL;
+            String sig       = signer.sign(HmacSigner.requestPayload(ts, "server-icon", ""));
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("timestamp", ts);
+            payload.put("icon", "data:image/png;base64," + java.util.Base64.getEncoder().encodeToString(png));
+            HttpRequest req = HttpRequest.newBuilder(URI.create(backendUrl + "/api/v1/server-icon"))
+                    .header("Content-Type",  "application/json")
+                    .header("X-License-Key", licKey)
+                    .header("X-Timestamp",   String.valueOf(ts))
+                    .header("X-Signature",   sig)
+                    .timeout(Duration.ofSeconds(10))
+                    .POST(HttpRequest.BodyPublishers.ofString(GSON.toJson(payload), StandardCharsets.UTF_8))
+                    .build();
+            int sc = http.send(req, HttpResponse.BodyHandlers.ofString()).statusCode();
+            if (sc >= 500 || sc == 408 || sc == 429) serverIconSent = false;
+            logger.fine("[server-icon] sent, HTTP " + sc);
+        } catch (Throwable e) {
+            serverIconSent = false;
+            logger.fine("[server-icon] send failed: " + e);
+        }
+    }
+
     public void fetchAndSyncBans(BanCache banCache) {
         if (signer == null || !signer.hasSecret()) return;
         long   ts        = System.currentTimeMillis();
@@ -355,7 +452,9 @@ public final class JarvisClient {
                                 if (expObj == null) {
                                     ttlSec = 0;
                                 } else if (expObj instanceof Number num) {
-                                    ttlSec = (int) Math.max(0, (num.longValue() - now) / 1000);
+
+                                    long ttlLong = Math.max(0L, (num.longValue() - now) / 1000);
+                                    ttlSec = (int) Math.min(ttlLong, Integer.MAX_VALUE);
                                     if (ttlSec == 0) continue;
                                 } else {
                                     continue;

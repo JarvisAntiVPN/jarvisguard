@@ -53,9 +53,13 @@ public final class AntiVpnCommand extends Command implements TabExecutor {
 
                 if (!sender.hasPermission("jarvis.admin")) { noPermission(sender); return; }
                 config.reload();
-                client.ensureReady();
                 client.cache().invalidateAll();
-                client.fetchAndSyncBans(banCache);
+
+                proxy.getScheduler().runAsync(plugin, () -> {
+                    client.ensureReady();
+                    client.fetchAndSyncBans(banCache);
+                    client.refreshConfig();
+                });
                 send(sender, pre().append(Component.text(m("cmd.reloaded"), NamedTextColor.GREEN)));
             }
             default -> sendHelp(sender);
@@ -84,6 +88,9 @@ public final class AntiVpnCommand extends Command implements TabExecutor {
             if (ok) {
                 client.fetchAndSyncBans(banCache);
                 send(sender, pre().append(Component.text(m("cmd.active"), NamedTextColor.GREEN)));
+            } else if (client.keyRejected()) {
+
+                send(sender, pre().append(Component.text(m("cmd.keyrejected"), NamedTextColor.RED)));
             } else {
                 send(sender, pre().append(Component.text(m("cmd.validatefail"), NamedTextColor.YELLOW)));
             }
@@ -93,6 +100,19 @@ public final class AntiVpnCommand extends Command implements TabExecutor {
     private void stats(CommandSender sender) {
         if (!sender.hasPermission("jarvis.admin")) { noPermission(sender); return; }
         send(sender, pre().append(Component.text(m("cmd.statsTitle"), NamedTextColor.AQUA)));
+
+        boolean protectedNow = client.signer() != null && client.signer().hasSecret() && !client.keyRejected();
+        if (protectedNow) {
+            send(sender, pre().append(Component.text(m("cmd.protected"), NamedTextColor.GREEN)));
+        } else {
+            send(sender, pre().append(Component.text(m("cmd.unprotected"), NamedTextColor.RED)));
+            if (client.keyRejected()) {
+                send(sender, pre().append(Component.text(m("cmd.keyrejected"), NamedTextColor.RED)));
+            }
+        }
+
+        send(sender, kv(m("cmd.version"), dev.flamingomg.jarvis.JarvisBungeePlugin.VERSION));
+
         send(sender, kv(m("cmd.ipcache"), String.valueOf(client.cache().estimatedSize())));
         send(sender, kv(m("cmd.blockedips"), String.valueOf(banCache.size())));
         send(sender, kv(m("cmd.online"), String.valueOf(proxy.getOnlineCount())));

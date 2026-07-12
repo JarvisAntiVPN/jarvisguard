@@ -15,7 +15,7 @@ public final class FloodGuard {
 
     public FloodGuard(ConfigManager config) {
         this.enabled = config.getBoolean("flood.enabled", true);
-        this.maxConnects = config.getInt("flood.max-connects", 8);
+        this.maxConnects = Math.max(1, config.getInt("flood.max-connects", 8));
         int windowSecs = Math.max(1, config.getInt("flood.window-seconds", 10));
         this.windows = Caffeine.newBuilder()
                 .expireAfterWrite(windowSecs, TimeUnit.SECONDS)

@@ -18,7 +18,7 @@ public final class JarvisBungeePlugin extends Plugin {
 
     private static final int BSTATS_PLUGIN_ID = 31796;
 
-    public static final String VERSION = "0.5.17";
+    public static final String VERSION = "0.5.19";
 
     private ConfigManager config;
     private JarvisClient jarvisClient;
@@ -122,10 +122,15 @@ public final class JarvisBungeePlugin extends Plugin {
         if (!config.setKey(key)) { getLogger().warning("Couldn't save the linked key."); return; }
         getProxy().getScheduler().runAsync(this, () -> {
             boolean ok = jarvisClient.ensureReady();
-            if (ok) jarvisClient.fetchAndSyncBans(banCache);
-            getLogger().info("================================================================");
-            getLogger().info("  Jarvis linked successfully. Protection active.");
-            getLogger().info("================================================================");
+
+            if (ok) {
+                jarvisClient.fetchAndSyncBans(banCache);
+                getLogger().info("================================================================");
+                getLogger().info("  " + dev.flamingomg.jarvis.i18n.Messages.get(jarvisClient.locale(), "log.pairedProtected"));
+                getLogger().info("================================================================");
+            } else {
+                getLogger().warning(dev.flamingomg.jarvis.i18n.Messages.get(jarvisClient.locale(), "log.pairedUnprotected"));
+            }
         });
     }
 

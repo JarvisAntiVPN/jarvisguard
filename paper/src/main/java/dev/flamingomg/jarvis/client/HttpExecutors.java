@@ -2,7 +2,7 @@ package dev.flamingomg.jarvis.client;
 
 import java.net.http.HttpClient;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -11,6 +11,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 public final class HttpExecutors {
 
     private HttpExecutors() {}
+
+    private static final int HTTP_MAX_THREADS =
+            Math.max(8, Math.min(32, Runtime.getRuntime().availableProcessors() * 2));
+    private static final int HTTP_QUEUE_CAPACITY = 256;
 
     public static ExecutorService daemonHttpExecutor(String namePrefix) {
         ThreadFactory factory = new ThreadFactory() {
@@ -21,9 +25,11 @@ public final class HttpExecutors {
                 return t;
             }
         };
+        ThreadPoolExecutor pool = new ThreadPoolExecutor(HTTP_MAX_THREADS, HTTP_MAX_THREADS,
+                60L, TimeUnit.SECONDS, new LinkedBlockingQueue<>(HTTP_QUEUE_CAPACITY), factory,
+                new ThreadPoolExecutor.CallerRunsPolicy());
 
-        ThreadPoolExecutor pool = new ThreadPoolExecutor(0, Integer.MAX_VALUE,
-                60L, TimeUnit.SECONDS, new SynchronousQueue<>(), factory);
+        pool.allowCoreThreadTimeOut(true);
         return pool;
     }
 

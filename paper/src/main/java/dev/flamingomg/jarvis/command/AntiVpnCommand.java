@@ -48,6 +48,7 @@ public final class AntiVpnCommand implements CommandExecutor, TabCompleter {
                 Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
                     client.ensureReady();
                     client.fetchAndSyncBans(banCache);
+                    client.refreshConfig();
                 });
                 sender.sendMessage(PRE + "§a" + m("cmd.reloaded"));
             }
@@ -69,6 +70,9 @@ public final class AntiVpnCommand implements CommandExecutor, TabCompleter {
             if (client.ensureReady()) {
                 client.fetchAndSyncBans(banCache);
                 sender.sendMessage(PRE + "§a" + m("cmd.active"));
+            } else if (client.keyRejected()) {
+
+                sender.sendMessage(PRE + "§c" + m("cmd.keyrejected"));
             } else {
                 sender.sendMessage(PRE + "§e" + m("cmd.validatefail"));
             }
@@ -78,6 +82,19 @@ public final class AntiVpnCommand implements CommandExecutor, TabCompleter {
     private void stats(CommandSender sender) {
         if (!sender.hasPermission("jarvis.admin")) { sender.sendMessage(PRE + "§c" + m("cmd.noperm")); return; }
         sender.sendMessage(PRE + "§b" + m("cmd.statsTitle"));
+
+        boolean protectedNow = client.signer() != null && client.signer().hasSecret() && !client.keyRejected();
+        if (protectedNow) {
+            sender.sendMessage(PRE + "§a" + m("cmd.protected"));
+        } else {
+            sender.sendMessage(PRE + "§c" + m("cmd.unprotected"));
+            if (client.keyRejected()) {
+                sender.sendMessage(PRE + "§c" + m("cmd.keyrejected"));
+            }
+        }
+
+        sender.sendMessage(kv(m("cmd.version"), dev.flamingomg.jarvis.JarvisPaperPlugin.VERSION));
+
         sender.sendMessage(kv(m("cmd.ipcache"),       String.valueOf(client.cache().estimatedSize())));
         sender.sendMessage(kv(m("cmd.blockedips"),    String.valueOf(banCache.size())));
         sender.sendMessage(kv(m("cmd.online"),        String.valueOf(Bukkit.getOnlinePlayers().size())));

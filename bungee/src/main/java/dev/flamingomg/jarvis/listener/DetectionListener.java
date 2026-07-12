@@ -45,6 +45,8 @@ public final class DetectionListener implements Listener {
     private final FloodGuard floodGuard;
     private final BanCache banCache;
 
+    private final ConcurrentHashMap<String, Integer> connectingByIp = new ConcurrentHashMap<>();
+
     private final Cache<UUID, long[]> sessionStart =
             Caffeine.newBuilder().maximumSize(20_000).build();
 
@@ -90,6 +92,7 @@ public final class DetectionListener implements Listener {
 
         boolean bedrockBypass = bedrock && config.getBoolean("floodgate.bypass-bedrock", false);
 
+        boolean reservedIp = false;
         if (!bedrockBypass) {
             if (floodGuard.checkAndRecord(ip)) {
                 String msg = config.getString("messages.flood",
@@ -106,14 +109,22 @@ public final class DetectionListener implements Listener {
             }
 
             int maxPerIp = client.maxAccountsPerIp();
-            if (maxPerIp > 0 && atLeastNFromSameIp(ip, maxPerIp)) {
-                String msg = config.getString("messages.maxperip",
-                        dev.flamingomg.jarvis.i18n.Messages.get(client.locale(), "maxperip"));
-                event.setCancelled(true);
-                event.setCancelReason(serialize(renderBranded(msg)));
-                return;
+            if (maxPerIp > 0) {
+
+                int connecting = connectingByIp.merge(ip, 1, Integer::sum);
+                reservedIp = true;
+                if (connecting > maxPerIp || atLeastNFromSameIp(ip, maxPerIp - connecting + 1)) {
+                    releaseConnecting(ip);
+                    reservedIp = false;
+                    String msg = config.getString("messages.maxperip",
+                            dev.flamingomg.jarvis.i18n.Messages.get(client.locale(), "maxperip"));
+                    event.setCancelled(true);
+                    event.setCancelReason(serialize(renderBranded(msg)));
+                    return;
+                }
             }
         }
+        final boolean reserved = reservedIp;
 
         boolean premium = conn.isOnlineMode();
         final boolean bedrockFinal = bedrock;
@@ -124,6 +135,7 @@ public final class DetectionListener implements Listener {
         try {
             verdictFuture = client.requestVerdictAsync(ip, name, bedrockFinal, premium);
         } catch (Throwable t) {
+            if (reserved) releaseConnecting(ip);
             logger.warning("Error starting the verdict for " + name + " (" + ip + "): " + t.getMessage());
             applyFallbackPolicy(event, name, ip);
             event.completeIntent(plugin);
@@ -169,32 +181,13 @@ public final class DetectionListener implements Listener {
 
                 applyFallbackPolicy(event, name, ip);
             } finally {
-
+                if (reserved) releaseConnecting(ip);
                 event.completeIntent(plugin);
             }
         });
     }
 
-    private volatile boolean warnedBadFallback = false;
-
     private void applyFallbackPolicy(LoginEvent event, String name, String ip) {
-
-        String raw = config.getString("fallback.policy",
-                config.getString("unknown.policy", "ALLOW"));
-        String policy = raw == null ? "ALLOW" : raw.trim().toUpperCase();
-        if (!"ALLOW".equals(policy) && !"BLOCK".equals(policy)) {
-            if (!warnedBadFallback) {
-                warnedBadFallback = true;
-                logger.warning("invalid fallback.policy ('" + raw + "'); assuming ALLOW (valid values: ALLOW/BLOCK).");
-            }
-            policy = "ALLOW";
-        }
-        if ("BLOCK".equals(policy)) {
-            String msg = config.getString("messages.block", dev.flamingomg.jarvis.i18n.Messages.get(client.locale(), "block"));
-            event.setCancelled(true);
-            event.setCancelReason(serialize(renderBranded(msg)));
-            logger.warning("UNKNOWN (degraded) → BLOCK applied to " + name + " (" + ip + ")");
-        }
 
     }
 
@@ -342,6 +335,7 @@ public final class DetectionListener implements Listener {
     }
 
     private boolean atLeastNFromSameIp(String ip, int n) {
+        if (n <= 0) return true;
         int count = 0;
         for (ProxiedPlayer p : proxy.getPlayers()) {
             InetSocketAddress a = p.getPendingConnection().getAddress();
@@ -352,13 +346,17 @@ public final class DetectionListener implements Listener {
         return false;
     }
 
+    private void releaseConnecting(String ip) {
+        connectingByIp.computeIfPresent(ip, (k, v) -> v <= 1 ? null : v - 1);
+    }
+
     private boolean isBypassed(String username) {
 
         return username != null && config.bypassUsernames().contains(username.toLowerCase(java.util.Locale.ROOT));
     }
 
     private void notifyStaff(String name, String ip) {
-        if (!config.getBoolean("messages.notify-staff", true)) return;
+        if (!client.notifyStaffEnabled()) return;
 
         String safeName = (name != null) ? name : "?";
         String safeIp   = (ip != null) ? ip : "?";

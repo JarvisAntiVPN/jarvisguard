@@ -58,6 +58,16 @@ public final class ConfigManager {
         try { Files.deleteIfExists(dataDirectory.resolve(SECRET_CACHE_FILE)); } catch (Exception ignore) {}
     }
 
+    private boolean warnedLegacyKeys = false;
+
+    private void warnLegacyKeysOnce() {
+        if (warnedLegacyKeys) return;
+        if (resolve("fallback.policy") != null || resolve("unknown.policy") != null) {
+            warnedLegacyKeys = true;
+            logger.warning("config.yml still has 'fallback.policy'/'unknown.policy'; that option no longer exists. Jarvis always lets players in when the backend is unreachable (fail-open); local bans and the flood limiter still apply.");
+        }
+    }
+
     public void load() {
         try {
             Files.createDirectories(dataDirectory);
@@ -71,6 +81,7 @@ public final class ConfigManager {
                 this.root = normalize(loaded != null ? loaded : new java.util.LinkedHashMap<>());
             }
             rebuildBypassSet();
+            warnLegacyKeysOnce();
             logger.fine("Jarvis client configuration loaded.");
         } catch (IOException | RuntimeException e) {
 

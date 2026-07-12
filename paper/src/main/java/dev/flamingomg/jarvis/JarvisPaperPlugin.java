@@ -22,7 +22,7 @@ import java.util.Map;
 
 public final class JarvisPaperPlugin extends JavaPlugin {
 
-    public static final String VERSION = "0.5.17";
+    public static final String VERSION = "0.5.19";
 
     private static final int BSTATS_PLUGIN_ID = 31883;
 
@@ -98,17 +98,22 @@ public final class JarvisPaperPlugin extends JavaPlugin {
     }
 
     private void reportPresence() {
+        try {
 
-        List<Map<String, Object>> players = new ArrayList<>();
-        for (Player p : Bukkit.getOnlinePlayers()) {
-            Map<String, Object> entry = new LinkedHashMap<>();
-            entry.put("name", p.getName());
-            entry.put("uuid", p.getUniqueId().toString());
-            entry.put("server", "");
-            players.add(entry);
+            List<Map<String, Object>> players = new ArrayList<>();
+            for (Player p : Bukkit.getOnlinePlayers()) {
+                Map<String, Object> entry = new LinkedHashMap<>();
+                entry.put("name", p.getName());
+                entry.put("uuid", p.getUniqueId().toString());
+                entry.put("server", "");
+                players.add(entry);
+            }
+
+            getServer().getScheduler().runTaskAsynchronously(this, () -> jarvisClient.reportPresence(players.size(), players));
+        } catch (Exception e) {
+
+            getLogger().fine("reportPresence failed: " + e.getMessage());
         }
-
-        getServer().getScheduler().runTaskAsynchronously(this, () -> jarvisClient.reportPresence(players.size(), players));
     }
 
     private void startPairingFlow() {
@@ -157,10 +162,16 @@ public final class JarvisPaperPlugin extends JavaPlugin {
     private void applyPairedKey(String key) {
         if (!config.setKey(key)) { getLogger().warning("Couldn't save the linked key."); return; }
         getServer().getScheduler().runTaskAsynchronously(this, () -> {
-            if (jarvisClient.ensureReady()) jarvisClient.fetchAndSyncBans(banCache);
-            getLogger().info("================================================================");
-            getLogger().info("  Jarvis linked successfully. Protection active.");
-            getLogger().info("================================================================");
+            boolean ok = jarvisClient.ensureReady();
+
+            if (ok) {
+                jarvisClient.fetchAndSyncBans(banCache);
+                getLogger().info("================================================================");
+                getLogger().info("  " + dev.flamingomg.jarvis.i18n.Messages.get(jarvisClient.locale(), "log.pairedProtected"));
+                getLogger().info("================================================================");
+            } else {
+                getLogger().warning(dev.flamingomg.jarvis.i18n.Messages.get(jarvisClient.locale(), "log.pairedUnprotected"));
+            }
         });
     }
 

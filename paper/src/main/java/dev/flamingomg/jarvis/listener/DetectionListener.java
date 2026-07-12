@@ -26,6 +26,7 @@ import org.bukkit.plugin.messaging.PluginMessageListener;
 
 import java.net.InetSocketAddress;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
@@ -49,6 +50,8 @@ public final class DetectionListener implements Listener, PluginMessageListener 
     private final Logger logger;
     private final FloodGuard floodGuard;
     private final BanCache banCache;
+
+    private final ConcurrentHashMap<String, Integer> connectingByIp = new ConcurrentHashMap<>();
 
     private final Cache<UUID, Long> sessionStart = Caffeine.newBuilder().maximumSize(20_000).build();
 
@@ -86,6 +89,7 @@ public final class DetectionListener implements Listener, PluginMessageListener 
 
         boolean bedrockBypass = bedrock && config.getBoolean("floodgate.bypass-bedrock", false);
 
+        boolean reservedIp = false;
         if (!bedrockBypass) {
             if (floodGuard.checkAndRecord(ip)) {
                 deny(event, config.getString("messages.flood", Messages.get(client.locale(), "flood")));
@@ -96,40 +100,51 @@ public final class DetectionListener implements Listener, PluginMessageListener 
                 return;
             }
             int maxPerIp = client.maxAccountsPerIp();
-            if (maxPerIp > 0 && atLeastNFromSameIp(ip, maxPerIp)) {
-                deny(event, config.getString("messages.maxperip", Messages.get(client.locale(), "maxperip")));
-                return;
+            if (maxPerIp > 0) {
+
+                int connecting = connectingByIp.merge(ip, 1, Integer::sum);
+                reservedIp = true;
+                if (connecting > maxPerIp || atLeastNFromSameIp(ip, maxPerIp - connecting + 1)) {
+                    releaseConnecting(ip);
+                    reservedIp = false;
+                    deny(event, config.getString("messages.maxperip", Messages.get(client.locale(), "maxperip")));
+                    return;
+                }
             }
         }
 
         boolean premium = Bukkit.getOnlineMode();
 
-        VerdictResponse verdict;
         try {
-            long timeoutMs = config.getInt("backend.timeout-ms", 500) + 4500L;
-            verdict = client.requestVerdictAsync(ip, name, bedrock, premium).get(timeoutMs, TimeUnit.MILLISECONDS);
-        } catch (Throwable t) {
-            logger.fine("Error getting the verdict for " + name + " (" + ip + "): " + t.getMessage());
-            applyFallbackPolicy(event, name, ip);
-            return;
-        }
+            VerdictResponse verdict;
+            try {
+                long timeoutMs = config.getInt("backend.timeout-ms", 500) + 4500L;
+                verdict = client.requestVerdictAsync(ip, name, bedrock, premium).get(timeoutMs, TimeUnit.MILLISECONDS);
+            } catch (Throwable t) {
+                logger.fine("Error getting the verdict for " + name + " (" + ip + "): " + t.getMessage());
+                applyFallbackPolicy(event, name, ip);
+                return;
+            }
 
-        if (verdict == null) { applyFallbackPolicy(event, name, ip); return; }
-        VerdictType type = verdict.verdictType();
+            if (verdict == null) { applyFallbackPolicy(event, name, ip); return; }
+            VerdictType type = verdict.verdictType();
 
-        if (bedrock && type.denies() && config.getBoolean("floodgate.bypass-bedrock", false)) {
-            type = VerdictType.FLAG;
-        }
-        if (type.isUnknown()) { applyFallbackPolicy(event, name, ip); return; }
-        if (type != VerdictType.ALLOW) logger.fine("[detection] " + name + " (" + ip + ") -> " + type);
+            if (bedrock && type.denies() && config.getBoolean("floodgate.bypass-bedrock", false)) {
+                type = VerdictType.FLAG;
+            }
+            if (type.isUnknown()) { applyFallbackPolicy(event, name, ip); return; }
+            if (type != VerdictType.ALLOW) logger.fine("[detection] " + name + " (" + ip + ") -> " + type);
 
-        if (type.denies()) {
-            banCache.ban(ip);
-            String msg = verdict.message() != null
-                    ? verdict.message()
-                    : config.getString("messages.block", Messages.get(client.locale(), "block"));
-            deny(event, msg);
-            notifyStaff(name, ip);
+            if (type.denies()) {
+                banCache.ban(ip);
+                String msg = verdict.message() != null
+                        ? verdict.message()
+                        : config.getString("messages.block", Messages.get(client.locale(), "block"));
+                deny(event, msg);
+                notifyStaff(name, ip);
+            }
+        } finally {
+            if (reservedIp) releaseConnecting(ip);
         }
     }
 
@@ -137,25 +152,8 @@ public final class DetectionListener implements Listener, PluginMessageListener 
         event.disallow(AsyncPlayerPreLoginEvent.Result.KICK_OTHER, renderBranded(msg));
     }
 
-    private volatile boolean warnedBadFallback = false;
-
     private void applyFallbackPolicy(AsyncPlayerPreLoginEvent event, String name, String ip) {
 
-        String def = config.getString("fallback.policy", config.getString("unknown.policy", "ALLOW")).trim().toUpperCase();
-        String policy;
-        if ("ALLOW".equals(def) || "BLOCK".equals(def)) {
-            policy = def;
-        } else {
-            policy = "ALLOW";
-            if (!warnedBadFallback) {
-                warnedBadFallback = true;
-                logger.warning("invalid fallback.policy ('" + def + "'); assuming ALLOW.");
-            }
-        }
-        if ("BLOCK".equals(policy)) {
-            deny(event, config.getString("messages.block", Messages.get(client.locale(), "block")));
-            logger.warning("UNKNOWN (degraded) -> BLOCK applied to " + name + " (" + ip + ")");
-        }
     }
 
     @EventHandler
@@ -270,6 +268,7 @@ public final class DetectionListener implements Listener, PluginMessageListener 
     }
 
     private boolean atLeastNFromSameIp(String ip, int n) {
+        if (n <= 0) return true;
         int count = 0;
         for (Player p : Bukkit.getOnlinePlayers()) {
             InetSocketAddress a = p.getAddress();
@@ -280,13 +279,17 @@ public final class DetectionListener implements Listener, PluginMessageListener 
         return false;
     }
 
+    private void releaseConnecting(String ip) {
+        connectingByIp.computeIfPresent(ip, (k, v) -> v <= 1 ? null : v - 1);
+    }
+
     private boolean isBypassed(String username) {
 
         return username != null && config.bypassUsernames().contains(username.toLowerCase(java.util.Locale.ROOT));
     }
 
     private void notifyStaff(String name, String ip) {
-        if (!config.getBoolean("messages.notify-staff", true)) return;
+        if (!client.notifyStaffEnabled()) return;
 
         String safeName = (name != null) ? name : "?";
         String safeIp   = (ip != null) ? ip : "?";
