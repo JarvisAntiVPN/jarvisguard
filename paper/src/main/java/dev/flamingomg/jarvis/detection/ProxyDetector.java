@@ -1,24 +1,24 @@
 package dev.flamingomg.jarvis.detection;
 
+import dev.flamingomg.jarvis.util.Log;
 import org.yaml.snakeyaml.Yaml;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.util.Map;
-import java.util.logging.Logger;
 
 public final class ProxyDetector {
 
     private ProxyDetector() {}
 
-    public static boolean behindProxy(Logger logger) {
+    public static boolean behindProxy(Log logger) {
         return boolAt(logger, "spigot.yml",               "settings", "bungeecord")
             || boolAt(logger, "config/paper-global.yml",  "proxies", "velocity", "enabled")
 
             || boolAt(logger, "paper.yml",                "settings", "velocity-support", "enabled");
     }
 
-    private static boolean boolAt(Logger logger, String file, String... path) {
+    private static boolean boolAt(Log logger, String file, String... path) {
         File f = new File(file);
         if (!f.isFile()) return false;
         try (FileInputStream in = new FileInputStream(f)) {
@@ -31,7 +31,7 @@ public final class ProxyDetector {
                 return m.get(path[path.length - 1]) instanceof Boolean b && b;
             }
         } catch (Throwable t) {
-            logger.fine("[proxy-detect] couldn't read " + file + ": " + t.getMessage());
+            logger.debug("[proxy-detect] couldn't read {}: {}", file, t.getMessage());
         }
         return false;
     }

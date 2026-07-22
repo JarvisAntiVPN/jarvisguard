@@ -22,7 +22,7 @@ import dev.flamingomg.jarvis.model.VerdictType;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import org.slf4j.Logger;
+import dev.flamingomg.jarvis.util.Log;
 
 import java.net.InetSocketAddress;
 import java.util.UUID;
@@ -38,13 +38,18 @@ public final class DetectionListener {
     private final JarvisClient client;
     private final BedrockDetector bedrockDetector;
     private final ConfigManager config;
-    private final Logger logger;
+    private final Log logger;
     private final FloodGuard floodGuard;
     private final BanCache banCache;
 
     private final ConcurrentHashMap<String, Integer> connectingByIp = new ConcurrentHashMap<>();
 
+    private final ConcurrentHashMap<String, Integer> connectedByIp = new ConcurrentHashMap<>();
+
     private final Cache<UUID, long[]> sessionStart =
+            Caffeine.newBuilder().maximumSize(20_000).build();
+
+    private final Cache<UUID, String> sessionIp =
             Caffeine.newBuilder().maximumSize(20_000).build();
 
     private final Cache<UUID, java.util.Set<String>> knownChannels =
@@ -58,7 +63,7 @@ public final class DetectionListener {
 
     public DetectionListener(ProxyServer proxy, Object pluginInstance, JarvisClient client,
                              BedrockDetector bedrockDetector, ConfigManager config,
-                             Logger logger, FloodGuard floodGuard, BanCache banCache) {
+                             Log logger, FloodGuard floodGuard, BanCache banCache) {
         this.proxy = proxy;
         this.pluginInstance = pluginInstance;
         this.client = client;
@@ -91,12 +96,12 @@ public final class DetectionListener {
             if (floodGuard.checkAndRecord(ip)) {
                 String msg = config.getString("messages.flood",
                         dev.flamingomg.jarvis.i18n.Messages.get(client.locale(), "flood"));
-                event.setResult(ResultedEvent.ComponentResult.denied(renderBranded(msg)));
+                event.setResult(ResultedEvent.ComponentResult.denied(renderBrandedLocal(msg)));
                 return null;
             }
             if (banCache.isBanned(ip)) {
                 String msg = config.getString("messages.block", dev.flamingomg.jarvis.i18n.Messages.get(client.locale(), "block"));
-                event.setResult(ResultedEvent.ComponentResult.denied(renderBranded(msg)));
+                event.setResult(ResultedEvent.ComponentResult.denied(renderBrandedLocal(msg)));
                 return null;
             }
 
@@ -105,12 +110,12 @@ public final class DetectionListener {
 
                 int connecting = connectingByIp.merge(ip, 1, Integer::sum);
                 reservedIp = true;
-                if (connecting > maxPerIp || atLeastNFromSameIp(ip, maxPerIp - connecting + 1)) {
+                if (connecting + connectedByIp.getOrDefault(ip, 0) > maxPerIp) {
                     releaseConnecting(ip);
                     reservedIp = false;
                     String msg = config.getString("messages.maxperip",
                             dev.flamingomg.jarvis.i18n.Messages.get(client.locale(), "maxperip"));
-                    event.setResult(ResultedEvent.ComponentResult.denied(renderBranded(msg)));
+                    event.setResult(ResultedEvent.ComponentResult.denied(renderBrandedLocal(msg)));
                     return null;
                 }
             }
@@ -180,6 +185,7 @@ public final class DetectionListener {
         Player player = event.getPlayer();
 
         sessionStart.put(player.getUniqueId(), new long[]{System.currentTimeMillis()});
+        recordConnected(player);
         maybeRecordPlayerSeen(player);
 
         String lname = player.getUsername().toLowerCase(java.util.Locale.ROOT);
@@ -230,7 +236,7 @@ public final class DetectionListener {
                     ? null : java.util.List.copyOf(ch);
             client.reportPlayerSeen(player.getUniqueId().toString(), player.getUsername(),
                     ip, bedrock, version, brand, host, locale, viewDistance, chatMode, channels,
-                    player.isOnlineMode());
+                    player.isOnlineMode(), null);
         }).delay(2, TimeUnit.SECONDS).schedule();
     }
 
@@ -275,16 +281,41 @@ public final class DetectionListener {
         return render(msg).append(brandingFor(client.locale()));
     }
 
-    private boolean atLeastNFromSameIp(String ip, int n) {
-        if (n <= 0) return true;
-        int matches = 0;
+    private record LocalMsg(String locale, String rawText, Component rendered) {}
+    private volatile LocalMsg localMsg;
+
+    private Component renderBrandedLocal(String rawText) {
+        String locale = client.locale();
+        LocalMsg m = localMsg;
+        if (m != null && locale.equals(m.locale()) && java.util.Objects.equals(rawText, m.rawText())) return m.rendered();
+        Component rendered = render(rawText).append(brandingFor(locale));
+        localMsg = new LocalMsg(locale, rawText, rendered);
+        return rendered;
+    }
+
+    private void recordConnected(Player player) {
+        InetSocketAddress addr = player.getRemoteAddress();
+        if (addr == null || addr.getAddress() == null) return;
+        String ip = addr.getAddress().getHostAddress();
+        sessionIp.put(player.getUniqueId(), ip);
+        connectedByIp.merge(ip, 1, Integer::sum);
+    }
+
+    public void init() {
+        proxy.getScheduler().buildTask(pluginInstance, this::reconcile)
+                .repeat(15, TimeUnit.SECONDS).schedule();
+    }
+
+    private void reconcile() {
+        java.util.HashMap<String, Integer> truth = new java.util.HashMap<>();
         for (Player p : proxy.getAllPlayers()) {
             InetSocketAddress a = p.getRemoteAddress();
-            if (a != null && a.getAddress() != null && ip.equals(a.getAddress().getHostAddress())) {
-                if (++matches >= n) return true;
+            if (a != null && a.getAddress() != null) {
+                truth.merge(a.getAddress().getHostAddress(), 1, Integer::sum);
             }
         }
-        return false;
+        connectedByIp.keySet().removeIf(k -> !truth.containsKey(k));
+        connectedByIp.putAll(truth);
     }
 
     private void releaseConnecting(String ip) {
@@ -319,6 +350,9 @@ public final class DetectionListener {
         UUID uuid = player.getUniqueId();
 
         knownChannels.invalidate(uuid);
+
+        String estIp = sessionIp.asMap().remove(uuid);
+        if (estIp != null) connectedByIp.computeIfPresent(estIp, (k, v) -> v <= 1 ? null : v - 1);
 
         long[] startArr = sessionStart.asMap().remove(uuid);
         if (startArr == null) return null;

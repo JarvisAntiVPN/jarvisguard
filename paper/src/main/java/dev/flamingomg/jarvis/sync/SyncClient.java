@@ -21,8 +21,8 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import dev.flamingomg.jarvis.util.Log;
 import java.time.Duration;
-import java.util.logging.Logger;
 import java.util.stream.Stream;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -43,11 +43,13 @@ public final class SyncClient {
                     .resolver(StandardTags.newline())
                     .build())
             .build();
+
     private static final LegacyComponentSerializer LEGACY =
-            LegacyComponentSerializer.builder().character('§').hexColors().build();
+            LegacyComponentSerializer.builder().character('§').hexColors()
+                    .useUnusualXRepeatedCharacterHexFormat().build();
 
     private final ConfigManager config;
-    private final Logger logger;
+    private final Log logger;
     private final JarvisClient jarvisClient;
     private final BanCache banCache;
     private final Plugin plugin;
@@ -60,6 +62,8 @@ public final class SyncClient {
 
     private static final int RECONNECT_BASE_SEC = 5;
     private static final int RECONNECT_MAX_SEC = 60;
+
+    private static final long STABLE_UPTIME_MS = 30_000L;
     private int reconnectDelaySec = RECONNECT_BASE_SEC;
 
     private static final long RESYNC_PERIOD_MS = 12 * 60_000L;
@@ -68,13 +72,15 @@ public final class SyncClient {
     private static final long SSE_STALE_MS = 60_000L;
     private volatile long lastActivityMs = 0L;
     private volatile Thread streamThread;
+
+    private volatile String streamLicenseKey = "";
     private final ScheduledExecutorService watchdog = Executors.newSingleThreadScheduledExecutor(r -> {
         Thread t = new Thread(r, "jarvis-sync-watchdog"); t.setDaemon(true); return t;
     });
 
     private String currentEvent = "";
 
-    public SyncClient(ConfigManager config, Logger logger, JarvisClient jarvisClient,
+    public SyncClient(ConfigManager config, Log logger, JarvisClient jarvisClient,
                       BanCache banCache, Plugin plugin) {
         this.config = config;
         this.logger = logger;
@@ -100,7 +106,7 @@ public final class SyncClient {
             try {
                 dev.flamingomg.jarvis.security.HmacSigner s = jarvisClient.signer();
                 if (running.get() && s != null && s.hasSecret()) jarvisClient.fetchAndSyncBans(banCache);
-            } catch (Throwable t) { logger.fine("[sync] periodic resync failed: " + t.toString()); }
+            } catch (Throwable t) { logger.debug("[sync] periodic resync failed: {}", t.toString()); }
             if (running.get()) scheduleResync();
         }, delay, TimeUnit.MILLISECONDS);
     }
@@ -120,12 +126,21 @@ public final class SyncClient {
             if (!running.get() || st == null) return;
             long idle = System.currentTimeMillis() - lastActivityMs;
             if (idle > SSE_STALE_MS) {
-                logger.warning("[sync] SSE stream idle for " + idle + " ms (possible half-open); forcing reconnect.");
+                logger.warn("[sync] SSE stream idle for {} ms (possible half-open); forcing reconnect.", idle);
                 st.interrupt();
             }
+
+            reconnectIfKeyChanged();
         } catch (Throwable t) {
-            logger.fine("[sync] watchdog: " + t.toString());
+            logger.debug("[sync] watchdog: {}", t.toString());
         }
+    }
+
+    public void reconnectIfKeyChanged() {
+        Thread st = streamThread;
+        if (st == null) return;
+        String current = config.getString("backend.license-key", "");
+        if (!current.equals(streamLicenseKey)) st.interrupt();
     }
 
     private void connect() {
@@ -141,6 +156,7 @@ public final class SyncClient {
         }
         String backendUrl = ConfigManager.DEFAULT_BACKEND_URL;
         String licenseKey = config.getString("backend.license-key", "");
+        this.streamLicenseKey = licenseKey;
         long ts = System.currentTimeMillis();
         String signature = signer.sign(HmacSigner.requestPayload(ts, "sync", licenseKey));
 
@@ -156,14 +172,17 @@ public final class SyncClient {
 
         streamThread = Thread.currentThread();
         lastActivityMs = System.currentTimeMillis();
+
+        long connectStartMs = 0L;
         try {
             HttpResponse<Stream<String>> resp = http.send(request, HttpResponse.BodyHandlers.ofLines());
             if (resp.statusCode() == 200) {
-                reconnectDelaySec = RECONNECT_BASE_SEC;
-                lastActivityMs = System.currentTimeMillis();
+
+                connectStartMs = System.currentTimeMillis();
+                lastActivityMs = connectStartMs;
 
                 try { jarvisClient.fetchAndSyncBans(banCache); }
-                catch (Throwable t) { logger.fine("[sync] resync on connect failed: " + t.toString()); }
+                catch (Throwable t) { logger.debug("[sync] resync on connect failed: {}", t.toString()); }
                 jarvisClient.refreshConfig();
                 jarvisClient.sendServerIcon();
 
@@ -174,14 +193,18 @@ public final class SyncClient {
                 int sc = resp.statusCode();
 
                 if (sc == 401 || sc == 403) jarvisClient.onSyncRejected(sc);
-                logger.fine("[sync] SSE rejected HTTP " + sc);
+                logger.debug("[sync] SSE rejected HTTP {}", sc);
             }
         } catch (Exception e) {
             if (running.get()) {
-                logger.fine("[sync] SSE connection lost, retrying in " + reconnectDelaySec + "s: " + e.getMessage());
+                logger.debug("[sync] SSE connection lost, retrying in {}s: {}", reconnectDelaySec, e.getMessage());
             }
         } finally {
             streamThread = null;
+
+            if (connectStartMs > 0L && System.currentTimeMillis() - connectStartMs > STABLE_UPTIME_MS) {
+                reconnectDelaySec = RECONNECT_BASE_SEC;
+            }
         }
 
         if (running.get()) {
@@ -224,7 +247,7 @@ public final class SyncClient {
 
             if ("connected".equals(currentEvent)) return;
             if (!eventSignatureOk(currentEvent, data)) {
-                logger.warning("[sync] discarded event '" + currentEvent + "' (bad/missing signature or stale)");
+                logger.warn("[sync] discarded event '{}' (bad/missing signature or stale)", currentEvent);
                 return;
             }
             switch (currentEvent) {
@@ -238,7 +261,7 @@ public final class SyncClient {
                 default            -> logUnknownEvent(currentEvent);
             }
         } catch (Exception e) {
-            logger.warning("[sync] Error processing event '" + currentEvent + "': " + e.getMessage());
+            logger.warn("[sync] Error processing event '{}': {}", currentEvent, e.getMessage());
         } finally {
             currentEvent = "";
         }
@@ -251,7 +274,7 @@ public final class SyncClient {
         long now = System.currentTimeMillis();
         if (now - lastUnknownLogMs < UNKNOWN_LOG_THROTTLE_MS) return;
         lastUnknownLogMs = now;
-        logger.fine("[sync] evento SSE desconocido: " + type);
+        logger.debug("[sync] unknown SSE event: {}", type);
     }
 
     private void handleConfig(String data) {
@@ -269,12 +292,13 @@ public final class SyncClient {
     private void handleCleanCache() {
         jarvisClient.cache().invalidateAll();
         banCache.clear();
-        logger.fine("[sync] Local cache cleared by backend order");
+        logger.debug("[sync] Local cache cleared by backend order");
     }
 
     private void handleBan(String data) {
         String ip = extractField(data, "ip");
         if (ip != null && !ip.isEmpty()) {
+            logger.debug("[sync] Global ban received for IP {}", ip);
             jarvisClient.invalidateIp(ip);
             banCache.ban(ip);
         }
@@ -290,6 +314,7 @@ public final class SyncClient {
             if (ip.isEmpty()) continue;
             banCache.unban(ip);
             jarvisClient.invalidateIp(ip);
+            logger.debug("[sync] Targeted unban for IP {}", ip);
         }
     }
 
@@ -300,7 +325,10 @@ public final class SyncClient {
         String msg = renderStr(reason != null ? reason : Messages.get(jarvisClient.locale(), "kick"), false);
         Bukkit.getScheduler().runTask(plugin, () -> {
             Player p = Bukkit.getPlayerExact(username);
-            if (p != null) p.kickPlayer(msg);
+            if (p != null) {
+                logger.debug("[sync] Remote kick of {} from the panel", username);
+                p.kickPlayer(msg);
+            }
         });
     }
 

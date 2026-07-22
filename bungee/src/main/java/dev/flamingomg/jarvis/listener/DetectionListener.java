@@ -29,7 +29,7 @@ import java.net.InetSocketAddress;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.Logger;
+import dev.flamingomg.jarvis.util.Log;
 
 public final class DetectionListener implements Listener {
 
@@ -41,13 +41,18 @@ public final class DetectionListener implements Listener {
     private final JarvisClient client;
     private final BedrockDetector bedrockDetector;
     private final ConfigManager config;
-    private final Logger logger;
+    private final Log logger;
     private final FloodGuard floodGuard;
     private final BanCache banCache;
 
     private final ConcurrentHashMap<String, Integer> connectingByIp = new ConcurrentHashMap<>();
 
+    private final ConcurrentHashMap<String, Integer> connectedByIp = new ConcurrentHashMap<>();
+
     private final Cache<UUID, long[]> sessionStart =
+            Caffeine.newBuilder().maximumSize(20_000).build();
+
+    private final Cache<UUID, String> sessionIp =
             Caffeine.newBuilder().maximumSize(20_000).build();
 
     private final Cache<UUID, java.util.Set<String>> knownChannels =
@@ -63,7 +68,7 @@ public final class DetectionListener implements Listener {
 
     public DetectionListener(ProxyServer proxy, Plugin plugin, JarvisClient client,
                              BedrockDetector bedrockDetector, ConfigManager config,
-                             Logger logger, FloodGuard floodGuard, BanCache banCache) {
+                             Log logger, FloodGuard floodGuard, BanCache banCache) {
         this.proxy = proxy;
         this.plugin = plugin;
         this.client = client;
@@ -98,13 +103,13 @@ public final class DetectionListener implements Listener {
                 String msg = config.getString("messages.flood",
                         dev.flamingomg.jarvis.i18n.Messages.get(client.locale(), "flood"));
                 event.setCancelled(true);
-                event.setCancelReason(serialize(renderBranded(msg)));
+                event.setCancelReason(serialize(renderBrandedLocal(msg)));
                 return;
             }
             if (banCache.isBanned(ip)) {
                 String msg = config.getString("messages.block", dev.flamingomg.jarvis.i18n.Messages.get(client.locale(), "block"));
                 event.setCancelled(true);
-                event.setCancelReason(serialize(renderBranded(msg)));
+                event.setCancelReason(serialize(renderBrandedLocal(msg)));
                 return;
             }
 
@@ -113,13 +118,13 @@ public final class DetectionListener implements Listener {
 
                 int connecting = connectingByIp.merge(ip, 1, Integer::sum);
                 reservedIp = true;
-                if (connecting > maxPerIp || atLeastNFromSameIp(ip, maxPerIp - connecting + 1)) {
+                if (connecting + connectedByIp.getOrDefault(ip, 0) > maxPerIp) {
                     releaseConnecting(ip);
                     reservedIp = false;
                     String msg = config.getString("messages.maxperip",
                             dev.flamingomg.jarvis.i18n.Messages.get(client.locale(), "maxperip"));
                     event.setCancelled(true);
-                    event.setCancelReason(serialize(renderBranded(msg)));
+                    event.setCancelReason(serialize(renderBrandedLocal(msg)));
                     return;
                 }
             }
@@ -136,7 +141,7 @@ public final class DetectionListener implements Listener {
             verdictFuture = client.requestVerdictAsync(ip, name, bedrockFinal, premium);
         } catch (Throwable t) {
             if (reserved) releaseConnecting(ip);
-            logger.warning("Error starting the verdict for " + name + " (" + ip + "): " + t.getMessage());
+            logger.warn("Error starting the verdict for {} ({}): {}", name, ip, t.getMessage());
             applyFallbackPolicy(event, name, ip);
             event.completeIntent(plugin);
             return;
@@ -145,8 +150,8 @@ public final class DetectionListener implements Listener {
             try {
                 if (err != null || verdict == null) {
 
-                    logger.fine("Error getting the verdict for " + name + " (" + ip + "): "
-                            + (err != null ? err.getMessage() : "respuesta nula"));
+                    logger.debug("Error getting the verdict for {} ({}): {}",
+                            name, ip, (err != null ? err.getMessage() : "respuesta nula"));
                     applyFallbackPolicy(event, name, ip);
                     return;
                 }
@@ -162,7 +167,7 @@ public final class DetectionListener implements Listener {
                 }
 
                 if (type != VerdictType.ALLOW) {
-                    logger.fine("[detection] " + name + " (" + ip + ") -> " + type);
+                    logger.debug("[detection] {} ({}) -> {}", name, ip, type);
                 }
 
                 if (type.denies()) {
@@ -177,7 +182,7 @@ public final class DetectionListener implements Listener {
 
             } catch (Exception e) {
 
-                logger.warning("Exception applying the verdict for " + name + " (" + ip + "): " + e.getMessage());
+                logger.warn("Exception applying the verdict for {} ({}): {}", name, ip, e.getMessage());
 
                 applyFallbackPolicy(event, name, ip);
             } finally {
@@ -196,6 +201,7 @@ public final class DetectionListener implements Listener {
         ProxiedPlayer player = event.getPlayer();
 
         sessionStart.put(player.getUniqueId(), new long[]{System.currentTimeMillis()});
+        recordConnected(player);
         maybeRecordPlayerSeen(player);
 
         String lname = player.getName().toLowerCase(java.util.Locale.ROOT);
@@ -283,9 +289,11 @@ public final class DetectionListener implements Listener {
             java.util.Set<String> ch = knownChannels.getIfPresent(player.getUniqueId());
             java.util.List<String> channels = (ch == null || ch.isEmpty())
                     ? null : java.util.List.copyOf(ch);
+            Integer protocolVersion = null;
+            try { protocolVersion = player.getPendingConnection().getVersion(); } catch (Throwable ignored) {}
             client.reportPlayerSeen(player.getUniqueId().toString(), player.getName(),
                     ip, bedrock, version, brand, host, locale, viewDistance, chatMode, channels,
-                    premium);
+                    premium, protocolVersion);
         }, 2, TimeUnit.SECONDS);
     }
 
@@ -330,20 +338,45 @@ public final class DetectionListener implements Listener {
         return render(msg).append(brandingFor(client.locale()));
     }
 
+    private record LocalMsg(String locale, String rawText, Component rendered) {}
+    private volatile LocalMsg localMsg;
+
+    private Component renderBrandedLocal(String rawText) {
+        String locale = client.locale();
+        LocalMsg m = localMsg;
+        if (m != null && locale.equals(m.locale()) && java.util.Objects.equals(rawText, m.rawText())) return m.rendered();
+        Component rendered = render(rawText).append(brandingFor(locale));
+        localMsg = new LocalMsg(locale, rawText, rendered);
+        return rendered;
+    }
+
     private static BaseComponent[] serialize(Component component) {
         return BUNGEE.serialize(component);
     }
 
-    private boolean atLeastNFromSameIp(String ip, int n) {
-        if (n <= 0) return true;
-        int count = 0;
+    private void recordConnected(ProxiedPlayer player) {
+        InetSocketAddress addr = player.getPendingConnection().getAddress();
+        if (addr == null || addr.getAddress() == null) return;
+        String ip = addr.getAddress().getHostAddress();
+        sessionIp.put(player.getUniqueId(), ip);
+        connectedByIp.merge(ip, 1, Integer::sum);
+    }
+
+    public void init() {
+
+        proxy.getScheduler().schedule(plugin, this::reconcile, 0, 15, TimeUnit.SECONDS);
+    }
+
+    private void reconcile() {
+        java.util.HashMap<String, Integer> truth = new java.util.HashMap<>();
         for (ProxiedPlayer p : proxy.getPlayers()) {
             InetSocketAddress a = p.getPendingConnection().getAddress();
-            if (a != null && a.getAddress() != null && ip.equals(a.getAddress().getHostAddress())) {
-                if (++count >= n) return true;
+            if (a != null && a.getAddress() != null) {
+                truth.merge(a.getAddress().getHostAddress(), 1, Integer::sum);
             }
         }
-        return false;
+        connectedByIp.keySet().removeIf(k -> !truth.containsKey(k));
+        connectedByIp.putAll(truth);
     }
 
     private void releaseConnecting(String ip) {
@@ -380,6 +413,9 @@ public final class DetectionListener implements Listener {
 
         knownChannels.invalidate(uuid);
         clientBrands.invalidate(uuid);
+
+        String estIp = sessionIp.asMap().remove(uuid);
+        if (estIp != null) connectedByIp.computeIfPresent(estIp, (k, v) -> v <= 1 ? null : v - 1);
 
         long[] startArr = sessionStart.asMap().remove(uuid);
         if (startArr == null) return;

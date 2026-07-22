@@ -8,7 +8,7 @@ import dev.flamingomg.jarvis.model.VerdictRequest;
 import dev.flamingomg.jarvis.model.VerdictResponse;
 import dev.flamingomg.jarvis.model.VerdictType;
 import dev.flamingomg.jarvis.security.HmacSigner;
-import org.slf4j.Logger;
+import dev.flamingomg.jarvis.util.Log;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -28,23 +28,31 @@ public final class JarvisClient {
 
     private enum CbState { CLOSED, OPEN, HALF_OPEN }
 
-    private volatile CbState   cbState    = CbState.CLOSED;
+    private final java.util.concurrent.atomic.AtomicReference<CbState> cbState =
+            new java.util.concurrent.atomic.AtomicReference<>(CbState.CLOSED);
     private final AtomicInteger cbFailures = new AtomicInteger(0);
     private volatile long       cbOpenedAt = 0L;
 
     private final ConfigManager config;
-    private final Logger        logger;
+    private final Log           logger;
     private volatile HmacSigner signer;
-    private volatile boolean warnedNoKey = false;
-    private volatile boolean warnedNoSecret = false;
-    private volatile boolean keyRejected = false;
     private volatile String secretForKey = "";
     private volatile boolean secretFromConfig = false;
     private volatile long lastSecretResetMs = 0L;
+    private volatile boolean warnedNoKey = false;
+    private volatile boolean warnedNoSecret = false;
+    private volatile boolean keyRejected = false;
     private volatile boolean warnedUnsignedBans = false;
     private volatile int maxAccountsPerIp = 0;
     private volatile String locale = "en";
     private volatile boolean notifyStaff = true;
+
+    private volatile int    cbFailureThreshold = 5;
+    private volatile long   cbOpenDurationMs   = 30_000L;
+    private volatile int    backendTimeoutMs   = 500;
+    private volatile int    cbProbeTimeoutMs   = 3_000;
+    private volatile long   maxResponseAgeMs   = 30_000L;
+    private volatile String licenseKey         = "";
     private final VerdictCache  cache;
     private final HttpClient    http;
 
@@ -58,7 +66,7 @@ public final class JarvisClient {
     private final java.util.concurrent.ExecutorService httpExecutor =
             java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor();
 
-    public JarvisClient(ConfigManager config, Logger logger) {
+    public JarvisClient(ConfigManager config, Log logger) {
         this.config = config;
         this.logger = logger;
         this.cache  = new VerdictCache(
@@ -69,7 +77,7 @@ public final class JarvisClient {
         int connectTimeoutMs = Math.max(timeoutMs, config.getInt("backend.connect-timeout-ms", 8000));
         this.http = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofMillis(connectTimeoutMs))
-                .followRedirects(HttpClient.Redirect.NORMAL)
+                .followRedirects(HttpClient.Redirect.NEVER)
                 .executor(httpExecutor)
                 .build();
 
@@ -84,6 +92,7 @@ public final class JarvisClient {
         this.signer = new HmacSigner(isBlank(secret) ? "" : secret);
 
         if (!isBlank(secret)) this.secretForKey = config.getString("backend.license-key", "");
+        snapshotConfig();
         startKeepAlive();
     }
 
@@ -127,7 +136,8 @@ public final class JarvisClient {
                 }
             }
 
-            this.keyRejected = (status == 401 || status == 403 || status == 404);
+            boolean backendReject = resp.headers().firstValue("X-Jarvis-Reject").isPresent();
+            this.keyRejected = (status == 401 || status == 403 || status == 404) && backendReject;
             if (!warnedNoSecret) {
                 warnedNoSecret = true;
                 logger.warn("No connector secret from backend (HTTP {}). Check your license key; if it's correct and your license has team members, set backend.shared-secret in config.yml (copy it from your panel).", status);
@@ -144,7 +154,7 @@ public final class JarvisClient {
 
         if (signer != null && signer.hasSecret() && configuredKey.equals(secretForKey)) return true;
         String secret = fetchSharedSecret();
-        if (secret != null) { this.signer = new HmacSigner(secret); this.secretForKey = configuredKey; return true; }
+        if (secret != null) { this.signer = new HmacSigner(secret); this.secretForKey = configuredKey; snapshotConfig(); return true; }
         return false;
     }
 
@@ -173,6 +183,7 @@ public final class JarvisClient {
     }
 
     public void refreshConfig() {
+        snapshotConfig();
         String key = config.getString("backend.license-key", "");
         if (isBlank(key)) return;
         try {
@@ -200,7 +211,25 @@ public final class JarvisClient {
 
     private static final char CK_SEP = '\u001e';
     private static String ck(String ip, String username) {
-        return ip + CK_SEP + (username == null ? "" : username.toLowerCase());
+        return canonIp(ip) + CK_SEP + (username == null ? "" : username.toLowerCase(java.util.Locale.ROOT));
+    }
+
+    private static String canonIp(String ip) {
+        if (ip == null || ip.indexOf(':') < 0) return ip;
+        try {
+            return java.net.InetAddress.getByName(ip).getHostAddress();
+        } catch (Exception e) {
+            return ip;
+        }
+    }
+
+    private void snapshotConfig() {
+        this.cbFailureThreshold = Math.max(1, config.getInt("circuit-breaker.failure-threshold", 5));
+        this.cbOpenDurationMs   = Math.max(0L, (long) config.getInt("circuit-breaker.open-duration-ms", 30_000));
+        this.backendTimeoutMs   = Math.max(1, config.getInt("backend.timeout-ms", 500));
+        this.cbProbeTimeoutMs   = Math.max(1, config.getInt("circuit-breaker.probe-timeout-ms", 3000));
+        this.maxResponseAgeMs   = config.getInt("backend.max-response-age-ms", 30_000);
+        this.licenseKey         = config.getString("backend.license-key", "");
     }
 
     public CompletableFuture<VerdictResponse> requestVerdictAsync(String ip, String username, boolean bedrock, boolean premium) {
@@ -209,23 +238,31 @@ public final class JarvisClient {
 
         if (signer == null || !signer.hasSecret()) return CompletableFuture.completedFuture(unknownVerdict());
 
-        int  failThreshold  = Math.max(1, config.getInt("circuit-breaker.failure-threshold", 5));
-        long openDurationMs = Math.max(0L, (long) config.getInt("circuit-breaker.open-duration-ms", 30_000));
-        if (cbState == CbState.OPEN) {
-            if (System.currentTimeMillis() - cbOpenedAt >= openDurationMs) {
-                cbState = CbState.HALF_OPEN;
+        int  failThreshold  = cbFailureThreshold;
+        long openDurationMs = cbOpenDurationMs;
+
+        boolean probe = false;
+        CbState state = cbState.get();
+        if (state == CbState.OPEN) {
+            if (System.currentTimeMillis() - cbOpenedAt >= openDurationMs
+                    && cbState.compareAndSet(CbState.OPEN, CbState.HALF_OPEN)) {
+                cbFailures.set(0);
+                probe = true;
                 logger.debug("Circuit breaker HALF-OPEN, reconnecting...");
             } else {
                 return CompletableFuture.completedFuture(unknownVerdict());
             }
+        } else if (state == CbState.HALF_OPEN) {
+            return CompletableFuture.completedFuture(unknownVerdict());
         }
 
         long   ts        = System.currentTimeMillis();
         String body      = GSON.toJson(new VerdictRequest(ip, username, bedrock, ts, premium));
         String sig       = signer.sign(HmacSigner.requestPayload(ts, ip, username));
-        String licKey    = config.getString("backend.license-key", "");
+        String licKey    = licenseKey;
         String backendUrl= ConfigManager.DEFAULT_BACKEND_URL;
-        int    timeoutMs = Math.max(1, config.getInt("backend.timeout-ms", 500));
+
+        int    timeoutMs = probe ? cbProbeTimeoutMs : backendTimeoutMs;
 
         HttpRequest req = HttpRequest.newBuilder(URI.create(backendUrl + "/api/v1/verdict"))
                 .timeout(Duration.ofMillis(timeoutMs))
@@ -252,8 +289,7 @@ public final class JarvisClient {
                         return onFailure(ip, failThreshold);
                     }
                     cbFailures.set(0);
-                    if (cbState == CbState.HALF_OPEN) {
-                        cbState = CbState.CLOSED;
+                    if (cbState.compareAndSet(CbState.HALF_OPEN, CbState.CLOSED)) {
                         logger.debug("Circuit breaker CLOSED, backend recovered.");
                     }
 
@@ -275,22 +311,32 @@ public final class JarvisClient {
         });
     }
 
+    private static final long SECRET_RESET_MIN_INTERVAL_MS = 60_000L;
     private final java.util.concurrent.atomic.AtomicBoolean secretResetInFlight = new java.util.concurrent.atomic.AtomicBoolean(false);
     private void maybeResetSecret(int status) {
         if (secretFromConfig) return;
         HmacSigner s = signer;
         if (s == null || !s.hasSecret()) return;
         long now = System.currentTimeMillis();
-        if (now - lastSecretResetMs < 60_000L) return;
+        if (now - lastSecretResetMs < SECRET_RESET_MIN_INTERVAL_MS) return;
 
         if (!secretResetInFlight.compareAndSet(false, true)) return;
         lastSecretResetMs = now;
-        this.signer = new HmacSigner("");
-        this.secretForKey = "";
-        try { config.clearCachedSecret(); } catch (Exception ignore) {}
 
         Thread t = new Thread(() -> {
-            try { ensureReady(); } catch (Exception ignore) {}
+            try {
+                String fresh = fetchSharedSecret();
+                if (fresh != null && !fresh.isBlank()) {
+                    this.signer = new HmacSigner(fresh);
+                    this.secretForKey = config.getString("backend.license-key", "");
+                } else if (keyRejected) {
+
+                    this.signer = new HmacSigner("");
+                    this.secretForKey = "";
+                    try { config.clearCachedSecret(); } catch (Exception ignore) {}
+                }
+
+            } catch (Exception ignore) {}
             finally { secretResetInFlight.set(false); }
         }, "jarvis-secret-refetch");
         t.setDaemon(true);
@@ -301,8 +347,11 @@ public final class JarvisClient {
 
     private VerdictResponse onFailure(String ip, int failThreshold) {
         int failures = cbFailures.incrementAndGet();
-        if (failures >= failThreshold && cbState != CbState.OPEN) {
-            cbState    = CbState.OPEN;
+
+        if (cbState.compareAndSet(CbState.HALF_OPEN, CbState.OPEN)) {
+            cbOpenedAt = System.currentTimeMillis();
+            logger.warn("Circuit breaker OPEN (probe failed). Degraded mode active.");
+        } else if (failures >= failThreshold && cbState.compareAndSet(CbState.CLOSED, CbState.OPEN)) {
             cbOpenedAt = System.currentTimeMillis();
             logger.warn("Circuit breaker OPEN ({} failures). Degraded mode active.", failures);
         }
@@ -314,13 +363,14 @@ public final class JarvisClient {
     }
 
     public void invalidateIp(String ip) {
-        cache.invalidateByPrefix(ip + CK_SEP);
+        cache.invalidateByPrefix(canonIp(ip) + CK_SEP);
     }
 
     public void reportPlayerSeen(String uuid, String username, String ip, boolean bedrock,
                                  String version, String brand, String host,
                                  String locale, Integer viewDistance, String chatMode,
-                                 java.util.List<String> channels, boolean premium) {
+                                 java.util.List<String> channels, boolean premium,
+                                 Integer protocolVersion) {
 
         VerdictResponse cached = cache.getIfPresent(ck(ip, username));
         String verdictStr = cached != null ? cached.verdict() : "UNKNOWN";
@@ -339,6 +389,7 @@ public final class JarvisClient {
         if (chatMode != null)     payload.put("chatMode", chatMode);
 
         if (channels != null && !channels.isEmpty()) payload.put("channels", channels);
+        if (protocolVersion != null) payload.put("protocolVersion", protocolVersion);
         report("/api/v1/player/seen", ip, username, payload,
                 "Error reporting player seen " + username);
     }
@@ -381,7 +432,7 @@ public final class JarvisClient {
             }
             if (png.length == 0 || png.length > MAX_ICON_BYTES) return;
             long   ts        = System.currentTimeMillis();
-            String licKey    = config.getString("backend.license-key", "");
+            String licKey    = licenseKey;
             String backendUrl= ConfigManager.DEFAULT_BACKEND_URL;
             String sig       = signer.sign(HmacSigner.requestPayload(ts, "server-icon", ""));
             Map<String, Object> payload = new LinkedHashMap<>();
@@ -407,7 +458,7 @@ public final class JarvisClient {
     public void fetchAndSyncBans(BanCache banCache) {
         if (signer == null || !signer.hasSecret()) return;
         long   ts        = System.currentTimeMillis();
-        String licKey    = config.getString("backend.license-key", "");
+        String licKey    = licenseKey;
         String backendUrl= ConfigManager.DEFAULT_BACKEND_URL;
         String sig       = signer.sign(HmacSigner.requestPayload(ts, "", "bans"));
 
@@ -432,9 +483,13 @@ public final class JarvisClient {
                             logger.warn("Bans list signature invalid or stale; skipping this sync cycle.");
                             return;
                         }
-                    } else if (!warnedUnsignedBans) {
-                        warnedUnsignedBans = true;
-                        logger.warn("Backend bans response is unsigned; applying without verification.");
+                    } else {
+                        if (!warnedUnsignedBans) {
+                            warnedUnsignedBans = true;
+                            logger.warn("Backend bans response is unsigned; applying without verification.");
+                        }
+
+                        if (dev.flamingomg.jarvis.security.VerdictVerifier.keyLoaded()) return;
                     }
                     try {
                         long now = System.currentTimeMillis();
@@ -475,7 +530,7 @@ public final class JarvisClient {
     }
 
     public String circuitBreakerStatus() {
-        return cbState.name() + " (" + cbFailures.get() + " failures)";
+        return cbState.get().name() + " (" + cbFailures.get() + " failures)";
     }
 
     public VerdictCache cache() { return cache; }
@@ -490,7 +545,18 @@ public final class JarvisClient {
 
     private void pingBackend() {
         try {
-            if (isBlank(config.getString("backend.license-key", ""))) return;
+            if (isBlank(licenseKey)) return;
+
+            HmacSigner sg = signer;
+            if ((sg == null || !sg.hasSecret()) && !keyRejected
+                    && secretResetInFlight.compareAndSet(false, true)) {
+                Thread bt = new Thread(() -> {
+                    try { ensureReady(); } catch (Exception ignore) {}
+                    finally { secretResetInFlight.set(false); }
+                }, "jarvis-secret-bootstrap");
+                bt.setDaemon(true);
+                bt.start();
+            }
             String url = ConfigManager.DEFAULT_BACKEND_URL;
             int connectMs = Math.max(1, config.getInt("backend.connect-timeout-ms", 8000));
             HttpRequest req = HttpRequest.newBuilder(URI.create(url + "/ready"))
@@ -505,12 +571,12 @@ public final class JarvisClient {
 
     public void shutdown() {
         keepAlive.shutdownNow();
-        try { http.close(); } catch (Exception ignored) {}
-        httpExecutor.shutdownNow();
+        HttpExecutors.closeQuietly(http);
+        HttpExecutors.shutdownQuietly(httpExecutor);
     }
 
     private boolean responseFresh(long responseTs) {
-        long windowMs = config.getInt("backend.max-response-age-ms", 30_000);
+        long windowMs = maxResponseAgeMs;
         return isFresh(System.currentTimeMillis(), responseTs, windowMs);
     }
 
@@ -523,7 +589,7 @@ public final class JarvisClient {
                         Map<String, Object> payload, String errorMsg) {
         if (signer == null || !signer.hasSecret()) return;
         long   ts         = System.currentTimeMillis();
-        String licKey     = config.getString("backend.license-key", "");
+        String licKey     = licenseKey;
         String backendUrl = ConfigManager.DEFAULT_BACKEND_URL;
         String sig        = signer.sign(HmacSigner.requestPayload(ts, ipForSig, userForSig));
         payload.put("timestamp", ts);
@@ -532,7 +598,7 @@ public final class JarvisClient {
     }
 
     private void sendAsync(String url, String licKey, long ts, String sig, String body, Runnable onError) {
-        int timeoutMs = Math.max(1, config.getInt("backend.timeout-ms", 500));
+        int timeoutMs = backendTimeoutMs;
         HttpRequest req = HttpRequest.newBuilder(URI.create(url))
                 .timeout(Duration.ofMillis(timeoutMs))
                 .header("Content-Type",  "application/json")

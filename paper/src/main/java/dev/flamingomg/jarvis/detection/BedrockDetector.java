@@ -1,22 +1,22 @@
 package dev.flamingomg.jarvis.detection;
 
 import dev.flamingomg.jarvis.config.ConfigManager;
+import dev.flamingomg.jarvis.util.Log;
 import org.bukkit.Bukkit;
 import org.geysermc.floodgate.api.FloodgateApi;
 
 import java.util.UUID;
-import java.util.logging.Logger;
 
 public final class BedrockDetector {
 
     private final ConfigManager config;
     private final boolean floodgatePresent;
 
-    public BedrockDetector(ConfigManager config, Logger logger) {
+    public BedrockDetector(ConfigManager config, Log logger) {
         this.config = config;
         this.floodgatePresent = Bukkit.getPluginManager().getPlugin("floodgate") != null;
         if (floodgatePresent) {
-            logger.fine("Floodgate detected: Bedrock player protection active.");
+            logger.debug("Floodgate detected: Bedrock player protection active.");
         }
     }
 

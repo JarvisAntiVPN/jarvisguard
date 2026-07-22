@@ -18,7 +18,9 @@ public final class JarvisBungeePlugin extends Plugin {
 
     private static final int BSTATS_PLUGIN_ID = 31796;
 
-    public static final String VERSION = "0.5.19";
+    public static final String VERSION = "0.5.20";
+
+    private dev.flamingomg.jarvis.util.Log logger;
 
     private ConfigManager config;
     private JarvisClient jarvisClient;
@@ -33,41 +35,44 @@ public final class JarvisBungeePlugin extends Plugin {
 
     @Override
     public void onEnable() {
-        this.config = new ConfigManager(getDataFolder().toPath(), getLogger());
+        this.logger = new dev.flamingomg.jarvis.util.Log(getLogger());
+        this.config = new ConfigManager(getDataFolder().toPath(), logger);
         config.load();
 
-        this.jarvisClient = new JarvisClient(config, getLogger());
+        this.jarvisClient = new JarvisClient(config, logger);
 
-        BedrockDetector bedrockDetector = new BedrockDetector(getProxy(), config, getLogger());
+        BedrockDetector bedrockDetector = new BedrockDetector(getProxy(), config, logger);
         FloodGuard floodGuard = new FloodGuard(config);
         this.banCache = new BanCache(config);
 
-        getProxy().getPluginManager().registerListener(this,
-                new DetectionListener(getProxy(), this, jarvisClient, bedrockDetector,
-                        config, getLogger(), floodGuard, banCache));
+        this.syncClient = new SyncClient(config, logger, jarvisClient, banCache, getProxy());
+
+        DetectionListener detectionListener = new DetectionListener(getProxy(), this, jarvisClient, bedrockDetector,
+                config, logger, floodGuard, banCache);
+        getProxy().getPluginManager().registerListener(this, detectionListener);
+        detectionListener.init();
 
         getProxy().getPluginManager().registerCommand(this,
-                new AntiVpnCommand(jarvisClient, getProxy(), banCache, config, this));
+                new AntiVpnCommand(jarvisClient, getProxy(), banCache, config, this, floodGuard, syncClient));
 
-        this.syncClient = new SyncClient(config, getLogger(), jarvisClient, banCache, getProxy());
         syncClient.start();
         jarvisClient.fetchAndSyncBans(banCache);
 
         if (BSTATS_PLUGIN_ID > 0) {
             try {
                 new org.bstats.bungeecord.Metrics(this, BSTATS_PLUGIN_ID);
-                getLogger().fine("bStats metrics enabled.");
+                logger.debug("bStats metrics enabled.");
             } catch (Exception e) {
-                getLogger().warning("Couldn't start bStats metrics: " + e.getMessage());
+                logger.warn("Couldn't start bStats metrics: {}", e.getMessage());
             }
         }
 
         getProxy().getScheduler().schedule(this, this::reportPresence, 10, 10, TimeUnit.SECONDS);
 
-        this.pairing = new dev.flamingomg.jarvis.client.PairingClient(config, getLogger());
+        this.pairing = new dev.flamingomg.jarvis.client.PairingClient(config, logger);
         if (isBlank(config.getString("backend.license-key", ""))) startPairingFlow();
 
-        getLogger().info("Jarvis v" + VERSION + " client active.");
+        logger.info("Jarvis v{} client active.", VERSION);
     }
 
     private void startPairingFlow() {
@@ -81,7 +86,7 @@ public final class JarvisBungeePlugin extends Plugin {
         dev.flamingomg.jarvis.client.PairingClient.Start s = pairing.start(null, server, VERSION);
         if (s == null || s.verificationUri() == null) {
             pairDeviceCode = null;
-            getLogger().warning("Couldn't generate the linking link; retrying shortly. "
+            logger.warn("Couldn't generate the linking link; retrying shortly. "
                     + "Alternative: /antivpn key <license>");
             return;
         }
@@ -89,17 +94,17 @@ public final class JarvisBungeePlugin extends Plugin {
         pairExpiresAt = System.currentTimeMillis() + s.expiresIn() * 1000L;
         if (!pairBannerShown) {
             pairBannerShown = true;
-            getLogger().warning("");
-            getLogger().warning("==================== JARVIS · LINK PROXY ====================");
-            getLogger().warning("  This proxy isn't linked yet. Open this link and sign in");
-            getLogger().warning("  to bind it to your server (one click, no key to paste):");
-            getLogger().warning("");
-            getLogger().warning("    " + s.verificationUri());
-            getLogger().warning("");
-            getLogger().warning("  (manual alternative:  /antivpn key <license> )");
-            getLogger().warning("============================================================");
+            logger.warn("");
+            logger.warn("==================== JARVIS · LINK PROXY ====================");
+            logger.warn("  This proxy isn't linked yet. Open this link and sign in");
+            logger.warn("  to bind it to your server (one click, no key to paste):");
+            logger.warn("");
+            logger.warn("    {}", s.verificationUri());
+            logger.warn("");
+            logger.warn("  (manual alternative:  /antivpn key <license> )");
+            logger.warn("============================================================");
         } else {
-            getLogger().warning("Linking link renewed (the previous one expired): " + s.verificationUri());
+            logger.warn("Linking link renewed (the previous one expired): {}", s.verificationUri());
         }
     }
 
@@ -119,17 +124,17 @@ public final class JarvisBungeePlugin extends Plugin {
     }
 
     private void applyPairedKey(String key) {
-        if (!config.setKey(key)) { getLogger().warning("Couldn't save the linked key."); return; }
+        if (!config.setKey(key)) { logger.warn("Couldn't save the linked key."); return; }
         getProxy().getScheduler().runAsync(this, () -> {
             boolean ok = jarvisClient.ensureReady();
 
             if (ok) {
                 jarvisClient.fetchAndSyncBans(banCache);
-                getLogger().info("================================================================");
-                getLogger().info("  " + dev.flamingomg.jarvis.i18n.Messages.get(jarvisClient.locale(), "log.pairedProtected"));
-                getLogger().info("================================================================");
+                logger.info("================================================================");
+                logger.info("  {}", dev.flamingomg.jarvis.i18n.Messages.get(jarvisClient.locale(), "log.pairedProtected"));
+                logger.info("================================================================");
             } else {
-                getLogger().warning(dev.flamingomg.jarvis.i18n.Messages.get(jarvisClient.locale(), "log.pairedUnprotected"));
+                logger.warn(dev.flamingomg.jarvis.i18n.Messages.get(jarvisClient.locale(), "log.pairedUnprotected"));
             }
         });
     }
@@ -156,7 +161,7 @@ public final class JarvisBungeePlugin extends Plugin {
             jarvisClient.reportPresence(players.size(), players);
         } catch (Exception e) {
 
-            getLogger().fine("reportPresence failed: " + e.getMessage());
+            logger.debug("reportPresence failed: {}", e.getMessage());
         }
     }
 
@@ -166,6 +171,6 @@ public final class JarvisBungeePlugin extends Plugin {
         if (syncClient != null) syncClient.stop();
         if (jarvisClient != null) jarvisClient.shutdown();
         if (pairing != null) pairing.shutdown();
-        getLogger().info("Jarvis stopped.");
+        logger.info("Jarvis stopped.");
     }
 }

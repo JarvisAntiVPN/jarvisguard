@@ -6,7 +6,9 @@ import com.velocitypowered.api.proxy.ProxyServer;
 import dev.flamingomg.jarvis.client.JarvisClient;
 import dev.flamingomg.jarvis.config.ConfigManager;
 import dev.flamingomg.jarvis.detection.BanCache;
+import dev.flamingomg.jarvis.detection.FloodGuard;
 import dev.flamingomg.jarvis.i18n.Messages;
+import dev.flamingomg.jarvis.sync.SyncClient;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -25,15 +27,19 @@ public final class AntiVpnCommand implements SimpleCommand {
     private final BanCache banCache;
     private final ConfigManager config;
     private final Object plugin;
+    private final FloodGuard floodGuard;
+    private final SyncClient syncClient;
 
     public AntiVpnCommand(JarvisClient client, ProxyServer proxy,
                           BanCache banCache, ConfigManager config,
-                          Object plugin) {
+                          Object plugin, FloodGuard floodGuard, SyncClient syncClient) {
         this.client = client;
         this.proxy = proxy;
         this.banCache = banCache;
         this.config = config;
         this.plugin = plugin;
+        this.floodGuard = floodGuard;
+        this.syncClient = syncClient;
     }
 
     private String m(String key) { return Messages.get(client.locale(), key); }
@@ -50,12 +56,17 @@ public final class AntiVpnCommand implements SimpleCommand {
 
                 if (!src.hasPermission("jarvis.admin")) { noPermission(src); return; }
                 config.reload();
+
+                floodGuard.reconfigure();
+                banCache.reconfigure();
                 client.cache().invalidateAll();
 
                 proxy.getScheduler().buildTask(plugin, () -> {
                     client.ensureReady();
                     client.fetchAndSyncBans(banCache);
                     client.refreshConfig();
+
+                    syncClient.reconnectIfKeyChanged();
                 }).schedule();
                 src.sendMessage(pre().append(Component.text(m("cmd.reloaded"), NamedTextColor.GREEN)));
             }
@@ -91,6 +102,8 @@ public final class AntiVpnCommand implements SimpleCommand {
             } else {
                 src.sendMessage(pre().append(Component.text(m("cmd.validatefail"), NamedTextColor.YELLOW)));
             }
+
+            syncClient.reconnectIfKeyChanged();
         }).schedule();
     }
 

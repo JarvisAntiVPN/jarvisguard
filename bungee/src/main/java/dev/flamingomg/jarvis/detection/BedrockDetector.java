@@ -3,7 +3,7 @@ package dev.flamingomg.jarvis.detection;
 import net.md_5.bungee.api.ProxyServer;
 import dev.flamingomg.jarvis.config.ConfigManager;
 import org.geysermc.floodgate.api.FloodgateApi;
-import java.util.logging.Logger;
+import dev.flamingomg.jarvis.util.Log;
 
 import java.util.UUID;
 
@@ -12,11 +12,11 @@ public final class BedrockDetector {
     private final ConfigManager config;
     private final boolean floodgatePresent;
 
-    public BedrockDetector(ProxyServer proxy, ConfigManager config, Logger logger) {
+    public BedrockDetector(ProxyServer proxy, ConfigManager config, Log logger) {
         this.config = config;
         this.floodgatePresent = proxy.getPluginManager().getPlugin("floodgate") != null;
         if (floodgatePresent) {
-            logger.fine("Floodgate detected: Bedrock player protection active.");
+            logger.debug("Floodgate detected: Bedrock player protection active.");
         }
     }
 

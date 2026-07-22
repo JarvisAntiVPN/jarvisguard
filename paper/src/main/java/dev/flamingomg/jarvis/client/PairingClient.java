@@ -2,7 +2,7 @@ package dev.flamingomg.jarvis.client;
 
 import com.google.gson.Gson;
 import dev.flamingomg.jarvis.config.ConfigManager;
-import java.util.logging.Logger;
+import dev.flamingomg.jarvis.util.Log;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -17,14 +17,14 @@ public final class PairingClient {
     private static final Gson GSON = new Gson();
 
     private final ConfigManager config;
-    private final Logger logger;
+    private final Log logger;
 
     private final java.util.concurrent.ExecutorService httpExecutor =
             HttpExecutors.daemonHttpExecutor("jarvis-pair");
     private final HttpClient http = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(6)).executor(httpExecutor).build();
 
-    public PairingClient(ConfigManager config, Logger logger) {
+    public PairingClient(ConfigManager config, Log logger) {
         this.config = config;
         this.logger = logger;
     }
@@ -53,7 +53,7 @@ public final class PairingClient {
             return new Start(str(m.get("deviceCode")), str(m.get("userCode")), str(m.get("verificationUri")),
                     num(m.get("interval"), 5), num(m.get("expiresIn"), 600));
         } catch (Exception e) {
-            logger.fine("pair/start failed: " + e.getMessage());
+            logger.debug("pair/start failed: {}", e.getMessage());
             return null;
         }
     }

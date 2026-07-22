@@ -10,6 +10,7 @@ import dev.flamingomg.jarvis.detection.FloodGuard;
 import dev.flamingomg.jarvis.i18n.Messages;
 import dev.flamingomg.jarvis.model.VerdictResponse;
 import dev.flamingomg.jarvis.model.VerdictType;
+import dev.flamingomg.jarvis.util.Log;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
@@ -28,13 +29,14 @@ import java.net.InetSocketAddress;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.Logger;
 
 public final class DetectionListener implements Listener, PluginMessageListener {
 
     private static final MiniMessage MM = MiniMessage.miniMessage();
+
     private static final LegacyComponentSerializer LEGACY =
-            LegacyComponentSerializer.builder().character('§').hexColors().build();
+            LegacyComponentSerializer.builder().character('§').hexColors()
+                    .useUnusualXRepeatedCharacterHexFormat().build();
 
     private static final java.util.regex.Pattern MM_TAG = java.util.regex.Pattern.compile(
             "<\\/?(#[0-9a-fA-F]{6}|colou?r|gradient|rainbow|bold|italic|underlined|strikethrough|obfuscated|"
@@ -47,13 +49,17 @@ public final class DetectionListener implements Listener, PluginMessageListener 
     private final JarvisClient client;
     private final BedrockDetector bedrockDetector;
     private final ConfigManager config;
-    private final Logger logger;
+    private final Log logger;
     private final FloodGuard floodGuard;
     private final BanCache banCache;
 
     private final ConcurrentHashMap<String, Integer> connectingByIp = new ConcurrentHashMap<>();
 
+    private final ConcurrentHashMap<String, Integer> connectedByIp = new ConcurrentHashMap<>();
+
     private final Cache<UUID, Long> sessionStart = Caffeine.newBuilder().maximumSize(20_000).build();
+
+    private final Cache<UUID, String> sessionIp = Caffeine.newBuilder().maximumSize(20_000).build();
 
     private final Cache<String, Boolean> bypassNames = Caffeine.newBuilder().maximumSize(10_000)
 
@@ -62,7 +68,7 @@ public final class DetectionListener implements Listener, PluginMessageListener 
     private final Cache<UUID, String> clientBrands = Caffeine.newBuilder().maximumSize(20_000).build();
 
     public DetectionListener(Plugin plugin, JarvisClient client, BedrockDetector bedrockDetector,
-                             ConfigManager config, Logger logger, FloodGuard floodGuard, BanCache banCache) {
+                             ConfigManager config, Log logger, FloodGuard floodGuard, BanCache banCache) {
         this.plugin = plugin;
         this.client = client;
         this.bedrockDetector = bedrockDetector;
@@ -92,11 +98,11 @@ public final class DetectionListener implements Listener, PluginMessageListener 
         boolean reservedIp = false;
         if (!bedrockBypass) {
             if (floodGuard.checkAndRecord(ip)) {
-                deny(event, config.getString("messages.flood", Messages.get(client.locale(), "flood")));
+                denyLocal(event, config.getString("messages.flood", Messages.get(client.locale(), "flood")));
                 return;
             }
             if (banCache.isBanned(ip)) {
-                deny(event, config.getString("messages.block", Messages.get(client.locale(), "block")));
+                denyLocal(event, config.getString("messages.block", Messages.get(client.locale(), "block")));
                 return;
             }
             int maxPerIp = client.maxAccountsPerIp();
@@ -104,10 +110,10 @@ public final class DetectionListener implements Listener, PluginMessageListener 
 
                 int connecting = connectingByIp.merge(ip, 1, Integer::sum);
                 reservedIp = true;
-                if (connecting > maxPerIp || atLeastNFromSameIp(ip, maxPerIp - connecting + 1)) {
+                if (connecting + connectedByIp.getOrDefault(ip, 0) > maxPerIp) {
                     releaseConnecting(ip);
                     reservedIp = false;
-                    deny(event, config.getString("messages.maxperip", Messages.get(client.locale(), "maxperip")));
+                    denyLocal(event, config.getString("messages.maxperip", Messages.get(client.locale(), "maxperip")));
                     return;
                 }
             }
@@ -117,11 +123,20 @@ public final class DetectionListener implements Listener, PluginMessageListener 
 
         try {
             VerdictResponse verdict;
+
+            java.util.concurrent.CompletableFuture<VerdictResponse> verdictFuture;
+            try {
+                verdictFuture = client.requestVerdictAsync(ip, name, bedrock, premium);
+            } catch (Throwable t) {
+                logger.warn("Error starting the verdict for {} ({}): {}", name, ip, t.toString());
+                applyFallbackPolicy(event, name, ip);
+                return;
+            }
             try {
                 long timeoutMs = config.getInt("backend.timeout-ms", 500) + 4500L;
-                verdict = client.requestVerdictAsync(ip, name, bedrock, premium).get(timeoutMs, TimeUnit.MILLISECONDS);
+                verdict = verdictFuture.get(timeoutMs, TimeUnit.MILLISECONDS);
             } catch (Throwable t) {
-                logger.fine("Error getting the verdict for " + name + " (" + ip + "): " + t.getMessage());
+                logger.debug("Error getting the verdict for {} ({}): {}", name, ip, t.getMessage());
                 applyFallbackPolicy(event, name, ip);
                 return;
             }
@@ -133,7 +148,7 @@ public final class DetectionListener implements Listener, PluginMessageListener 
                 type = VerdictType.FLAG;
             }
             if (type.isUnknown()) { applyFallbackPolicy(event, name, ip); return; }
-            if (type != VerdictType.ALLOW) logger.fine("[detection] " + name + " (" + ip + ") -> " + type);
+            if (type != VerdictType.ALLOW) logger.debug("[detection] {} ({}) -> {}", name, ip, type);
 
             if (type.denies()) {
                 banCache.ban(ip);
@@ -152,6 +167,10 @@ public final class DetectionListener implements Listener, PluginMessageListener 
         event.disallow(AsyncPlayerPreLoginEvent.Result.KICK_OTHER, renderBranded(msg));
     }
 
+    private void denyLocal(AsyncPlayerPreLoginEvent event, String rawMsg) {
+        event.disallow(AsyncPlayerPreLoginEvent.Result.KICK_OTHER, renderBrandedLocal(rawMsg));
+    }
+
     private void applyFallbackPolicy(AsyncPlayerPreLoginEvent event, String name, String ip) {
 
     }
@@ -160,6 +179,7 @@ public final class DetectionListener implements Listener, PluginMessageListener 
     public void onJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
         sessionStart.put(player.getUniqueId(), System.currentTimeMillis());
+        recordConnected(player);
         String lname = player.getName().toLowerCase(java.util.Locale.ROOT);
 
         if (player.hasPermission("jarvis.bypass")) bypassNames.put(lname, Boolean.TRUE);
@@ -177,14 +197,17 @@ public final class DetectionListener implements Listener, PluginMessageListener 
         String locale = null;
         try { locale = player.getLocale(); } catch (Throwable ignored) {}
         String host = virtualHost(player);
+        Integer vd = null;
+        try { vd = player.getClientViewDistance(); } catch (Throwable ignored) {}
         java.util.Set<String> ch = player.getListeningPluginChannels();
         java.util.List<String> channels = (ch == null || ch.isEmpty()) ? null : java.util.List.copyOf(ch);
         final String localeF = locale, hostF = host, nameF = player.getName();
+        final Integer vdF = vd;
 
         Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, () -> {
             String brand = clientBrands.getIfPresent(uuid);
             client.reportPlayerSeen(uuid.toString(), nameF, ip, bedrock,
-                    null, brand, hostF, localeF, null, null, channels, premium);
+                    null, brand, hostF, localeF, vdF, null, channels, premium, null);
         }, 40L);
     }
 
@@ -212,9 +235,17 @@ public final class DetectionListener implements Listener, PluginMessageListener 
                 .replace("\u0000", "").trim();
     }
 
+    private static final java.lang.reflect.Method GET_VIRTUAL_HOST = resolveVirtualHost();
+
+    private static java.lang.reflect.Method resolveVirtualHost() {
+        try { return Player.class.getMethod("getVirtualHost"); }
+        catch (Throwable ignored) { return null; }
+    }
+
     private static String virtualHost(Player player) {
+        if (GET_VIRTUAL_HOST == null) return null;
         try {
-            Object vh = Player.class.getMethod("getVirtualHost").invoke(player);
+            Object vh = GET_VIRTUAL_HOST.invoke(player);
             if (vh instanceof InetSocketAddress isa) return isa.getHostString();
         } catch (Throwable ignored) {}
         return null;
@@ -224,6 +255,9 @@ public final class DetectionListener implements Listener, PluginMessageListener 
     public void onQuit(PlayerQuitEvent event) {
         Player player = event.getPlayer();
         clientBrands.invalidate(player.getUniqueId());
+
+        String estIp = sessionIp.asMap().remove(player.getUniqueId());
+        if (estIp != null) connectedByIp.computeIfPresent(estIp, (k, v) -> v <= 1 ? null : v - 1);
         Long start = sessionStart.asMap().remove(player.getUniqueId());
         if (start == null) return;
         long durationMs = System.currentTimeMillis() - start;
@@ -245,7 +279,7 @@ public final class DetectionListener implements Listener, PluginMessageListener 
             return sb.toString();
         });
         norm = LEGACY_AMP.matcher(norm).replaceAll("§$1");
-        return LegacyComponentSerializer.builder().character('§').hexColors().build().deserialize(norm);
+        return LEGACY.deserialize(norm);
     }
 
     private record Branding(String locale, Component component) {}
@@ -267,16 +301,41 @@ public final class DetectionListener implements Listener, PluginMessageListener 
         return LEGACY.serialize(renderComponent(msg).append(brandingFor(client.locale())));
     }
 
-    private boolean atLeastNFromSameIp(String ip, int n) {
-        if (n <= 0) return true;
-        int count = 0;
+    private record LocalMsg(String locale, String rawText, String rendered) {}
+    private volatile LocalMsg localMsg;
+
+    private String renderBrandedLocal(String rawText) {
+        String locale = client.locale();
+        LocalMsg m = localMsg;
+        if (m != null && locale.equals(m.locale()) && java.util.Objects.equals(rawText, m.rawText())) return m.rendered();
+        String rendered = LEGACY.serialize(renderComponent(rawText).append(brandingFor(locale)));
+        localMsg = new LocalMsg(locale, rawText, rendered);
+        return rendered;
+    }
+
+    private void recordConnected(Player player) {
+        InetSocketAddress addr = player.getAddress();
+        if (addr == null || addr.getAddress() == null) return;
+        String ip = addr.getAddress().getHostAddress();
+        sessionIp.put(player.getUniqueId(), ip);
+        connectedByIp.merge(ip, 1, Integer::sum);
+    }
+
+    public void init() {
+
+        Bukkit.getScheduler().runTaskTimer(plugin, this::reconcile, 0L, 300L);
+    }
+
+    private void reconcile() {
+        java.util.HashMap<String, Integer> truth = new java.util.HashMap<>();
         for (Player p : Bukkit.getOnlinePlayers()) {
             InetSocketAddress a = p.getAddress();
-            if (a != null && a.getAddress() != null && ip.equals(a.getAddress().getHostAddress())) {
-                if (++count >= n) return true;
+            if (a != null && a.getAddress() != null) {
+                truth.merge(a.getAddress().getHostAddress(), 1, Integer::sum);
             }
         }
-        return false;
+        connectedByIp.keySet().removeIf(k -> !truth.containsKey(k));
+        connectedByIp.putAll(truth);
     }
 
     private void releaseConnecting(String ip) {

@@ -8,7 +8,9 @@ import net.md_5.bungee.api.plugin.TabExecutor;
 import dev.flamingomg.jarvis.client.JarvisClient;
 import dev.flamingomg.jarvis.config.ConfigManager;
 import dev.flamingomg.jarvis.detection.BanCache;
+import dev.flamingomg.jarvis.detection.FloodGuard;
 import dev.flamingomg.jarvis.i18n.Messages;
+import dev.flamingomg.jarvis.sync.SyncClient;
 
 import net.kyori.adventure.text.serializer.bungeecord.BungeeComponentSerializer;
 import net.kyori.adventure.text.Component;
@@ -28,16 +30,20 @@ public final class AntiVpnCommand extends Command implements TabExecutor {
     private final BanCache banCache;
     private final ConfigManager config;
     private final Plugin plugin;
+    private final FloodGuard floodGuard;
+    private final SyncClient syncClient;
 
     public AntiVpnCommand(JarvisClient client, ProxyServer proxy,
                           BanCache banCache, ConfigManager config,
-                          Plugin plugin) {
+                          Plugin plugin, FloodGuard floodGuard, SyncClient syncClient) {
         super("antivpn", "jarvis.command", "jarvis", "avpn");
         this.client = client;
         this.proxy = proxy;
         this.banCache = banCache;
         this.config = config;
         this.plugin = plugin;
+        this.floodGuard = floodGuard;
+        this.syncClient = syncClient;
     }
 
     private String m(String key) { return Messages.get(client.locale(), key); }
@@ -53,12 +59,17 @@ public final class AntiVpnCommand extends Command implements TabExecutor {
 
                 if (!sender.hasPermission("jarvis.admin")) { noPermission(sender); return; }
                 config.reload();
+
+                floodGuard.reconfigure();
+                banCache.reconfigure();
                 client.cache().invalidateAll();
 
                 proxy.getScheduler().runAsync(plugin, () -> {
                     client.ensureReady();
                     client.fetchAndSyncBans(banCache);
                     client.refreshConfig();
+
+                    syncClient.reconnectIfKeyChanged();
                 });
                 send(sender, pre().append(Component.text(m("cmd.reloaded"), NamedTextColor.GREEN)));
             }
@@ -94,6 +105,8 @@ public final class AntiVpnCommand extends Command implements TabExecutor {
             } else {
                 send(sender, pre().append(Component.text(m("cmd.validatefail"), NamedTextColor.YELLOW)));
             }
+
+            syncClient.reconnectIfKeyChanged();
         });
     }
 

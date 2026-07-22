@@ -15,9 +15,12 @@ public final class BanCache {
     private static final long PERMANENT_MS = Long.MAX_VALUE / 2;
 
     private final Cache<String, Entry> banned;
-    private final int defaultTtlSeconds;
+    private final ConfigManager config;
+
+    private volatile int defaultTtlSeconds;
 
     public BanCache(ConfigManager config) {
+        this.config = config;
         this.defaultTtlSeconds = Math.max(10, config.getInt("bans.local-ttl-seconds", 300));
         this.banned = Caffeine.newBuilder()
                 .maximumSize(100_000)
@@ -72,6 +75,10 @@ public final class BanCache {
         } catch (Exception e) {
             return ip;
         }
+    }
+
+    public void reconfigure() {
+        this.defaultTtlSeconds = Math.max(10, config.getInt("bans.local-ttl-seconds", 300));
     }
 
     public void clear() {

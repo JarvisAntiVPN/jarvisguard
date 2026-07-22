@@ -9,14 +9,27 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public final class FloodGuard {
 
-    private final boolean enabled;
-    private final int maxConnects;
-    private final Cache<String, AtomicInteger> windows;
+    private final ConfigManager config;
+
+    private volatile boolean enabled;
+    private volatile int maxConnects;
+
+    private volatile Cache<String, AtomicInteger> windows;
 
     public FloodGuard(ConfigManager config) {
+        this.config = config;
+        applyConfig();
+    }
+
+    public void reconfigure() {
+        applyConfig();
+    }
+
+    private void applyConfig() {
         this.enabled = config.getBoolean("flood.enabled", true);
         this.maxConnects = Math.max(1, config.getInt("flood.max-connects", 8));
         int windowSecs = Math.max(1, config.getInt("flood.window-seconds", 10));
+
         this.windows = Caffeine.newBuilder()
                 .expireAfterWrite(windowSecs, TimeUnit.SECONDS)
                 .maximumSize(50_000)

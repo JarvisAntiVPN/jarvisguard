@@ -1,6 +1,6 @@
 package dev.flamingomg.jarvis.config;
 
-import org.slf4j.Logger;
+import dev.flamingomg.jarvis.util.Log;
 import org.yaml.snakeyaml.Yaml;
 
 import java.io.IOException;
@@ -18,12 +18,12 @@ public final class ConfigManager {
     public static final String DEFAULT_BACKEND_URL = "https://connector.jarvisguard.com";
 
     private final Path dataDirectory;
-    private final Logger logger;
+    private final Log logger;
     private volatile Map<String, Object> root = Collections.emptyMap();
 
     private volatile java.util.Set<String> bypassSet = Collections.emptySet();
 
-    public ConfigManager(Path dataDirectory, Logger logger) {
+    public ConfigManager(Path dataDirectory, Log logger) {
         this.dataDirectory = dataDirectory;
         this.logger = logger;
     }
@@ -49,8 +49,26 @@ public final class ConfigManager {
         try {
             Files.createDirectories(dataDirectory);
             Path f = dataDirectory.resolve(SECRET_CACHE_FILE);
-            Files.write(f, java.util.List.of(licenseKey, secret));
-            try { java.io.File jf = f.toFile(); jf.setReadable(false, false); jf.setReadable(true, true); } catch (Exception ignore) {}
+
+            if (java.nio.file.FileSystems.getDefault().supportedFileAttributeViews().contains("posix")) {
+                java.nio.file.attribute.FileAttribute<?> attr = java.nio.file.attribute.PosixFilePermissions
+                        .asFileAttribute(java.util.EnumSet.of(
+                                java.nio.file.attribute.PosixFilePermission.OWNER_READ,
+                                java.nio.file.attribute.PosixFilePermission.OWNER_WRITE));
+                byte[] data = (licenseKey + System.lineSeparator() + secret + System.lineSeparator())
+                        .getBytes(java.nio.charset.StandardCharsets.UTF_8);
+
+                Files.deleteIfExists(f);
+                try (java.nio.channels.SeekableByteChannel ch = Files.newByteChannel(f,
+                        java.util.EnumSet.of(java.nio.file.StandardOpenOption.CREATE_NEW,
+                                java.nio.file.StandardOpenOption.WRITE), attr)) {
+                    ch.write(java.nio.ByteBuffer.wrap(data));
+                }
+            } else {
+
+                Files.write(f, java.util.List.of(licenseKey, secret));
+                try { java.io.File jf = f.toFile(); jf.setReadable(false, false); jf.setReadable(true, true); } catch (Exception ignore) {}
+            }
         } catch (Exception ignore) {}
     }
 

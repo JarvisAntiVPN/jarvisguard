@@ -12,7 +12,7 @@ import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import net.kyori.adventure.text.minimessage.tag.standard.StandardTags;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.adventure.title.Title;
-import org.slf4j.Logger;
+import dev.flamingomg.jarvis.util.Log;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -41,7 +41,7 @@ public final class SyncClient {
             .build();
 
     private final ConfigManager config;
-    private final Logger logger;
+    private final Log logger;
     private final JarvisClient jarvisClient;
     private final BanCache banCache;
     private final ProxyServer proxy;
@@ -54,6 +54,8 @@ public final class SyncClient {
 
     private static final int RECONNECT_BASE_SEC = 5;
     private static final int RECONNECT_MAX_SEC = 60;
+
+    private static final long STABLE_UPTIME_MS = 30_000L;
     private int reconnectDelaySec = RECONNECT_BASE_SEC;
     private static final long RESYNC_PERIOD_MS = 12 * 60_000L;
     private static final long RESYNC_JITTER_MS = 3 * 60_000L;
@@ -61,6 +63,8 @@ public final class SyncClient {
     private static final long SSE_STALE_MS = 60_000L;
     private volatile long lastActivityMs = 0L;
     private volatile Thread streamThread;
+
+    private volatile String streamLicenseKey = "";
     private final ScheduledExecutorService watchdog = Executors.newSingleThreadScheduledExecutor(r -> {
         Thread t = new Thread(r, "jarvis-sync-watchdog");
         t.setDaemon(true);
@@ -69,7 +73,7 @@ public final class SyncClient {
 
     private String currentEvent = "";
 
-    public SyncClient(ConfigManager config, Logger logger, JarvisClient jarvisClient,
+    public SyncClient(ConfigManager config, Log logger, JarvisClient jarvisClient,
                       BanCache banCache, ProxyServer proxy) {
         this.config = config;
         this.logger = logger;
@@ -110,8 +114,8 @@ public final class SyncClient {
         scheduler.shutdownNow();
         watchdog.shutdownNow();
 
-        try { http.close(); } catch (Exception ignored) {}
-        httpExecutor.shutdownNow();
+        dev.flamingomg.jarvis.client.HttpExecutors.closeQuietly(http);
+        dev.flamingomg.jarvis.client.HttpExecutors.shutdownQuietly(httpExecutor);
     }
 
     private void checkStale() {
@@ -123,9 +127,18 @@ public final class SyncClient {
                 logger.warn("[sync] SSE stream idle for {} ms (possible half-open); forcing reconnect.", idle);
                 st.interrupt();
             }
+
+            reconnectIfKeyChanged();
         } catch (Throwable t) {
             logger.debug("[sync] watchdog: {}", t.toString());
         }
+    }
+
+    public void reconnectIfKeyChanged() {
+        Thread st = streamThread;
+        if (st == null) return;
+        String current = config.getString("backend.license-key", "");
+        if (!current.equals(streamLicenseKey)) st.interrupt();
     }
 
     private void connect() {
@@ -142,6 +155,7 @@ public final class SyncClient {
         }
         String backendUrl = ConfigManager.DEFAULT_BACKEND_URL;
         String licenseKey = config.getString("backend.license-key", "");
+        this.streamLicenseKey = licenseKey;
         long ts = System.currentTimeMillis();
         String signature = signer.sign(HmacSigner.requestPayload(ts, "sync", licenseKey));
 
@@ -158,11 +172,14 @@ public final class SyncClient {
 
         streamThread = Thread.currentThread();
         lastActivityMs = System.currentTimeMillis();
+
+        long connectStartMs = 0L;
         try {
             HttpResponse<Stream<String>> resp = http.send(request, HttpResponse.BodyHandlers.ofLines());
             if (resp.statusCode() == 200) {
-                reconnectDelaySec = RECONNECT_BASE_SEC;
-                lastActivityMs = System.currentTimeMillis();
+
+                connectStartMs = System.currentTimeMillis();
+                lastActivityMs = connectStartMs;
 
                 try { jarvisClient.fetchAndSyncBans(banCache); }
                 catch (Throwable t) { logger.debug("[sync] resync on connect failed: {}", t.toString()); }
@@ -184,6 +201,10 @@ public final class SyncClient {
             }
         } finally {
             streamThread = null;
+
+            if (connectStartMs > 0L && System.currentTimeMillis() - connectStartMs > STABLE_UPTIME_MS) {
+                reconnectDelaySec = RECONNECT_BASE_SEC;
+            }
         }
 
         if (running.get()) {
@@ -258,7 +279,7 @@ public final class SyncClient {
         long now = System.currentTimeMillis();
         if (now - lastUnknownLogMs < UNKNOWN_LOG_THROTTLE_MS) return;
         lastUnknownLogMs = now;
-        logger.debug("[sync] evento SSE desconocido: {}", type);
+        logger.debug("[sync] unknown SSE event: {}", type);
     }
 
     private void handleConfig(String data) {

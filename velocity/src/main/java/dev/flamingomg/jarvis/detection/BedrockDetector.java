@@ -3,7 +3,7 @@ package dev.flamingomg.jarvis.detection;
 import com.velocitypowered.api.proxy.ProxyServer;
 import dev.flamingomg.jarvis.config.ConfigManager;
 import org.geysermc.floodgate.api.FloodgateApi;
-import org.slf4j.Logger;
+import dev.flamingomg.jarvis.util.Log;
 
 import java.util.UUID;
 
@@ -12,7 +12,7 @@ public final class BedrockDetector {
     private final ConfigManager config;
     private final boolean floodgatePresent;
 
-    public BedrockDetector(ProxyServer proxy, ConfigManager config, Logger logger) {
+    public BedrockDetector(ProxyServer proxy, ConfigManager config, Log logger) {
         this.config = config;
         this.floodgatePresent = proxy.getPluginManager().getPlugin("floodgate").isPresent();
         if (floodgatePresent) {

@@ -1,6 +1,6 @@
 package dev.flamingomg.jarvis.config;
 
-import java.util.logging.Logger;
+import dev.flamingomg.jarvis.util.Log;
 import org.yaml.snakeyaml.Yaml;
 
 import java.io.IOException;
@@ -18,12 +18,12 @@ public final class ConfigManager {
     public static final String DEFAULT_BACKEND_URL = "https://connector.jarvisguard.com";
 
     private final Path dataDirectory;
-    private final Logger logger;
+    private final Log logger;
     private volatile Map<String, Object> root = Collections.emptyMap();
 
     private volatile java.util.Set<String> bypassSet = Collections.emptySet();
 
-    public ConfigManager(Path dataDirectory, Logger logger) {
+    public ConfigManager(Path dataDirectory, Log logger) {
         this.dataDirectory = dataDirectory;
         this.logger = logger;
     }
@@ -49,8 +49,26 @@ public final class ConfigManager {
         try {
             Files.createDirectories(dataDirectory);
             Path f = dataDirectory.resolve(SECRET_CACHE_FILE);
-            Files.write(f, java.util.List.of(licenseKey, secret));
-            try { java.io.File jf = f.toFile(); jf.setReadable(false, false); jf.setReadable(true, true); } catch (Exception ignore) {}
+
+            if (java.nio.file.FileSystems.getDefault().supportedFileAttributeViews().contains("posix")) {
+                java.nio.file.attribute.FileAttribute<?> attr = java.nio.file.attribute.PosixFilePermissions
+                        .asFileAttribute(java.util.EnumSet.of(
+                                java.nio.file.attribute.PosixFilePermission.OWNER_READ,
+                                java.nio.file.attribute.PosixFilePermission.OWNER_WRITE));
+                byte[] data = (licenseKey + System.lineSeparator() + secret + System.lineSeparator())
+                        .getBytes(java.nio.charset.StandardCharsets.UTF_8);
+
+                Files.deleteIfExists(f);
+                try (java.nio.channels.SeekableByteChannel ch = Files.newByteChannel(f,
+                        java.util.EnumSet.of(java.nio.file.StandardOpenOption.CREATE_NEW,
+                                java.nio.file.StandardOpenOption.WRITE), attr)) {
+                    ch.write(java.nio.ByteBuffer.wrap(data));
+                }
+            } else {
+
+                Files.write(f, java.util.List.of(licenseKey, secret));
+                try { java.io.File jf = f.toFile(); jf.setReadable(false, false); jf.setReadable(true, true); } catch (Exception ignore) {}
+            }
         } catch (Exception ignore) {}
     }
 
@@ -64,7 +82,7 @@ public final class ConfigManager {
         if (warnedLegacyKeys) return;
         if (resolve("fallback.policy") != null || resolve("unknown.policy") != null) {
             warnedLegacyKeys = true;
-            logger.warning("config.yml still has 'fallback.policy'/'unknown.policy'; that option no longer exists. Jarvis always lets players in when the backend is unreachable (fail-open); local bans and the flood limiter still apply.");
+            logger.warn("config.yml still has 'fallback.policy'/'unknown.policy'; that option no longer exists. Jarvis always lets players in when the backend is unreachable (fail-open); local bans and the flood limiter still apply.");
         }
     }
 
@@ -74,7 +92,7 @@ public final class ConfigManager {
             Path file = dataDirectory.resolve(FILE_NAME);
             if (Files.notExists(file)) {
                 copyDefault(file);
-                logger.info("config.yml created at " + file);
+                logger.info("config.yml created at {}", file);
             }
             try (InputStream in = Files.newInputStream(file)) {
                 Map<String, Object> loaded = new Yaml().load(in);
@@ -82,10 +100,10 @@ public final class ConfigManager {
             }
             rebuildBypassSet();
             warnLegacyKeysOnce();
-            logger.fine("Jarvis client configuration loaded.");
+            logger.debug("Jarvis client configuration loaded.");
         } catch (IOException | RuntimeException e) {
 
-            logger.log(java.util.logging.Level.SEVERE, "Couldn't load " + FILE_NAME + "; using default values.", e);
+            logger.error("Couldn't load {}; using default values.", FILE_NAME, e);
             this.root = Collections.emptyMap();
             this.bypassSet = Collections.emptySet();
         }
@@ -172,7 +190,7 @@ public final class ConfigManager {
         String clean = newKey == null ? "" : newKey.trim().replace("\"", "");
 
         if (clean.chars().anyMatch(c -> c < 0x20 || c == '\\')) {
-            logger.warning("License key with invalid characters; not saved.");
+            logger.warn("License key with invalid characters; not saved.");
             return false;
         }
         Path file = dataDirectory.resolve(FILE_NAME);
@@ -196,7 +214,7 @@ public final class ConfigManager {
             load();
             return true;
         } catch (IOException e) {
-            logger.severe("Couldn't save the key to " + FILE_NAME + ": " + e.getMessage());
+            logger.error("Couldn't save the key to {}: {}", FILE_NAME, e.getMessage());
             return false;
         }
     }

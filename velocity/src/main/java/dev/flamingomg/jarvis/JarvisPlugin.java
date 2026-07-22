@@ -18,6 +18,7 @@ import dev.flamingomg.jarvis.detection.BedrockDetector;
 import dev.flamingomg.jarvis.detection.FloodGuard;
 import dev.flamingomg.jarvis.listener.DetectionListener;
 import dev.flamingomg.jarvis.sync.SyncClient;
+import dev.flamingomg.jarvis.util.Log;
 import org.bstats.velocity.Metrics;
 import org.slf4j.Logger;
 
@@ -33,12 +34,12 @@ import java.nio.file.Path;
 )
 public final class JarvisPlugin {
 
-    public static final String VERSION = "0.5.19";
+    public static final String VERSION = "0.5.20";
 
     private static final int BSTATS_PLUGIN_ID = 31671;
 
     private final ProxyServer proxy;
-    private final Logger logger;
+    private final Log logger;
     private final Path dataDirectory;
     private final Metrics.Factory metricsFactory;
 
@@ -57,7 +58,7 @@ public final class JarvisPlugin {
     public JarvisPlugin(ProxyServer proxy, Logger logger, @DataDirectory Path dataDirectory,
                         Metrics.Factory metricsFactory) {
         this.proxy = proxy;
-        this.logger = logger;
+        this.logger = new Log(logger);
         this.dataDirectory = dataDirectory;
         this.metricsFactory = metricsFactory;
     }
@@ -73,16 +74,18 @@ public final class JarvisPlugin {
         FloodGuard floodGuard = new FloodGuard(config);
         this.banCache = new BanCache(config);
 
-        proxy.getEventManager().register(this,
-                new DetectionListener(proxy, this, jarvisClient, bedrockDetector,
-                        config, logger, floodGuard, banCache));
+        this.syncClient = new SyncClient(config, logger, jarvisClient, banCache, proxy);
+
+        DetectionListener detectionListener = new DetectionListener(proxy, this, jarvisClient, bedrockDetector,
+                config, logger, floodGuard, banCache);
+        proxy.getEventManager().register(this, detectionListener);
+        detectionListener.init();
 
         CommandManager cm = proxy.getCommandManager();
 
         CommandMeta antivpnMeta = cm.metaBuilder("antivpn").aliases("jarvis", "avpn").plugin(this).build();
-        cm.register(antivpnMeta, new AntiVpnCommand(jarvisClient, proxy, banCache, config, this));
+        cm.register(antivpnMeta, new AntiVpnCommand(jarvisClient, proxy, banCache, config, this, floodGuard, syncClient));
 
-        this.syncClient = new SyncClient(config, logger, jarvisClient, banCache, proxy);
         syncClient.start();
         jarvisClient.fetchAndSyncBans(banCache);
 

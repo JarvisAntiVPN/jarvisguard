@@ -45,7 +45,7 @@ public final class VerdictVerifier {
         }
     }
 
-    static boolean keyLoaded() {
+    public static boolean keyLoaded() {
         return PUB != null;
     }
 
