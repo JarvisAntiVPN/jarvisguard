@@ -6,14 +6,14 @@
 
     <groupId>dev.flamingomg</groupId>
     <artifactId>jarvis</artifactId>
-    <version>0.5.20</version>
+    <version>0.5.21</version>
     <packaging>jar</packaging>
 
     <name>Jarvis</name>
     <description>Anti-VPN/proxy client for Velocity</description>
 
     <properties>
-        <maven.compiler.release>21</maven.compiler.release>
+        <maven.compiler.release>17</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <velocity.version>3.3.0-SNAPSHOT</velocity.version>
     </properties>

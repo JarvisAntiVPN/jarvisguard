@@ -32,7 +32,7 @@ Each platform is an independent Maven project. From its folder:
 mvn package
 ```
 
-The jar is produced in `target/`. Requires JDK 21 or newer.
+The jar is produced in `target/`. Requires JDK 17 or newer.
 
 ## Links
 

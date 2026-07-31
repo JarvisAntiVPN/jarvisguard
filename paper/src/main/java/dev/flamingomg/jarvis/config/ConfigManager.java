@@ -103,9 +103,7 @@ public final class ConfigManager {
             logger.debug("Jarvis client configuration loaded.");
         } catch (IOException | RuntimeException e) {
 
-            logger.error("Couldn't load {}; using default values.", FILE_NAME, e);
-            this.root = Collections.emptyMap();
-            this.bypassSet = Collections.emptySet();
+            logger.error("Couldn't load {}; keeping the settings currently in memory.", FILE_NAME, e);
         }
     }
 
@@ -194,6 +192,7 @@ public final class ConfigManager {
             return false;
         }
         Path file = dataDirectory.resolve(FILE_NAME);
+        Path tmp  = dataDirectory.resolve(FILE_NAME + ".tmp");
         String keyLine = "key: \"" + clean + "\"";
         try {
             Files.createDirectories(dataDirectory);
@@ -210,10 +209,18 @@ public final class ConfigManager {
                 }
             }
             if (!replaced) lines.add(keyLine);
-            Files.write(file, lines);
+
+            Files.write(tmp, lines);
+            try {
+                Files.move(tmp, file, java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            } catch (java.nio.file.AtomicMoveNotSupportedException notAtomic) {
+                Files.move(tmp, file, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
             load();
             return true;
         } catch (IOException e) {
+            try { Files.deleteIfExists(tmp); } catch (IOException ignored) {  }
             logger.error("Couldn't save the key to {}: {}", FILE_NAME, e.getMessage());
             return false;
         }

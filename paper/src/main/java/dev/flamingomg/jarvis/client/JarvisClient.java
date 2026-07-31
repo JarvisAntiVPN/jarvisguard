@@ -46,6 +46,7 @@ public final class JarvisClient {
     private volatile int maxAccountsPerIp = 0;
     private volatile String locale = "en";
     private volatile boolean notifyStaff = true;
+    private volatile String notifyPermission = "jarvis.admin";
 
     private volatile int    cbFailureThreshold = 5;
     private volatile long   cbOpenDurationMs   = 30_000L;
@@ -65,6 +66,10 @@ public final class JarvisClient {
 
     private final java.util.concurrent.ExecutorService httpExecutor =
             HttpExecutors.daemonHttpExecutor("jarvis-http");
+
+    private final LocalDenialReporter denials = new LocalDenialReporter(this::reportLocalDenials);
+
+    public LocalDenialReporter denials() { return denials; }
 
     public JarvisClient(ConfigManager config, Log logger) {
         this.config = config;
@@ -94,6 +99,7 @@ public final class JarvisClient {
         if (!isBlank(secret)) this.secretForKey = config.getString("backend.license-key", "");
         snapshotConfig();
         startKeepAlive();
+        denials.start();
     }
 
     private static boolean isBlank(String s) {
@@ -172,6 +178,8 @@ public final class JarvisClient {
 
     public boolean notifyStaffEnabled() { return notifyStaff; }
 
+    public String notifyPermission() { return notifyPermission; }
+
     private void applyPanelConfig(Map<?, ?> body) {
         if (body == null) return;
         Object mp = body.get("maxAccountsPerIp");
@@ -180,6 +188,9 @@ public final class JarvisClient {
         if (loc != null && !String.valueOf(loc).isBlank()) this.locale = dev.flamingomg.jarvis.i18n.Messages.normalize(String.valueOf(loc));
         Object ns = body.get("notifyStaff");
         if (ns instanceof Boolean b) this.notifyStaff = b;
+
+        Object np = body.get("notifyPermission");
+        if (np != null && !String.valueOf(np).isBlank()) this.notifyPermission = String.valueOf(np).trim();
     }
 
     public void refreshConfig() {
@@ -308,7 +319,9 @@ public final class JarvisClient {
             if (err == null) logger.warn("Backend HTTP {} for {}", resp.statusCode(), ip);
             else logger.debug("Error contacting backend for {}: {}", ip, err.getMessage());
             return onFailure(ip, failThreshold);
-        });
+        })
+
+        .completeOnTimeout(unknownVerdict(), timeoutMs + 4500L, java.util.concurrent.TimeUnit.MILLISECONDS);
     }
 
     private static final long SECRET_RESET_MIN_INTERVAL_MS = 60_000L;
@@ -401,6 +414,52 @@ public final class JarvisClient {
         payload.put("durationMs", durationMs);
         report("/api/v1/session/end", ip, username, payload,
                 "Error reporting session end for " + username);
+    }
+
+    private final java.util.concurrent.atomic.AtomicInteger localDenials404 =
+            new java.util.concurrent.atomic.AtomicInteger();
+    private static final int LOCAL_DENIALS_404_GIVE_UP = 3;
+
+    private static final int LOCAL_DENIALS_TIMEOUT_MS = 5_000;
+
+    public void reportLocalDenials(java.util.List<LocalDenialReporter.Entry> lote) {
+        if (lote == null || lote.isEmpty()) return;
+        if (signer == null || !signer.hasSecret()) return;
+        if (localDenials404.get() >= LOCAL_DENIALS_404_GIVE_UP) return;
+        java.util.List<Map<String, Object>> arr = new java.util.ArrayList<>(lote.size());
+        for (LocalDenialReporter.Entry e : lote) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("reason", e.reason());
+            m.put("ip", e.ip());
+            if (e.username() != null) m.put("username", e.username());
+            m.put("hits", e.hits());
+            arr.add(m);
+        }
+        long ts = System.currentTimeMillis();
+        String licKey = licenseKey;
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("denials", arr);
+        payload.put("timestamp", ts);
+        String sig = signer.sign(HmacSigner.requestPayload(ts, "local-denials", licKey));
+        HttpRequest req = HttpRequest.newBuilder(URI.create(ConfigManager.DEFAULT_BACKEND_URL + "/api/v1/local-denials"))
+                .timeout(Duration.ofMillis(LOCAL_DENIALS_TIMEOUT_MS))
+                .header("Content-Type",  "application/json")
+                .header("X-License-Key", licKey)
+                .header("X-Timestamp",   String.valueOf(ts))
+                .header("X-Signature",   sig)
+                .POST(HttpRequest.BodyPublishers.ofString(GSON.toJson(payload), StandardCharsets.UTF_8))
+                .build();
+        http.sendAsync(req, HttpResponse.BodyHandlers.discarding())
+                .thenAccept(resp -> {
+                    if (resp.statusCode() == 404) {
+                        if (localDenials404.incrementAndGet() == LOCAL_DENIALS_404_GIVE_UP) {
+                            logger.debug("[local-denials] endpoint not available; disabled until restart");
+                        }
+                    } else {
+                        localDenials404.set(0);
+                    }
+                })
+                .exceptionally(e -> { logger.debug("[local-denials] report failed: {}", e.toString()); return null; });
     }
 
     public void reportChallengeComplete(String username, String ip) {
@@ -533,6 +592,10 @@ public final class JarvisClient {
         return cbState.get().name() + " (" + cbFailures.get() + " failures)";
     }
 
+    public boolean backendHealthy() {
+        return cbState.get() == CbState.CLOSED;
+    }
+
     public VerdictCache cache() { return cache; }
 
     private void startKeepAlive() {
@@ -570,6 +633,7 @@ public final class JarvisClient {
     }
 
     public void shutdown() {
+        denials.stop();
         HttpExecutors.shutdownQuietly(keepAlive);
         HttpExecutors.closeQuietly(http);
         HttpExecutors.shutdownQuietly(httpExecutor);
@@ -598,7 +662,8 @@ public final class JarvisClient {
     }
 
     private void sendAsync(String url, String licKey, long ts, String sig, String body, Runnable onError) {
-        int timeoutMs = backendTimeoutMs;
+
+        long timeoutMs = Math.max(5000L, config.getInt("backend.connect-timeout-ms", 8000) + 5000L);
         HttpRequest req = HttpRequest.newBuilder(URI.create(url))
                 .timeout(Duration.ofMillis(timeoutMs))
                 .header("Content-Type",  "application/json")

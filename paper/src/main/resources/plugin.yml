@@ -18,6 +18,11 @@ permissions:
   jarvis.admin:
     description: Admin subcommands and staff notifications
     default: op
+    children:
+      jarvis.alerts: true
+  jarvis.alerts:
+    description: Receives the in-game staff alert when a player is blocked
+    default: false
   jarvis.bypass:
     description: Lets the player skip anti-VPN detection
     default: false

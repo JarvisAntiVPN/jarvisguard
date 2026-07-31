@@ -97,13 +97,26 @@ public final class AntiVpnCommand implements CommandExecutor, TabCompleter {
         if (!sender.hasPermission("jarvis.admin")) { sender.sendMessage(PRE + "§c" + m("cmd.noperm")); return; }
         sender.sendMessage(PRE + "§b" + m("cmd.statsTitle"));
 
-        boolean protectedNow = client.signer() != null && client.signer().hasSecret() && !client.keyRejected();
-        if (protectedNow) {
+        boolean canSign = client.signer() != null && client.signer().hasSecret() && !client.keyRejected();
+        boolean ipCheckDisabled = config.getBoolean("server.behind-proxy", false);
+        var estado = dev.flamingomg.jarvis.model.ProtectionState.of(canSign, client.backendHealthy(), ipCheckDisabled);
+
+        if (estado.isProtecting()) {
             sender.sendMessage(PRE + "§a" + m("cmd.protected"));
         } else {
-            sender.sendMessage(PRE + "§c" + m("cmd.unprotected"));
-            if (client.keyRejected()) {
-                sender.sendMessage(PRE + "§c" + m("cmd.keyrejected"));
+            switch (estado) {
+                case DEGRADED -> {
+
+                    sender.sendMessage(PRE + "§e" + m("cmd.degraded"));
+                    sender.sendMessage(PRE + "§7" + m("cmd.degradedWhy"));
+                }
+                case BEHIND_PROXY -> sender.sendMessage(PRE + "§e" + m("cmd.behindProxy"));
+                default -> {
+                    sender.sendMessage(PRE + "§c" + m("cmd.unprotected"));
+                    if (client.keyRejected()) {
+                        sender.sendMessage(PRE + "§c" + m("cmd.keyrejected"));
+                    }
+                }
             }
         }
 

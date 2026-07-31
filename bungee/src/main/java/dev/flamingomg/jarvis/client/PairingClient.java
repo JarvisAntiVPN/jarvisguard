@@ -20,7 +20,7 @@ public final class PairingClient {
     private final Log logger;
 
     private final java.util.concurrent.ExecutorService httpExecutor =
-            java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor();
+            HttpExecutors.daemonHttpExecutor("jarvis-pair");
     private final HttpClient http = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(6)).executor(httpExecutor).build();
 
@@ -74,8 +74,8 @@ public final class PairingClient {
     }
 
     public void shutdown() {
-        try { http.close(); } catch (Exception ignored) {}
-        httpExecutor.shutdownNow();
+        HttpExecutors.closeQuietly(http);
+        HttpExecutors.shutdownQuietly(httpExecutor);
     }
 
     private static String str(Object o) { return o == null ? null : String.valueOf(o); }

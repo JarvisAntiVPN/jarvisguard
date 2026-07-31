@@ -48,7 +48,7 @@ public final class SyncClient {
     private final ProxyServer proxy;
 
     private final java.util.concurrent.ExecutorService httpExecutor =
-            java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor();
+            dev.flamingomg.jarvis.client.HttpExecutors.daemonHttpExecutor("jarvis-sync-http");
     private final HttpClient http;
     private final ScheduledExecutorService scheduler;
     private final AtomicBoolean running = new AtomicBoolean(false);
@@ -195,9 +195,14 @@ public final class SyncClient {
                 if (sc == 401 || sc == 403) jarvisClient.onSyncRejected(sc);
                 logger.debug("[sync] SSE rejected HTTP {}", sc);
             }
-        } catch (Exception e) {
+
+        } catch (Throwable e) {
             if (running.get()) {
-                logger.debug("[sync] SSE connection lost, retrying in {}s: {}", reconnectDelaySec, e.getMessage());
+                if (e instanceof Exception) {
+                    logger.debug("[sync] SSE connection lost, retrying in {}s: {}", reconnectDelaySec, e.getMessage());
+                } else {
+                    logger.warn("[sync] SSE loop hit {}, retrying in {}s", e.toString(), reconnectDelaySec);
+                }
             }
         } finally {
             streamThread = null;

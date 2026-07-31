@@ -6,14 +6,14 @@
 
     <groupId>dev.flamingomg</groupId>
     <artifactId>jarvis-bungee</artifactId>
-    <version>0.5.20</version>
+    <version>0.5.21</version>
     <packaging>jar</packaging>
 
     <name>Jarvis</name>
     <description>Anti-VPN/proxy client for BungeeCord</description>
 
     <properties>
-        <maven.compiler.release>21</maven.compiler.release>
+        <maven.compiler.release>17</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <bungee.version>1.21-R0.5-SNAPSHOT</bungee.version>
         <adventure.version>4.3.4</adventure.version>

@@ -195,9 +195,14 @@ public final class SyncClient {
                 if (sc == 401 || sc == 403) jarvisClient.onSyncRejected(sc);
                 logger.debug("[sync] SSE rejected HTTP {}", sc);
             }
-        } catch (Exception e) {
+
+        } catch (Throwable e) {
             if (running.get()) {
-                logger.debug("[sync] SSE connection lost, retrying in {}s: {}", reconnectDelaySec, e.getMessage());
+                if (e instanceof Exception) {
+                    logger.debug("[sync] SSE connection lost, retrying in {}s: {}", reconnectDelaySec, e.getMessage());
+                } else {
+                    logger.warn("[sync] SSE loop hit {}, retrying in {}s", e.toString(), reconnectDelaySec);
+                }
             }
         } finally {
             streamThread = null;

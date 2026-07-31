@@ -111,13 +111,26 @@ public final class AntiVpnCommand implements SimpleCommand {
         if (!src.hasPermission("jarvis.admin")) { noPermission(src); return; }
         src.sendMessage(pre().append(Component.text(m("cmd.statsTitle"), NamedTextColor.AQUA)));
 
-        boolean protectedNow = client.signer() != null && client.signer().hasSecret() && !client.keyRejected();
-        if (protectedNow) {
+        boolean canSign = client.signer() != null && client.signer().hasSecret() && !client.keyRejected();
+
+        var estado = dev.flamingomg.jarvis.model.ProtectionState.of(canSign, client.backendHealthy(), false);
+
+        if (estado.isProtecting()) {
             src.sendMessage(pre().append(Component.text(m("cmd.protected"), NamedTextColor.GREEN)));
         } else {
-            src.sendMessage(pre().append(Component.text(m("cmd.unprotected"), NamedTextColor.RED)));
-            if (client.keyRejected()) {
-                src.sendMessage(pre().append(Component.text(m("cmd.keyrejected"), NamedTextColor.RED)));
+            switch (estado) {
+                case DEGRADED -> {
+
+                    src.sendMessage(pre().append(Component.text(m("cmd.degraded"), NamedTextColor.YELLOW)));
+                    src.sendMessage(pre().append(Component.text(m("cmd.degradedWhy"), NamedTextColor.GRAY)));
+                }
+                case BEHIND_PROXY -> src.sendMessage(pre().append(Component.text(m("cmd.behindProxy"), NamedTextColor.YELLOW)));
+                default -> {
+                    src.sendMessage(pre().append(Component.text(m("cmd.unprotected"), NamedTextColor.RED)));
+                    if (client.keyRejected()) {
+                        src.sendMessage(pre().append(Component.text(m("cmd.keyrejected"), NamedTextColor.RED)));
+                    }
+                }
             }
         }
 

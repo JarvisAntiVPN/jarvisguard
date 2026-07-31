@@ -100,6 +100,7 @@ public final class DetectionListener implements Listener {
         boolean reservedIp = false;
         if (!bedrockBypass) {
             if (floodGuard.checkAndRecord(ip)) {
+                client.denials().record(dev.flamingomg.jarvis.client.LocalDenialReporter.FLOOD, ip, name);
                 String msg = config.getString("messages.flood",
                         dev.flamingomg.jarvis.i18n.Messages.get(client.locale(), "flood"));
                 event.setCancelled(true);
@@ -107,6 +108,7 @@ public final class DetectionListener implements Listener {
                 return;
             }
             if (banCache.isBanned(ip)) {
+                client.denials().record(dev.flamingomg.jarvis.client.LocalDenialReporter.LOCAL_BAN, ip, name);
                 String msg = config.getString("messages.block", dev.flamingomg.jarvis.i18n.Messages.get(client.locale(), "block"));
                 event.setCancelled(true);
                 event.setCancelReason(serialize(renderBrandedLocal(msg)));
@@ -121,6 +123,7 @@ public final class DetectionListener implements Listener {
                 if (connecting + connectedByIp.getOrDefault(ip, 0) > maxPerIp) {
                     releaseConnecting(ip);
                     reservedIp = false;
+                    client.denials().record(dev.flamingomg.jarvis.client.LocalDenialReporter.MAX_PER_IP, ip, name);
                     String msg = config.getString("messages.maxperip",
                             dev.flamingomg.jarvis.i18n.Messages.get(client.locale(), "maxperip"));
                     event.setCancelled(true);
@@ -402,7 +405,8 @@ public final class DetectionListener implements Listener {
                         .replace("{score}", ""));
         BaseComponent[] serialized = serialize(notification);
         proxy.getPlayers().stream()
-                .filter(p -> p.hasPermission("jarvis.admin"))
+
+                .filter(p -> p.hasPermission(client.notifyPermission()) || p.hasPermission("jarvis.admin"))
                 .forEach(p -> p.sendMessage(serialized));
     }
 

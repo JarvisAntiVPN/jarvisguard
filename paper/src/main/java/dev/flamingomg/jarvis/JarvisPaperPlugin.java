@@ -23,7 +23,7 @@ import java.util.Map;
 
 public final class JarvisPaperPlugin extends JavaPlugin {
 
-    public static final String VERSION = "0.5.20";
+    public static final String VERSION = "0.5.21";
 
     private static final int BSTATS_PLUGIN_ID = 31883;
 

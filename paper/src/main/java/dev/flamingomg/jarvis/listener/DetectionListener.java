@@ -98,10 +98,12 @@ public final class DetectionListener implements Listener, PluginMessageListener 
         boolean reservedIp = false;
         if (!bedrockBypass) {
             if (floodGuard.checkAndRecord(ip)) {
+                client.denials().record(dev.flamingomg.jarvis.client.LocalDenialReporter.FLOOD, ip, name);
                 denyLocal(event, config.getString("messages.flood", Messages.get(client.locale(), "flood")));
                 return;
             }
             if (banCache.isBanned(ip)) {
+                client.denials().record(dev.flamingomg.jarvis.client.LocalDenialReporter.LOCAL_BAN, ip, name);
                 denyLocal(event, config.getString("messages.block", Messages.get(client.locale(), "block")));
                 return;
             }
@@ -113,6 +115,7 @@ public final class DetectionListener implements Listener, PluginMessageListener 
                 if (connecting + connectedByIp.getOrDefault(ip, 0) > maxPerIp) {
                     releaseConnecting(ip);
                     reservedIp = false;
+                    client.denials().record(dev.flamingomg.jarvis.client.LocalDenialReporter.MAX_PER_IP, ip, name);
                     denyLocal(event, config.getString("messages.maxperip", Messages.get(client.locale(), "maxperip")));
                     return;
                 }
@@ -356,7 +359,9 @@ public final class DetectionListener implements Listener, PluginMessageListener 
         String text = LEGACY.serialize(MM.deserialize(template
                 .replace("{name}", MM.escapeTags(safeName)).replace("{ip}", MM.escapeTags(safeIp)).replace("{score}", "")));
         Bukkit.getScheduler().runTask(plugin, () -> {
-            for (Player p : Bukkit.getOnlinePlayers()) if (p.hasPermission("jarvis.admin")) p.sendMessage(text);
+
+            for (Player p : Bukkit.getOnlinePlayers())
+                if (p.hasPermission(client.notifyPermission()) || p.hasPermission("jarvis.admin")) p.sendMessage(text);
         });
     }
 }

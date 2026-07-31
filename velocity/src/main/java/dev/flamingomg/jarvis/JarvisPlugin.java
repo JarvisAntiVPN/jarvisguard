@@ -34,7 +34,7 @@ import java.nio.file.Path;
 )
 public final class JarvisPlugin {
 
-    public static final String VERSION = "0.5.20";
+    public static final String VERSION = "0.5.21";
 
     private static final int BSTATS_PLUGIN_ID = 31671;
 

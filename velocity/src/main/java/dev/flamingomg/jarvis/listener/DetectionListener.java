@@ -94,12 +94,14 @@ public final class DetectionListener {
         boolean reservedIp = false;
         if (!bedrockBypass) {
             if (floodGuard.checkAndRecord(ip)) {
+                client.denials().record(dev.flamingomg.jarvis.client.LocalDenialReporter.FLOOD, ip, name);
                 String msg = config.getString("messages.flood",
                         dev.flamingomg.jarvis.i18n.Messages.get(client.locale(), "flood"));
                 event.setResult(ResultedEvent.ComponentResult.denied(renderBrandedLocal(msg)));
                 return null;
             }
             if (banCache.isBanned(ip)) {
+                client.denials().record(dev.flamingomg.jarvis.client.LocalDenialReporter.LOCAL_BAN, ip, name);
                 String msg = config.getString("messages.block", dev.flamingomg.jarvis.i18n.Messages.get(client.locale(), "block"));
                 event.setResult(ResultedEvent.ComponentResult.denied(renderBrandedLocal(msg)));
                 return null;
@@ -113,6 +115,7 @@ public final class DetectionListener {
                 if (connecting + connectedByIp.getOrDefault(ip, 0) > maxPerIp) {
                     releaseConnecting(ip);
                     reservedIp = false;
+                    client.denials().record(dev.flamingomg.jarvis.client.LocalDenialReporter.MAX_PER_IP, ip, name);
                     String msg = config.getString("messages.maxperip",
                             dev.flamingomg.jarvis.i18n.Messages.get(client.locale(), "maxperip"));
                     event.setResult(ResultedEvent.ComponentResult.denied(renderBrandedLocal(msg)));
@@ -340,7 +343,8 @@ public final class DetectionListener {
                         .replace("{ip}", MM.escapeTags(safeIp))
                         .replace("{score}", ""));
         proxy.getAllPlayers().stream()
-                .filter(p -> p.hasPermission("jarvis.admin"))
+
+                .filter(p -> p.hasPermission(client.notifyPermission()) || p.hasPermission("jarvis.admin"))
                 .forEach(p -> p.sendMessage(notification));
     }
 
