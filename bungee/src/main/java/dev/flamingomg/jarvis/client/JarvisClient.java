@@ -71,6 +71,10 @@ public final class JarvisClient {
 
     public LocalDenialReporter denials() { return denials; }
 
+    private final ClockOffset clock = new ClockOffset();
+
+    public ClockOffset clock() { return clock; }
+
     public JarvisClient(ConfigManager config, Log logger) {
         this.config = config;
         this.logger = logger;
@@ -267,7 +271,8 @@ public final class JarvisClient {
             return CompletableFuture.completedFuture(unknownVerdict());
         }
 
-        long   ts        = System.currentTimeMillis();
+        long   ts        = clock.now();
+        long   offsetAlEnviar = clock.offsetMs();
         String body      = GSON.toJson(new VerdictRequest(ip, username, bedrock, ts, premium));
         String sig       = signer.sign(HmacSigner.requestPayload(ts, ip, username));
         String licKey    = licenseKey;
@@ -316,6 +321,17 @@ public final class JarvisClient {
                 }
             }
             if (err == null && (resp.statusCode() == 401 || resp.statusCode() == 403)) maybeResetSecret(resp.statusCode());
+
+            if (err == null && resp.statusCode() == 400) {
+                long serverTimeMs = ClockOffset.leerServerTimeMs(resp.body());
+                if (serverTimeMs > 0) {
+                    Long total = clock.aprender(serverTimeMs, ts, clock.now(), offsetAlEnviar);
+                    if (total != null) {
+                        logger.warn("This machine's clock is off by {} ms from the Jarvis backend; requests are "
+                                + "now corrected. Fix NTP on this server.", total);
+                    }
+                }
+            }
             if (err == null) logger.warn("Backend HTTP {} for {}", resp.statusCode(), ip);
             else logger.debug("Error contacting backend for {}: {}", ip, err.getMessage());
             return onFailure(ip, failThreshold);
@@ -379,6 +395,11 @@ public final class JarvisClient {
         cache.invalidateByPrefix(canonIp(ip) + CK_SEP);
     }
 
+    public void invalidateUsername(String username) {
+        if (username == null || username.isEmpty()) return;
+        cache.invalidateBySuffix(CK_SEP + username.toLowerCase(java.util.Locale.ROOT));
+    }
+
     public void reportPlayerSeen(String uuid, String username, String ip, boolean bedrock,
                                  String version, String brand, String host,
                                  String locale, Integer viewDistance, String chatMode,
@@ -435,7 +456,7 @@ public final class JarvisClient {
             m.put("hits", e.hits());
             arr.add(m);
         }
-        long ts = System.currentTimeMillis();
+        long ts = clock.now();
         String licKey = licenseKey;
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("denials", arr);
@@ -490,7 +511,7 @@ public final class JarvisClient {
                 png = in.readNBytes(MAX_ICON_BYTES + 1);
             }
             if (png.length == 0 || png.length > MAX_ICON_BYTES) return;
-            long   ts        = System.currentTimeMillis();
+            long   ts        = clock.now();
             String licKey    = licenseKey;
             String backendUrl= ConfigManager.DEFAULT_BACKEND_URL;
             String sig       = signer.sign(HmacSigner.requestPayload(ts, "server-icon", ""));
@@ -516,7 +537,10 @@ public final class JarvisClient {
 
     public void fetchAndSyncBans(BanCache banCache) {
         if (signer == null || !signer.hasSecret()) return;
-        long   ts        = System.currentTimeMillis();
+        long   ts        = clock.now();
+        long   offsetAlEnviar = clock.offsetMs();
+
+        long   tsLocal   = ts - offsetAlEnviar;
         String licKey    = licenseKey;
         String backendUrl= ConfigManager.DEFAULT_BACKEND_URL;
         String sig       = signer.sign(HmacSigner.requestPayload(ts, "", "bans"));
@@ -530,17 +554,43 @@ public final class JarvisClient {
 
         http.sendAsync(req, HttpResponse.BodyHandlers.ofString())
                 .thenAccept(resp -> {
+                    if (resp.statusCode() == 400) {
+
+                        long serverTimeMs = ClockOffset.leerServerTimeMs(resp.body());
+                        if (serverTimeMs > 0) {
+                            Long total = clock.aprender(serverTimeMs, ts, clock.now(), offsetAlEnviar);
+                            if (total != null) {
+                                logger.warn("This machine's clock is off by {} ms from the Jarvis backend; requests "
+                                        + "are now corrected. Fix NTP on this server.", total);
+                            }
+                        }
+                    }
                     if (resp.statusCode() != 200) return;
 
+                    boolean listaCompletaVerificada = false;
                     String bansSig = resp.headers().firstValue("X-Bans-Sig").orElse(null);
                     if (bansSig != null) {
                         long bansTs = 0L;
                         try { bansTs = Long.parseLong(resp.headers().firstValue("X-Bans-Ts").orElse("0").trim()); }
                         catch (NumberFormatException ignored) {  }
-                        if (Math.abs(System.currentTimeMillis() - bansTs) > 120_000L
+
+                        if (Math.abs(clock.now() - bansTs) > 120_000L
                                 || !dev.flamingomg.jarvis.security.VerdictVerifier.verifyBans(bansTs, resp.body(), bansSig)) {
                             logger.warn("Bans list signature invalid or stale; skipping this sync cycle.");
                             return;
+                        }
+
+                        String sig2 = resp.headers().firstValue("X-Bans-Sig-V2").orElse(null);
+                        if (sig2 != null) {
+                            boolean dice = !"false".equalsIgnoreCase(
+                                    resp.headers().firstValue("X-Bans-Complete").orElse("true").trim());
+                            if (!dev.flamingomg.jarvis.security.VerdictVerifier.verifyBansV2(
+                                    bansTs, licKey, dice, resp.body(), sig2)) {
+                                logger.warn("Bans list v2 signature invalid (wrong license or tampered completeness); "
+                                        + "skipping this sync cycle.");
+                                return;
+                            }
+                            listaCompletaVerificada = dice;
                         }
                     } else {
                         if (!warnedUnsignedBans) {
@@ -551,7 +601,8 @@ public final class JarvisClient {
                         if (dev.flamingomg.jarvis.security.VerdictVerifier.keyLoaded()) return;
                     }
                     try {
-                        long now = System.currentTimeMillis();
+
+                        long now = clock.now();
                         @SuppressWarnings("unchecked")
                         List<Map<String, Object>> bans = GSON.fromJson(resp.body(), List.class);
                         if (bans == null) return;
@@ -579,7 +630,9 @@ public final class JarvisClient {
                             } catch (RuntimeException ignored) {  }
                         }
 
-                        if (!snapshotIps.isEmpty()) banCache.reconcilePermanent(snapshotIps, ts);
+                        if (listaCompletaVerificada) {
+                            banCache.reconciliar(snapshotIps, tsLocal);
+                        }
                         logger.debug("{} bans synced.", count);
                     } catch (Exception e) {
                         logger.debug("Error parsing bans: {}", e.getMessage());
@@ -641,7 +694,8 @@ public final class JarvisClient {
 
     private boolean responseFresh(long responseTs) {
         long windowMs = maxResponseAgeMs;
-        return isFresh(System.currentTimeMillis(), responseTs, windowMs);
+
+        return isFresh(clock.now(), responseTs, windowMs);
     }
 
     static boolean isFresh(long now, long responseTs, long windowMs) {
@@ -649,10 +703,69 @@ public final class JarvisClient {
         return delta <= windowMs && delta >= -windowMs;
     }
 
+    public java.util.concurrent.CompletableFuture<Boolean> blacklistAsync(
+            String username, String reason, String actor, boolean remove) {
+        if (signer == null || !signer.hasSecret()) {
+            return java.util.concurrent.CompletableFuture.completedFuture(false);
+        }
+        long   ts  = clock.now();
+        String sig = signer.sign(HmacSigner.requestPayload(ts, remove ? "unblacklist" : "blacklist",
+                username == null ? "" : username));
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("username", username);
+        if (reason != null && !reason.isEmpty()) payload.put("reason", reason);
+        if (actor  != null && !actor.isEmpty())  payload.put("actor", actor);
+        if (remove) payload.put("remove", true);
+        payload.put("timestamp", ts);
+        long timeoutMs = Math.max(5000L, config.getInt("backend.connect-timeout-ms", 8000) + 5000L);
+        HttpRequest req = HttpRequest.newBuilder(
+                        URI.create(ConfigManager.DEFAULT_BACKEND_URL + "/api/v1/blacklist"))
+                .timeout(Duration.ofMillis(timeoutMs))
+                .header("Content-Type",  "application/json")
+                .header("X-License-Key", licenseKey)
+                .header("X-Timestamp",   String.valueOf(ts))
+                .header("X-Signature",   sig)
+                .POST(HttpRequest.BodyPublishers.ofString(GSON.toJson(payload), StandardCharsets.UTF_8))
+                .build();
+        return http.sendAsync(req, HttpResponse.BodyHandlers.discarding())
+                .thenApply(r -> r.statusCode() >= 200 && r.statusCode() < 300)
+                .exceptionally(e -> { logger.debug("blacklist {}: {}", username, e.toString()); return false; });
+    }
+
+    public java.util.concurrent.CompletableFuture<Integer> whitelistAsync(
+            String username, String time, String reason, String actor, boolean remove) {
+        if (signer == null || !signer.hasSecret()) {
+            return java.util.concurrent.CompletableFuture.completedFuture(0);
+        }
+        long   ts  = clock.now();
+        String accion = remove ? "unwhitelist" : ("whitelist:" + (time == null ? "" : time));
+        String sig = signer.sign(HmacSigner.requestPayload(ts, accion, username == null ? "" : username));
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("username", username);
+        if (!remove && time != null && !time.isEmpty()) payload.put("time", time);
+        if (reason != null && !reason.isEmpty()) payload.put("reason", reason);
+        if (actor  != null && !actor.isEmpty())  payload.put("actor", actor);
+        if (remove) payload.put("remove", true);
+        payload.put("timestamp", ts);
+        long timeoutMs = Math.max(5000L, config.getInt("backend.connect-timeout-ms", 8000) + 5000L);
+        HttpRequest req = HttpRequest.newBuilder(
+                        URI.create(ConfigManager.DEFAULT_BACKEND_URL + "/api/v1/allowlist"))
+                .timeout(Duration.ofMillis(timeoutMs))
+                .header("Content-Type",  "application/json")
+                .header("X-License-Key", licenseKey)
+                .header("X-Timestamp",   String.valueOf(ts))
+                .header("X-Signature",   sig)
+                .POST(HttpRequest.BodyPublishers.ofString(GSON.toJson(payload), StandardCharsets.UTF_8))
+                .build();
+        return http.sendAsync(req, HttpResponse.BodyHandlers.discarding())
+                .thenApply(HttpResponse::statusCode)
+                .exceptionally(e -> { logger.debug("whitelist {}: {}", username, e.toString()); return 0; });
+    }
+
     private void report(String endpoint, String ipForSig, String userForSig,
                         Map<String, Object> payload, String errorMsg) {
         if (signer == null || !signer.hasSecret()) return;
-        long   ts         = System.currentTimeMillis();
+        long   ts         = clock.now();
         String licKey     = licenseKey;
         String backendUrl = ConfigManager.DEFAULT_BACKEND_URL;
         String sig        = signer.sign(HmacSigner.requestPayload(ts, ipForSig, userForSig));

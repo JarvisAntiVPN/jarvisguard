@@ -30,5 +30,21 @@
   "cmd.descStats": "Statistiken des lokalen Caches",
   "cmd.descReload": "lädt Config neu, leert Cache und synchronisiert Blockierungen neu",
   "cmd.noperm": "Keine Berechtigung.",
-  "kick": "Du wurdest gekickt."
+  "kick": "Du wurdest gekickt.",
+  "cmd.descBlacklist": "sperrt einen Spieler (auch bei IP-Wechsel)",
+  "cmd.descUnblacklist": "hebt die Sperre eines Spielers auf",
+  "cmd.usageBlacklist": "Nutzung: /antivpn blacklist <Spieler> [Grund]",
+  "cmd.usageUnblacklist": "Nutzung: /antivpn unblacklist <Spieler>",
+  "cmd.blacklistOk": "Spieler gesperrt:",
+  "cmd.unblacklistOk": "Sperre aufgehoben:",
+  "cmd.blacklistFail": "Der Jarvis-Server war nicht erreichbar. Versuche es erneut.",
+  "cmd.blacklistTooLong": "Dieser Name ist zu lang (max. 32).",
+  "cmd.blacklistSending": "Wird an den Jarvis-Server gesendet…",
+  "cmd.descWhitelist": "laesst einen Spieler die Pruefung ueberspringen (Zeit moeglich)",
+  "cmd.descUnwhitelist": "entzieht einem Spieler die Freigabe",
+  "cmd.usageWhitelist": "Nutzung: /antivpn whitelist <Spieler> [Zeit: 30m, 12h, 7d] [Grund]",
+  "cmd.usageUnwhitelist": "Nutzung: /antivpn unwhitelist <Spieler>",
+  "cmd.whitelistOk": "Spieler freigegeben:",
+  "cmd.unwhitelistOk": "Freigabe entzogen:",
+  "cmd.whitelistBadTime": "Diese Zeit verstehe ich nicht. Nutze 30m, 12h, 7d, 2w oder \"perma\"."
 }

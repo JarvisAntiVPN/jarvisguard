@@ -30,5 +30,21 @@
   "cmd.descStats": "סטטיסטיקות מטמון מקומי",
   "cmd.descReload": "טען מחדש הגדרות, נקה מטמון וסנכרן חסימות",
   "cmd.noperm": "אין הרשאה.",
-  "kick": "הוצאת מהשרת."
+  "kick": "הוצאת מהשרת.",
+  "cmd.descBlacklist": "חוסם שחקן (גם אם יחליף IP)",
+  "cmd.descUnblacklist": "מסיר חסימה משחקן",
+  "cmd.usageBlacklist": "שימוש: /antivpn blacklist <שחקן> [סיבה]",
+  "cmd.usageUnblacklist": "שימוש: /antivpn unblacklist <שחקן>",
+  "cmd.blacklistOk": "השחקן נחסם:",
+  "cmd.unblacklistOk": "החסימה הוסרה:",
+  "cmd.blacklistFail": "לא ניתן היה להתחבר לשרת Jarvis. נסה שוב.",
+  "cmd.blacklistTooLong": "השם ארוך מדי (עד 32).",
+  "cmd.blacklistSending": "שולח לשרת Jarvis…",
+  "cmd.descWhitelist": "מאפשר לשחקן לדלג על הבדיקה (אפשר לקבוע זמן)",
+  "cmd.descUnwhitelist": "מבטל את ההיתר של שחקן",
+  "cmd.usageWhitelist": "שימוש: /antivpn whitelist <שחקן> [זמן: 30m, 12h, 7d] [סיבה]",
+  "cmd.usageUnwhitelist": "שימוש: /antivpn unwhitelist <שחקן>",
+  "cmd.whitelistOk": "השחקן אושר:",
+  "cmd.unwhitelistOk": "ההיתר בוטל:",
+  "cmd.whitelistBadTime": "לא הבנתי את הזמן הזה. השתמש ב-30m, 12h, 7d, 2w או \"perma\"."
 }

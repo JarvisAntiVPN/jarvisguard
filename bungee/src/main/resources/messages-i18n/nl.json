@@ -30,5 +30,21 @@
   "cmd.descStats": "lokale cachestatistieken",
   "cmd.descReload": "configuratie herladen, cache wissen en blokkades opnieuw synchroniseren",
   "cmd.noperm": "Geen toestemming.",
-  "kick": "Je bent van de server verwijderd."
+  "kick": "Je bent van de server verwijderd.",
+  "cmd.descBlacklist": "blokkeert een speler (ook bij ander IP)",
+  "cmd.descUnblacklist": "heft de blokkade van een speler op",
+  "cmd.usageBlacklist": "Gebruik: /antivpn blacklist <speler> [reden]",
+  "cmd.usageUnblacklist": "Gebruik: /antivpn unblacklist <speler>",
+  "cmd.blacklistOk": "Speler geblokkeerd:",
+  "cmd.unblacklistOk": "Blokkade opgeheven:",
+  "cmd.blacklistFail": "Kon de Jarvis-server niet bereiken. Probeer opnieuw.",
+  "cmd.blacklistTooLong": "Die naam is te lang (max 32).",
+  "cmd.blacklistSending": "Versturen naar de Jarvis-server…",
+  "cmd.descWhitelist": "laat een speler de controle overslaan (tijd mogelijk)",
+  "cmd.descUnwhitelist": "trekt de toestemming van een speler in",
+  "cmd.usageWhitelist": "Gebruik: /antivpn whitelist <speler> [tijd: 30m, 12h, 7d] [reden]",
+  "cmd.usageUnwhitelist": "Gebruik: /antivpn unwhitelist <speler>",
+  "cmd.whitelistOk": "Speler toegestaan:",
+  "cmd.unwhitelistOk": "Toestemming ingetrokken:",
+  "cmd.whitelistBadTime": "Die tijd begrijp ik niet. Gebruik 30m, 12h, 7d, 2w of \"perma\"."
 }

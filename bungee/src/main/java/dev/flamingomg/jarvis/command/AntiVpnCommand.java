@@ -23,7 +23,8 @@ import java.util.stream.Collectors;
 
 public final class AntiVpnCommand extends Command implements TabExecutor {
 
-    private static final List<String> SUB = List.of("key", "stats", "reload");
+    private static final List<String> SUB = List.of("key", "stats", "reload", "blacklist", "unblacklist",
+            "whitelist", "unwhitelist");
 
     private final JarvisClient client;
     private final ProxyServer proxy;
@@ -54,6 +55,10 @@ public final class AntiVpnCommand extends Command implements TabExecutor {
         if (args.length == 0) { sendHelp(sender); return; }
         switch (args[0].toLowerCase(Locale.ROOT)) {
             case "key"       -> setKey(sender, args);
+            case "blacklist"   -> blacklist(sender, args, false);
+            case "unblacklist" -> blacklist(sender, args, true);
+            case "whitelist"   -> whitelist(sender, args, false);
+            case "unwhitelist" -> whitelist(sender, args, true);
             case "stats"     -> stats(sender);
             case "reload"    -> {
 
@@ -150,6 +155,77 @@ public final class AntiVpnCommand extends Command implements TabExecutor {
         send(sender, help("key <license>", m("cmd.descKey")));
         send(sender, help("stats",         m("cmd.descStats")));
         send(sender, help("reload",        m("cmd.descReload")));
+        send(sender, help("blacklist <player> [reason]", m("cmd.descBlacklist")));
+        send(sender, help("unblacklist <player>",        m("cmd.descUnblacklist")));
+        send(sender, help("whitelist <player> [time] [reason]", m("cmd.descWhitelist")));
+        send(sender, help("unwhitelist <player>",               m("cmd.descUnwhitelist")));
+    }
+
+    private void blacklist(CommandSender sender, String[] args, boolean remove) {
+        if (!puedeModerar(sender)) { noPermission(sender); return; }
+        if (args.length < 2 || args[1].isBlank()) {
+            send(sender, pre().append(Component.text(
+                    m(remove ? "cmd.usageUnblacklist" : "cmd.usageBlacklist"), NamedTextColor.YELLOW)));
+            return;
+        }
+        String target = args[1];
+        if (target.length() > 32) {
+            send(sender, pre().append(Component.text(m("cmd.blacklistTooLong"), NamedTextColor.RED)));
+            return;
+        }
+        String reason = (remove || args.length < 3) ? null
+                : String.join(" ", java.util.Arrays.copyOfRange(args, 2, args.length));
+        String actor = (sender instanceof net.md_5.bungee.api.connection.ProxiedPlayer pp) ? pp.getName() : "consola";
+        send(sender, pre().append(Component.text(m("cmd.blacklistSending"), NamedTextColor.GRAY)));
+        client.blacklistAsync(target, reason, actor, remove).thenAccept(ok -> {
+            if (ok) {
+                send(sender, pre().append(Component.text(
+                        m(remove ? "cmd.unblacklistOk" : "cmd.blacklistOk") + " " + target, NamedTextColor.GREEN)));
+            } else {
+                send(sender, pre().append(Component.text(m("cmd.blacklistFail"), NamedTextColor.RED)));
+            }
+        });
+    }
+
+    static boolean pareceTiempo(String arg) {
+        if (arg == null || arg.isEmpty()) return false;
+        char c = arg.charAt(0);
+        if (c >= '0' && c <= '9') return true;
+        String s = arg.toLowerCase(Locale.ROOT);
+        return s.equals("perma") || s.equals("permanent") || s.equals("permanente");
+    }
+
+    private void whitelist(CommandSender sender, String[] args, boolean remove) {
+        if (!puedeModerar(sender)) { noPermission(sender); return; }
+        if (args.length < 2 || args[1].isBlank()) {
+            send(sender, pre().append(Component.text(
+                    m(remove ? "cmd.usageUnwhitelist" : "cmd.usageWhitelist"), NamedTextColor.YELLOW)));
+            return;
+        }
+        String target = args[1];
+
+        if (target.length() > 32) {
+            send(sender, pre().append(Component.text(m("cmd.blacklistTooLong"), NamedTextColor.RED)));
+            return;
+        }
+        String time = null;
+        int iMotivo = 2;
+        if (!remove && args.length > 2 && pareceTiempo(args[2])) { time = args[2]; iMotivo = 3; }
+        String reason = (remove || args.length <= iMotivo) ? null
+                : String.join(" ", java.util.Arrays.copyOfRange(args, iMotivo, args.length));
+        String actor = (sender instanceof net.md_5.bungee.api.connection.ProxiedPlayer pp) ? pp.getName() : "consola";
+        String sufijo = time == null ? "" : " (" + time + ")";
+        send(sender, pre().append(Component.text(m("cmd.blacklistSending"), NamedTextColor.GRAY)));
+        client.whitelistAsync(target, time, reason, actor, remove).thenAccept(code -> {
+            if (code >= 200 && code < 300) {
+                send(sender, pre().append(Component.text(
+                        m(remove ? "cmd.unwhitelistOk" : "cmd.whitelistOk") + " " + target + sufijo, NamedTextColor.GREEN)));
+            } else if (code == 400) {
+                send(sender, pre().append(Component.text(m("cmd.whitelistBadTime"), NamedTextColor.RED)));
+            } else {
+                send(sender, pre().append(Component.text(m("cmd.blacklistFail"), NamedTextColor.RED)));
+            }
+        });
     }
 
     @Override
@@ -173,6 +249,10 @@ public final class AntiVpnCommand extends Command implements TabExecutor {
     private static Component help(String usage, String desc) {
         return Component.text("  /antivpn " + usage, NamedTextColor.WHITE)
                 .append(Component.text(" - " + desc, NamedTextColor.DARK_GRAY));
+    }
+
+    private boolean puedeModerar(CommandSender sender) {
+        return sender.hasPermission("jarvis.staff") || sender.hasPermission("jarvis.admin");
     }
 
     private void noPermission(CommandSender sender) {

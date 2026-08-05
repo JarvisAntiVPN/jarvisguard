@@ -30,5 +30,21 @@
   "cmd.descStats": "статистика локального кешу",
   "cmd.descReload": "перезавантажити конфіг, очистити кеш і синхронізувати блоки",
   "cmd.noperm": "Недостатньо прав.",
-  "kick": "Вас було вигнано."
+  "kick": "Вас було вигнано.",
+  "cmd.descBlacklist": "блокує гравця (навіть при зміні IP)",
+  "cmd.descUnblacklist": "знімає блокування гравця",
+  "cmd.usageBlacklist": "Використання: /antivpn blacklist <гравець> [причина]",
+  "cmd.usageUnblacklist": "Використання: /antivpn unblacklist <гравець>",
+  "cmd.blacklistOk": "Гравця заблоковано:",
+  "cmd.unblacklistOk": "Блокування знято:",
+  "cmd.blacklistFail": "Не вдалося зв язатися із сервером Jarvis. Спробуйте ще раз.",
+  "cmd.blacklistTooLong": "Це імя задовге (макс. 32).",
+  "cmd.blacklistSending": "Надсилання на сервер Jarvis…",
+  "cmd.descWhitelist": "дозволяє гравцю пройти без перевірки (можна вказати строк)",
+  "cmd.descUnwhitelist": "скасовує дозвіл гравця",
+  "cmd.usageWhitelist": "Використання: /antivpn whitelist <гравець> [строк: 30m, 12h, 7d] [причина]",
+  "cmd.usageUnwhitelist": "Використання: /antivpn unwhitelist <гравець>",
+  "cmd.whitelistOk": "Гравцю дозволено:",
+  "cmd.unwhitelistOk": "Дозвіл скасовано:",
+  "cmd.whitelistBadTime": "Не розумію цей строк. Використайте 30m, 12h, 7d, 2w або \"perma\"."
 }

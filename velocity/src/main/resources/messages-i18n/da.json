@@ -30,5 +30,21 @@
   "cmd.descStats": "lokal cache-statistik",
   "cmd.descReload": "genindlæs konfiguration, ryd cache og synkroniser blokeringer",
   "cmd.noperm": "Ingen tilladelse.",
-  "kick": "Du er blevet smidt ud."
+  "kick": "Du er blevet smidt ud.",
+  "cmd.descBlacklist": "blokerer en spiller (ogsaa ved nyt IP)",
+  "cmd.descUnblacklist": "ophaever en spillers blokering",
+  "cmd.usageBlacklist": "Brug: /antivpn blacklist <spiller> [aarsag]",
+  "cmd.usageUnblacklist": "Brug: /antivpn unblacklist <spiller>",
+  "cmd.blacklistOk": "Spiller blokeret:",
+  "cmd.unblacklistOk": "Blokering ophaevet:",
+  "cmd.blacklistFail": "Kunne ikke naa Jarvis-serveren. Proev igen.",
+  "cmd.blacklistTooLong": "Det navn er for langt (maks. 32).",
+  "cmd.blacklistSending": "Sender til Jarvis-serveren…",
+  "cmd.descWhitelist": "lader en spiller springe kontrollen over (tid kan angives)",
+  "cmd.descUnwhitelist": "traekker en spillers tilladelse tilbage",
+  "cmd.usageWhitelist": "Brug: /antivpn whitelist <spiller> [tid: 30m, 12h, 7d] [aarsag]",
+  "cmd.usageUnwhitelist": "Brug: /antivpn unwhitelist <spiller>",
+  "cmd.whitelistOk": "Spiller tilladt:",
+  "cmd.unwhitelistOk": "Tilladelse trukket tilbage:",
+  "cmd.whitelistBadTime": "Jeg forstaar ikke den tid. Brug 30m, 12h, 7d, 2w eller \"perma\"."
 }

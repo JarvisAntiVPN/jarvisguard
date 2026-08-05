@@ -30,5 +30,21 @@
   "cmd.descStats": "thống kê bộ nhớ đệm cục bộ",
   "cmd.descReload": "tải lại cấu hình, xóa bộ nhớ đệm và đồng bộ lại các lượt chặn",
   "cmd.noperm": "Không có quyền.",
-  "kick": "Bạn đã bị đá khỏi máy chủ."
+  "kick": "Bạn đã bị đá khỏi máy chủ.",
+  "cmd.descBlacklist": "chan mot nguoi choi (van hieu luc khi doi IP)",
+  "cmd.descUnblacklist": "go chan mot nguoi choi",
+  "cmd.usageBlacklist": "Cach dung: /antivpn blacklist <nguoi choi> [ly do]",
+  "cmd.usageUnblacklist": "Cach dung: /antivpn unblacklist <nguoi choi>",
+  "cmd.blacklistOk": "Da chan nguoi choi:",
+  "cmd.unblacklistOk": "Da go chan:",
+  "cmd.blacklistFail": "Khong the ket noi toi may chu Jarvis. Thu lai.",
+  "cmd.blacklistTooLong": "Ten qua dai (toi da 32).",
+  "cmd.blacklistSending": "Dang gui toi may chu Jarvis…",
+  "cmd.descWhitelist": "cho phep nguoi choi bo qua kiem tra (co the dat thoi gian)",
+  "cmd.descUnwhitelist": "thu hoi quyen cua nguoi choi",
+  "cmd.usageWhitelist": "Cach dung: /antivpn whitelist <nguoi choi> [thoi gian: 30m, 12h, 7d] [ly do]",
+  "cmd.usageUnwhitelist": "Cach dung: /antivpn unwhitelist <nguoi choi>",
+  "cmd.whitelistOk": "Da cho phep nguoi choi:",
+  "cmd.unwhitelistOk": "Da thu hoi quyen:",
+  "cmd.whitelistBadTime": "Khong hieu thoi gian do. Dung 30m, 12h, 7d, 2w hoac \"perma\"."
 }

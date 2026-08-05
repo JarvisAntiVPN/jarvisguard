@@ -30,5 +30,21 @@
   "cmd.descStats": "statistiky místní mezipaměti",
   "cmd.descReload": "znovu načte konfiguraci, vyprázdní mezipaměť a resynchronizuje bloky",
   "cmd.noperm": "Bez oprávnění.",
-  "kick": "Byl jsi vyhozen."
+  "kick": "Byl jsi vyhozen.",
+  "cmd.descBlacklist": "zablokuje hrace (i po zmene IP)",
+  "cmd.descUnblacklist": "zrusi blokaci hrace",
+  "cmd.usageBlacklist": "Pouziti: /antivpn blacklist <hrac> [duvod]",
+  "cmd.usageUnblacklist": "Pouziti: /antivpn unblacklist <hrac>",
+  "cmd.blacklistOk": "Hrac zablokovan:",
+  "cmd.unblacklistOk": "Blokace zrusena:",
+  "cmd.blacklistFail": "Nepodarilo se spojit se serverem Jarvis. Zkus to znovu.",
+  "cmd.blacklistTooLong": "To jmeno je prilis dlouhe (max 32).",
+  "cmd.blacklistSending": "Odesilani na server Jarvis…",
+  "cmd.descWhitelist": "necha hrace projit bez kontroly (lze zadat cas)",
+  "cmd.descUnwhitelist": "odebere hraci povoleni",
+  "cmd.usageWhitelist": "Pouziti: /antivpn whitelist <hrac> [cas: 30m, 12h, 7d] [duvod]",
+  "cmd.usageUnwhitelist": "Pouziti: /antivpn unwhitelist <hrac>",
+  "cmd.whitelistOk": "Hrac povolen:",
+  "cmd.unwhitelistOk": "Povoleni odebrano:",
+  "cmd.whitelistBadTime": "Tomu casu nerozumim. Pouzij 30m, 12h, 7d, 2w nebo \"perma\"."
 }

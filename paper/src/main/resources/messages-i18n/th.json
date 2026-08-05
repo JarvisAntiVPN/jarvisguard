@@ -30,5 +30,21 @@
   "cmd.descStats": "สถิติแคชในเครื่อง",
   "cmd.descReload": "โหลดค่าตั้งใหม่ ล้างแคช และซิงค์รายการบล็อกใหม่",
   "cmd.noperm": "ไม่มีสิทธิ์",
-  "kick": "คุณถูกเตะออกจากเซิร์ฟเวอร์"
+  "kick": "คุณถูกเตะออกจากเซิร์ฟเวอร์",
+  "cmd.descBlacklist": "บล็อกผู้เล่น (มีผลแม้เปลี่ยน IP)",
+  "cmd.descUnblacklist": "ปลดบล็อกผู้เล่น",
+  "cmd.usageBlacklist": "วิธีใช้: /antivpn blacklist <ผู้เล่น> [เหตุผล]",
+  "cmd.usageUnblacklist": "วิธีใช้: /antivpn unblacklist <ผู้เล่น>",
+  "cmd.blacklistOk": "บล็อกผู้เล่นแล้ว:",
+  "cmd.unblacklistOk": "ปลดบล็อกแล้ว:",
+  "cmd.blacklistFail": "ติดต่อเซิร์ฟเวอร์ Jarvis ไม่ได้ ลองอีกครั้ง",
+  "cmd.blacklistTooLong": "ชื่อยาวเกินไป (สูงสุด 32)",
+  "cmd.blacklistSending": "กำลังส่งไปยังเซิร์ฟเวอร์ Jarvis…",
+  "cmd.descWhitelist": "ให้ผู้เล่นข้ามการตรวจสอบ (กำหนดเวลาได้)",
+  "cmd.descUnwhitelist": "ยกเลิกสิทธิ์ของผู้เล่น",
+  "cmd.usageWhitelist": "วิธีใช้: /antivpn whitelist <ผู้เล่น> [เวลา: 30m, 12h, 7d] [เหตุผล]",
+  "cmd.usageUnwhitelist": "วิธีใช้: /antivpn unwhitelist <ผู้เล่น>",
+  "cmd.whitelistOk": "อนุญาตผู้เล่นแล้ว:",
+  "cmd.unwhitelistOk": "ยกเลิกสิทธิ์แล้ว:",
+  "cmd.whitelistBadTime": "ไม่เข้าใจเวลานั้น ใช้ 30m, 12h, 7d, 2w หรือ \"perma\""
 }

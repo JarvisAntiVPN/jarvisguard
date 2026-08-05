@@ -30,5 +30,21 @@
   "cmd.descStats": "štatistiky lokálnej vyrovnávacej pamäte",
   "cmd.descReload": "znovu načítať konfiguráciu, vymazať vyrovnávaciu pamäť a synchronizovať bloky",
   "cmd.noperm": "Nedostatočné oprávnenia.",
-  "kick": "Boli ste vykopnutí."
+  "kick": "Boli ste vykopnutí.",
+  "cmd.descBlacklist": "zablokuje hraca (aj po zmene IP)",
+  "cmd.descUnblacklist": "zrusi blokovanie hraca",
+  "cmd.usageBlacklist": "Pouzitie: /antivpn blacklist <hrac> [dovod]",
+  "cmd.usageUnblacklist": "Pouzitie: /antivpn unblacklist <hrac>",
+  "cmd.blacklistOk": "Hrac zablokovany:",
+  "cmd.unblacklistOk": "Blokovanie zrusene:",
+  "cmd.blacklistFail": "Nepodarilo sa spojit so serverom Jarvis. Skus to znova.",
+  "cmd.blacklistTooLong": "To meno je prilis dlhe (max 32).",
+  "cmd.blacklistSending": "Odosielanie na server Jarvis…",
+  "cmd.descWhitelist": "necha hraca prejst bez kontroly (mozno zadat cas)",
+  "cmd.descUnwhitelist": "odoberie hracovi povolenie",
+  "cmd.usageWhitelist": "Pouzitie: /antivpn whitelist <hrac> [cas: 30m, 12h, 7d] [dovod]",
+  "cmd.usageUnwhitelist": "Pouzitie: /antivpn unwhitelist <hrac>",
+  "cmd.whitelistOk": "Hrac povoleny:",
+  "cmd.unwhitelistOk": "Povolenie odobrate:",
+  "cmd.whitelistBadTime": "Tomuto casu nerozumiem. Pouzi 30m, 12h, 7d, 2w alebo \"perma\"."
 }

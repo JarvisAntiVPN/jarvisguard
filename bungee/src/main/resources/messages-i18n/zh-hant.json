@@ -30,5 +30,21 @@
   "cmd.descStats": "本地快取統計",
   "cmd.descReload": "重新載入設定，清空快取並重新同步攔截",
   "cmd.noperm": "沒有權限。",
-  "kick": "你已被踢出。"
+  "kick": "你已被踢出。",
+  "cmd.descBlacklist": "封鎖玩家（換 IP 也有效）",
+  "cmd.descUnblacklist": "解除玩家封鎖",
+  "cmd.usageBlacklist": "用法: /antivpn blacklist <玩家> [原因]",
+  "cmd.usageUnblacklist": "用法: /antivpn unblacklist <玩家>",
+  "cmd.blacklistOk": "已封鎖玩家:",
+  "cmd.unblacklistOk": "已解除封鎖:",
+  "cmd.blacklistFail": "無法連線 Jarvis 伺服器，請重試。",
+  "cmd.blacklistTooLong": "名稱過長（最多 32）。",
+  "cmd.blacklistSending": "正在傳送到 Jarvis 伺服器…",
+  "cmd.descWhitelist": "允許玩家跳過檢測（可設定時間）",
+  "cmd.descUnwhitelist": "撤銷玩家的放行",
+  "cmd.usageWhitelist": "用法: /antivpn whitelist <玩家> [時間: 30m, 12h, 7d] [原因]",
+  "cmd.usageUnwhitelist": "用法: /antivpn unwhitelist <玩家>",
+  "cmd.whitelistOk": "已放行玩家:",
+  "cmd.unwhitelistOk": "已撤銷放行:",
+  "cmd.whitelistBadTime": "無法識別該時間。請使用 30m、12h、7d、2w 或 \"perma\"。"
 }

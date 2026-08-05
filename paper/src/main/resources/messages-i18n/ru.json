@@ -30,5 +30,21 @@
   "cmd.descStats": "статистика локального кэша",
   "cmd.descReload": "перезагружает конфиг, очищает кэш и пересинхронизирует блокировки",
   "cmd.noperm": "Нет прав.",
-  "kick": "Вы были отключены от сервера."
+  "kick": "Вы были отключены от сервера.",
+  "cmd.descBlacklist": "блокирует игрока (даже при смене IP)",
+  "cmd.descUnblacklist": "снимает блокировку игрока",
+  "cmd.usageBlacklist": "Использование: /antivpn blacklist <игрок> [причина]",
+  "cmd.usageUnblacklist": "Использование: /antivpn unblacklist <игрок>",
+  "cmd.blacklistOk": "Игрок заблокирован:",
+  "cmd.unblacklistOk": "Блокировка снята:",
+  "cmd.blacklistFail": "Не удалось связаться с сервером Jarvis. Попробуйте ещё раз.",
+  "cmd.blacklistTooLong": "Это имя слишком длинное (макс. 32).",
+  "cmd.blacklistSending": "Отправка на сервер Jarvis…",
+  "cmd.descWhitelist": "разрешает игроку пройти без проверки (можно указать срок)",
+  "cmd.descUnwhitelist": "отзывает разрешение игрока",
+  "cmd.usageWhitelist": "Использование: /antivpn whitelist <игрок> [срок: 30m, 12h, 7d] [причина]",
+  "cmd.usageUnwhitelist": "Использование: /antivpn unwhitelist <игрок>",
+  "cmd.whitelistOk": "Игроку разрешено:",
+  "cmd.unwhitelistOk": "Разрешение отозвано:",
+  "cmd.whitelistBadTime": "Не понимаю этот срок. Используйте 30m, 12h, 7d, 2w или \"perma\"."
 }

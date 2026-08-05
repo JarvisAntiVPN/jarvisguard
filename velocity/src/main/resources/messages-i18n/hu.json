@@ -30,5 +30,21 @@
   "cmd.descStats": "helyi gyorsítótár statisztikák",
   "cmd.descReload": "konfiguráció újratöltése, gyorsítótár törlése és blokkok szinkronizálása",
   "cmd.noperm": "Nincs jogosultság.",
-  "kick": "Kirúgtak."
+  "kick": "Kirúgtak.",
+  "cmd.descBlacklist": "letilt egy jatekost (IP-valtas utan is)",
+  "cmd.descUnblacklist": "feloldja egy jatekos tiltasat",
+  "cmd.usageBlacklist": "Hasznalat: /antivpn blacklist <jatekos> [indok]",
+  "cmd.usageUnblacklist": "Hasznalat: /antivpn unblacklist <jatekos>",
+  "cmd.blacklistOk": "Jatekos letiltva:",
+  "cmd.unblacklistOk": "Tiltas feloldva:",
+  "cmd.blacklistFail": "Nem sikerult elerni a Jarvis szervert. Probald ujra.",
+  "cmd.blacklistTooLong": "Ez a nev tul hosszu (max 32).",
+  "cmd.blacklistSending": "Kuldes a Jarvis szervernek…",
+  "cmd.descWhitelist": "atengedi a jatekost ellenorzes nelkul (megadhato ido)",
+  "cmd.descUnwhitelist": "visszavonja egy jatekos engedelyet",
+  "cmd.usageWhitelist": "Hasznalat: /antivpn whitelist <jatekos> [ido: 30m, 12h, 7d] [indok]",
+  "cmd.usageUnwhitelist": "Hasznalat: /antivpn unwhitelist <jatekos>",
+  "cmd.whitelistOk": "Jatekos engedelyezve:",
+  "cmd.unwhitelistOk": "Engedely visszavonva:",
+  "cmd.whitelistBadTime": "Nem ertem ezt az idot. Hasznald: 30m, 12h, 7d, 2w vagy \"perma\"."
 }

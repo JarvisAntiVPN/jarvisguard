@@ -30,5 +30,21 @@
   "cmd.descStats": "本地缓存统计",
   "cmd.descReload": "重载配置，清空缓存并重新同步拦截",
   "cmd.noperm": "没有权限。",
-  "kick": "你已被踢出。"
+  "kick": "你已被踢出。",
+  "cmd.descBlacklist": "封锁玩家（换 IP 也有效）",
+  "cmd.descUnblacklist": "解除玩家封锁",
+  "cmd.usageBlacklist": "用法: /antivpn blacklist <玩家> [原因]",
+  "cmd.usageUnblacklist": "用法: /antivpn unblacklist <玩家>",
+  "cmd.blacklistOk": "已封锁玩家:",
+  "cmd.unblacklistOk": "已解除封锁:",
+  "cmd.blacklistFail": "无法连接 Jarvis 服务器，请重试。",
+  "cmd.blacklistTooLong": "名称过长（最多 32）。",
+  "cmd.blacklistSending": "正在发送到 Jarvis 服务器…",
+  "cmd.descWhitelist": "允许玩家跳过检测（可设置时间）",
+  "cmd.descUnwhitelist": "撤销玩家的放行",
+  "cmd.usageWhitelist": "用法: /antivpn whitelist <玩家> [时间: 30m, 12h, 7d] [原因]",
+  "cmd.usageUnwhitelist": "用法: /antivpn unwhitelist <玩家>",
+  "cmd.whitelistOk": "已放行玩家:",
+  "cmd.unwhitelistOk": "已撤销放行:",
+  "cmd.whitelistBadTime": "无法识别该时间。请使用 30m、12h、7d、2w 或 \"perma\"。"
 }

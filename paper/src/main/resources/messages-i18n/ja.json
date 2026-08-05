@@ -30,5 +30,21 @@
   "cmd.descStats": "ローカルキャッシュの統計",
   "cmd.descReload": "設定を再読み込みし、キャッシュを消去してブロックを再同期します",
   "cmd.noperm": "権限がありません。",
-  "kick": "あなたはキックされました。"
+  "kick": "あなたはキックされました。",
+  "cmd.descBlacklist": "プレイヤーをブロックします (IPを変えても有効)",
+  "cmd.descUnblacklist": "プレイヤーのブロックを解除します",
+  "cmd.usageBlacklist": "使い方: /antivpn blacklist <プレイヤー> [理由]",
+  "cmd.usageUnblacklist": "使い方: /antivpn unblacklist <プレイヤー>",
+  "cmd.blacklistOk": "プレイヤーをブロックしました:",
+  "cmd.unblacklistOk": "ブロックを解除しました:",
+  "cmd.blacklistFail": "Jarvis サーバーに接続できませんでした。もう一度お試しください。",
+  "cmd.blacklistTooLong": "その名前は長すぎます (最大32)。",
+  "cmd.blacklistSending": "Jarvis サーバーに送信中…",
+  "cmd.descWhitelist": "プレイヤーのチェックを免除します (期間の指定可)",
+  "cmd.descUnwhitelist": "プレイヤーの免除を解除します",
+  "cmd.usageWhitelist": "使い方: /antivpn whitelist <プレイヤー> [期間: 30m, 12h, 7d] [理由]",
+  "cmd.usageUnwhitelist": "使い方: /antivpn unwhitelist <プレイヤー>",
+  "cmd.whitelistOk": "プレイヤーを許可しました:",
+  "cmd.unwhitelistOk": "許可を解除しました:",
+  "cmd.whitelistBadTime": "その期間は認識できません。30m、12h、7d、2w または \"perma\" を使ってください。"
 }

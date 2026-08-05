@@ -10,7 +10,7 @@ import java.util.concurrent.TimeUnit;
 
 public final class BanCache {
 
-    private record Entry(long expiryMs, long writtenAt) {}
+    private record Entry(long expiryMs, long writtenAt, boolean deLaLista) {}
 
     private static final long PERMANENT_MS = Long.MAX_VALUE / 2;
 
@@ -41,13 +41,13 @@ public final class BanCache {
 
     public void ban(String ip) {
         long now = System.currentTimeMillis();
-        banned.put(key(ip), new Entry(now + defaultTtlSeconds * 1_000L, now));
+        banned.put(key(ip), new Entry(now + defaultTtlSeconds * 1_000L, now, false));
     }
 
     public void ban(String ip, int ttlSeconds) {
         long now = System.currentTimeMillis();
         long expiryMs = ttlSeconds > 0 ? now + ttlSeconds * 1_000L : PERMANENT_MS;
-        banned.put(key(ip), new Entry(expiryMs, now));
+        banned.put(key(ip), new Entry(expiryMs, now, true));
     }
 
     public boolean isBanned(String ip) {
@@ -58,11 +58,11 @@ public final class BanCache {
         banned.invalidate(key(ip));
     }
 
-    public void reconcilePermanent(Set<String> backendRawIps, long snapshotTs) {
+    public void reconciliar(Set<String> backendRawIps, long snapshotTs) {
         java.util.Set<String> keep = new java.util.HashSet<>();
         for (String ip : backendRawIps) keep.add(key(ip));
         banned.asMap().forEach((k, e) -> {
-            if (e.expiryMs() == PERMANENT_MS && e.writtenAt() < snapshotTs && !keep.contains(k)) {
+            if (e.deLaLista() && e.writtenAt() < snapshotTs && !keep.contains(k)) {
                 banned.invalidate(k);
             }
         });

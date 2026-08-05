@@ -30,5 +30,21 @@
   "cmd.descStats": "إحصائيات الذاكرة المؤقتة المحلية",
   "cmd.descReload": "إعادة تحميل الإعدادات، ومسح الذاكرة المؤقتة، وإعادة مزامنة الحظر",
   "cmd.noperm": "لا توجد صلاحية.",
-  "kick": "تم طردك من الخادم."
+  "kick": "تم طردك من الخادم.",
+  "cmd.descBlacklist": "يحظر لاعبًا (يتبعه حتى لو غيّر IP)",
+  "cmd.descUnblacklist": "يرفع الحظر عن لاعب",
+  "cmd.usageBlacklist": "الاستخدام: /antivpn blacklist <اللاعب> [السبب]",
+  "cmd.usageUnblacklist": "الاستخدام: /antivpn unblacklist <اللاعب>",
+  "cmd.blacklistOk": "تم حظر اللاعب:",
+  "cmd.unblacklistOk": "تم رفع الحظر:",
+  "cmd.blacklistFail": "تعذر الاتصال بخادم Jarvis. حاول مرة أخرى.",
+  "cmd.blacklistTooLong": "هذا الاسم طويل جدًا (32 كحد أقصى).",
+  "cmd.blacklistSending": "جارٍ الإرسال إلى خادم Jarvis…",
+  "cmd.descWhitelist": "يسمح للاعب بتخطي الفحص (يمكن تحديد مدة)",
+  "cmd.descUnwhitelist": "يلغي إذن لاعب",
+  "cmd.usageWhitelist": "الاستخدام: /antivpn whitelist <اللاعب> [المدة: 30m, 12h, 7d] [السبب]",
+  "cmd.usageUnwhitelist": "الاستخدام: /antivpn unwhitelist <اللاعب>",
+  "cmd.whitelistOk": "تم السماح للاعب:",
+  "cmd.unwhitelistOk": "تم إلغاء الإذن:",
+  "cmd.whitelistBadTime": "لم أفهم هذه المدة. استخدم 30m أو 12h أو 7d أو 2w أو \"perma\"."
 }

@@ -30,5 +30,21 @@
   "cmd.descStats": "statistiques du cache local",
   "cmd.descReload": "recharge la config, vide le cache et resynchronise les blocages",
   "cmd.noperm": "Pas de permission.",
-  "kick": "Tu as été expulsé."
+  "kick": "Tu as été expulsé.",
+  "cmd.descBlacklist": "bloque un joueur (le suit meme s il change d IP)",
+  "cmd.descUnblacklist": "retire le blocage d un joueur",
+  "cmd.usageBlacklist": "Usage : /antivpn blacklist <joueur> [motif]",
+  "cmd.usageUnblacklist": "Usage : /antivpn unblacklist <joueur>",
+  "cmd.blacklistOk": "Joueur bloque :",
+  "cmd.unblacklistOk": "Blocage retire :",
+  "cmd.blacklistFail": "Impossible de joindre le serveur Jarvis. Reessaie.",
+  "cmd.blacklistTooLong": "Ce nom est trop long (max 32).",
+  "cmd.blacklistSending": "Envoi au serveur Jarvis…",
+  "cmd.descWhitelist": "laisse un joueur passer sans controle (duree possible)",
+  "cmd.descUnwhitelist": "retire l autorisation d un joueur",
+  "cmd.usageWhitelist": "Usage : /antivpn whitelist <joueur> [duree : 30m, 12h, 7d] [motif]",
+  "cmd.usageUnwhitelist": "Usage : /antivpn unwhitelist <joueur>",
+  "cmd.whitelistOk": "Joueur autorise :",
+  "cmd.unwhitelistOk": "Autorisation retiree :",
+  "cmd.whitelistBadTime": "Duree incomprise. Utilise 30m, 12h, 7d, 2w ou \"perma\"."
 }

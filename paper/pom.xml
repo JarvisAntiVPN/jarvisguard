@@ -6,7 +6,7 @@
 
     <groupId>dev.flamingomg</groupId>
     <artifactId>jarvis-paper</artifactId>
-    <version>0.5.21</version>
+    <version>0.5.22</version>
     <packaging>jar</packaging>
 
     <name>Jarvis</name>

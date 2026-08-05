@@ -30,5 +30,21 @@
   "cmd.descStats": "lokal cachestatistik",
   "cmd.descReload": "ladda om konfigurationen, rensa cachen och synkronisera om blockeringar",
   "cmd.noperm": "Ingen behörighet.",
-  "kick": "Du har blivit utkastad."
+  "kick": "Du har blivit utkastad.",
+  "cmd.descBlacklist": "blockerar en spelare (aven vid nytt IP)",
+  "cmd.descUnblacklist": "haver en spelares blockering",
+  "cmd.usageBlacklist": "Anvandning: /antivpn blacklist <spelare> [orsak]",
+  "cmd.usageUnblacklist": "Anvandning: /antivpn unblacklist <spelare>",
+  "cmd.blacklistOk": "Spelare blockerad:",
+  "cmd.unblacklistOk": "Blockering hävd:",
+  "cmd.blacklistFail": "Kunde inte na Jarvis-servern. Forsok igen.",
+  "cmd.blacklistTooLong": "Det namnet ar for langt (max 32).",
+  "cmd.blacklistSending": "Skickar till Jarvis-servern…",
+  "cmd.descWhitelist": "later en spelare slippa kontrollen (tid kan anges)",
+  "cmd.descUnwhitelist": "drar tillbaka en spelares tillstand",
+  "cmd.usageWhitelist": "Anvandning: /antivpn whitelist <spelare> [tid: 30m, 12h, 7d] [orsak]",
+  "cmd.usageUnwhitelist": "Anvandning: /antivpn unwhitelist <spelare>",
+  "cmd.whitelistOk": "Spelare tillaten:",
+  "cmd.unwhitelistOk": "Tillstand indraget:",
+  "cmd.whitelistBadTime": "Jag forstar inte den tiden. Anvand 30m, 12h, 7d, 2w eller \"perma\"."
 }

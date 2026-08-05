@@ -36,6 +36,25 @@ public final class VerdictVerifier {
         }
     }
 
+    public static boolean verifyBansV2(long timestamp, String licenseKey, boolean complete,
+                                       String body, String sigB64) {
+        if (PUB == null || sigB64 == null || sigB64.isEmpty() || licenseKey == null) return false;
+        try {
+            Signature sig = ED.get();
+            if (sig == null) return false;
+            sig.initVerify(PUB);
+            sig.update(bansCanonV2(licenseKey, complete, timestamp, sha256Hex(body))
+                    .getBytes(StandardCharsets.UTF_8));
+            return sig.verify(Base64.getDecoder().decode(sigB64));
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    static String bansCanonV2(String licenseKey, boolean complete, long timestamp, String bodyHash) {
+        return "bans2:" + licenseKey + ":" + (complete ? "1" : "0") + ":" + timestamp + ":" + bodyHash;
+    }
+
     private static PublicKey load() {
         try {
             byte[] der = Base64.getDecoder().decode(PUBLIC_KEY_B64);

@@ -30,5 +30,21 @@
   "cmd.descStats": "yerel önbellek istatistikleri",
   "cmd.descReload": "yapılandırmayı yeniler, önbelleği temizler ve engellemeleri yeniden senkronize eder",
   "cmd.noperm": "İzin yok.",
-  "kick": "Sunucudan atıldınız."
+  "kick": "Sunucudan atıldınız.",
+  "cmd.descBlacklist": "bir oyuncuyu engeller (IP degisse de gecerli)",
+  "cmd.descUnblacklist": "bir oyuncunun engelini kaldirir",
+  "cmd.usageBlacklist": "Kullanim: /antivpn blacklist <oyuncu> [sebep]",
+  "cmd.usageUnblacklist": "Kullanim: /antivpn unblacklist <oyuncu>",
+  "cmd.blacklistOk": "Oyuncu engellendi:",
+  "cmd.unblacklistOk": "Engel kaldirildi:",
+  "cmd.blacklistFail": "Jarvis sunucusuna ulasilamadi. Tekrar dene.",
+  "cmd.blacklistTooLong": "Bu isim cok uzun (en fazla 32).",
+  "cmd.blacklistSending": "Jarvis sunucusuna gonderiliyor…",
+  "cmd.descWhitelist": "bir oyuncunun kontrolu atlamasina izin verir (sure verilebilir)",
+  "cmd.descUnwhitelist": "bir oyuncunun iznini kaldirir",
+  "cmd.usageWhitelist": "Kullanim: /antivpn whitelist <oyuncu> [sure: 30m, 12h, 7d] [sebep]",
+  "cmd.usageUnwhitelist": "Kullanim: /antivpn unwhitelist <oyuncu>",
+  "cmd.whitelistOk": "Oyuncuya izin verildi:",
+  "cmd.unwhitelistOk": "Izin kaldirildi:",
+  "cmd.whitelistBadTime": "Bu sureyi anlamadim. 30m, 12h, 7d, 2w veya \"perma\" kullan."
 }

@@ -30,5 +30,21 @@
   "cmd.descStats": "statistici ale cache-ului local",
   "cmd.descReload": "reîncarcă configurația, golește cache-ul și resincronizează blocările",
   "cmd.noperm": "Fără permisiune.",
-  "kick": "Ai fost dat afară."
+  "kick": "Ai fost dat afară.",
+  "cmd.descBlacklist": "blocheaza un jucator (il urmareste si daca schimba IP)",
+  "cmd.descUnblacklist": "ridica blocarea unui jucator",
+  "cmd.usageBlacklist": "Utilizare: /antivpn blacklist <jucator> [motiv]",
+  "cmd.usageUnblacklist": "Utilizare: /antivpn unblacklist <jucator>",
+  "cmd.blacklistOk": "Jucator blocat:",
+  "cmd.unblacklistOk": "Blocare ridicata:",
+  "cmd.blacklistFail": "Nu s-a putut contacta serverul Jarvis. Incearca din nou.",
+  "cmd.blacklistTooLong": "Numele este prea lung (max 32).",
+  "cmd.blacklistSending": "Se trimite catre serverul Jarvis…",
+  "cmd.descWhitelist": "lasa un jucator sa treaca fara verificare (poti pune durata)",
+  "cmd.descUnwhitelist": "retrage permisiunea unui jucator",
+  "cmd.usageWhitelist": "Utilizare: /antivpn whitelist <jucator> [durata: 30m, 12h, 7d] [motiv]",
+  "cmd.usageUnwhitelist": "Utilizare: /antivpn unwhitelist <jucator>",
+  "cmd.whitelistOk": "Jucator permis:",
+  "cmd.unwhitelistOk": "Permisiune retrasa:",
+  "cmd.whitelistBadTime": "Nu inteleg durata. Foloseste 30m, 12h, 7d, 2w sau \"perma\"."
 }

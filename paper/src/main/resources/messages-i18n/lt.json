@@ -30,5 +30,21 @@
   "cmd.descStats": "vietinės talpyklos statistika",
   "cmd.descReload": "perkrauti konfigūraciją, išvalyti talpyklą ir sinchronizuoti blokavimus",
   "cmd.noperm": "Nėra leidimo.",
-  "kick": "Jus pašalino."
+  "kick": "Jus pašalino.",
+  "cmd.descBlacklist": "blokuoja zaideja (net pakeitus IP)",
+  "cmd.descUnblacklist": "panaikina zaidejo blokavima",
+  "cmd.usageBlacklist": "Naudojimas: /antivpn blacklist <zaidejas> [priezastis]",
+  "cmd.usageUnblacklist": "Naudojimas: /antivpn unblacklist <zaidejas>",
+  "cmd.blacklistOk": "Zaidejas uzblokuotas:",
+  "cmd.unblacklistOk": "Blokavimas panaikintas:",
+  "cmd.blacklistFail": "Nepavyko susisiekti su Jarvis serveriu. Bandykite dar karta.",
+  "cmd.blacklistTooLong": "Sis vardas per ilgas (daugiausia 32).",
+  "cmd.blacklistSending": "Siunciama i Jarvis serveri…",
+  "cmd.descWhitelist": "leidzia zaidejui praeiti be patikros (galima nurodyti laika)",
+  "cmd.descUnwhitelist": "atsaukia zaidejo leidima",
+  "cmd.usageWhitelist": "Naudojimas: /antivpn whitelist <zaidejas> [laikas: 30m, 12h, 7d] [priezastis]",
+  "cmd.usageUnwhitelist": "Naudojimas: /antivpn unwhitelist <zaidejas>",
+  "cmd.whitelistOk": "Zaidejui leista:",
+  "cmd.unwhitelistOk": "Leidimas atsauktas:",
+  "cmd.whitelistBadTime": "Nesuprantu tokio laiko. Naudokite 30m, 12h, 7d, 2w arba \"perma\"."
 }

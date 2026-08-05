@@ -30,5 +30,21 @@
   "cmd.descStats": "statystyki lokalnej cache",
   "cmd.descReload": "przeładuj config, wyczyść cache i resynchronizuj blokady",
   "cmd.noperm": "Brak uprawnień.",
-  "kick": "Zostałeś wyrzucony."
+  "kick": "Zostałeś wyrzucony.",
+  "cmd.descBlacklist": "blokuje gracza (dziala takze po zmianie IP)",
+  "cmd.descUnblacklist": "zdejmuje blokade gracza",
+  "cmd.usageBlacklist": "Uzycie: /antivpn blacklist <gracz> [powod]",
+  "cmd.usageUnblacklist": "Uzycie: /antivpn unblacklist <gracz>",
+  "cmd.blacklistOk": "Gracz zablokowany:",
+  "cmd.unblacklistOk": "Blokada zdjeta:",
+  "cmd.blacklistFail": "Nie udalo sie polaczyc z serwerem Jarvis. Sprobuj ponownie.",
+  "cmd.blacklistTooLong": "Ta nazwa jest za dluga (maks. 32).",
+  "cmd.blacklistSending": "Wysylanie do serwera Jarvis…",
+  "cmd.descWhitelist": "pozwala graczowi pominac sprawdzenie (mozna podac czas)",
+  "cmd.descUnwhitelist": "cofa zezwolenie gracza",
+  "cmd.usageWhitelist": "Uzycie: /antivpn whitelist <gracz> [czas: 30m, 12h, 7d] [powod]",
+  "cmd.usageUnwhitelist": "Uzycie: /antivpn unwhitelist <gracz>",
+  "cmd.whitelistOk": "Gracz dopuszczony:",
+  "cmd.unwhitelistOk": "Zezwolenie cofniete:",
+  "cmd.whitelistBadTime": "Nie rozumiem tego czasu. Uzyj 30m, 12h, 7d, 2w lub \"perma\"."
 }

@@ -30,5 +30,21 @@
   "cmd.descStats": "local cache stats",
   "cmd.descReload": "reload config, clear cache and resync blocks",
   "cmd.noperm": "No permission.",
-  "kick": "You have been kicked."
+  "kick": "You have been kicked.",
+  "cmd.descBlacklist": "block a player (follows them even if they change IP)",
+  "cmd.descUnblacklist": "remove a player block",
+  "cmd.usageBlacklist": "Usage: /antivpn blacklist <player> [reason]",
+  "cmd.usageUnblacklist": "Usage: /antivpn unblacklist <player>",
+  "cmd.blacklistOk": "Player blocked:",
+  "cmd.unblacklistOk": "Block removed:",
+  "cmd.blacklistFail": "Could not reach the Jarvis server. Try again.",
+  "cmd.blacklistTooLong": "That name is too long (max 32).",
+  "cmd.blacklistSending": "Sending to the Jarvis server…",
+  "cmd.descWhitelist": "let a player skip the check (you can set a time)",
+  "cmd.descUnwhitelist": "remove a player permission",
+  "cmd.usageWhitelist": "Usage: /antivpn whitelist <player> [time: 30m, 12h, 7d] [reason]",
+  "cmd.usageUnwhitelist": "Usage: /antivpn unwhitelist <player>",
+  "cmd.whitelistOk": "Player allowed:",
+  "cmd.unwhitelistOk": "Permission removed:",
+  "cmd.whitelistBadTime": "I do not understand that time. Use 30m, 12h, 7d, 2w or \"perma\"."
 }

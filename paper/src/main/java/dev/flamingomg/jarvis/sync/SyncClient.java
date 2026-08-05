@@ -157,7 +157,8 @@ public final class SyncClient {
         String backendUrl = ConfigManager.DEFAULT_BACKEND_URL;
         String licenseKey = config.getString("backend.license-key", "");
         this.streamLicenseKey = licenseKey;
-        long ts = System.currentTimeMillis();
+
+        long ts = jarvisClient.clock().now();
         String signature = signer.sign(HmacSigner.requestPayload(ts, "sync", licenseKey));
 
         HttpRequest request = HttpRequest.newBuilder(URI.create(backendUrl + "/api/v1/sync/events"))
@@ -226,7 +227,7 @@ public final class SyncClient {
     private static final char SIGN_SEP = '\u001e';
     private static final long EVENT_FRESH_MS = 120_000L;
 
-    private static boolean eventSignatureOk(String event, String data) {
+    private static boolean eventSignatureOk(String event, String data, long ahora) {
         String sigB64 = extractField(data, "_sig");
         if (sigB64 == null) return false;
         long ts;
@@ -234,7 +235,8 @@ public final class SyncClient {
             String t = extractField(data, "_ts");
             ts = (t == null) ? 0L : Long.parseLong(t.trim());
         } catch (NumberFormatException e) { return false; }
-        if (Math.abs(System.currentTimeMillis() - ts) > EVENT_FRESH_MS) return false;
+
+        if (Math.abs(ahora - ts) > EVENT_FRESH_MS) return false;
         StringBuilder sb = new StringBuilder().append(event).append(SIGN_SEP).append(ts);
         for (String f : SIGN_FIELDS) {
             String v = extractField(data, f);
@@ -251,7 +253,7 @@ public final class SyncClient {
         try {
 
             if ("connected".equals(currentEvent)) return;
-            if (!eventSignatureOk(currentEvent, data)) {
+            if (!eventSignatureOk(currentEvent, data, jarvisClient.clock().now())) {
                 logger.warn("[sync] discarded event '{}' (bad/missing signature or stale)", currentEvent);
                 return;
             }
@@ -261,6 +263,7 @@ public final class SyncClient {
                 case "message"     -> handleMessage(data);
                 case "unban"       -> handleUnban(data);
                 case "clean-cache" -> handleCleanCache();
+                case "invalidate"  -> handleInvalidate(data);
                 case "config"      -> handleConfig(data);
 
                 default            -> logUnknownEvent(currentEvent);
@@ -298,6 +301,13 @@ public final class SyncClient {
         jarvisClient.cache().invalidateAll();
         banCache.clear();
         logger.debug("[sync] Local cache cleared by backend order");
+    }
+
+    private void handleInvalidate(String data) {
+        String username = extractField(data, "username");
+        if (username == null || username.isEmpty()) return;
+        jarvisClient.invalidateUsername(username);
+        logger.debug("[sync] Cached verdict invalidated for {}", username);
     }
 
     private void handleBan(String data) {

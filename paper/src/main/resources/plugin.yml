@@ -7,19 +7,23 @@ api-version: '1.18'
 softdepend: [floodgate]
 commands:
   antivpn:
-    description: Manages the Jarvis Anti-VPN client (key/stats/reload)
-    usage: /antivpn <key|stats|reload>
+    description: Manages the Jarvis Anti-VPN client
+    usage: /antivpn <key|stats|reload|blacklist|unblacklist|whitelist|unwhitelist>
     aliases: [jarvis, avpn]
     permission: jarvis.command
 permissions:
   jarvis.command:
     description: Access to the /antivpn command
     default: op
+  jarvis.staff:
+    description: Block or allow players in game (blacklist/whitelist)
+    default: op
   jarvis.admin:
     description: Admin subcommands and staff notifications
     default: op
     children:
       jarvis.alerts: true
+      jarvis.staff: true
   jarvis.alerts:
     description: Receives the in-game staff alert when a player is blocked
     default: false

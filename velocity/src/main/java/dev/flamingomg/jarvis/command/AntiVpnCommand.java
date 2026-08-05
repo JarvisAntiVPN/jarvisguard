@@ -2,6 +2,7 @@ package dev.flamingomg.jarvis.command;
 
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.command.SimpleCommand;
+import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import dev.flamingomg.jarvis.client.JarvisClient;
 import dev.flamingomg.jarvis.config.ConfigManager;
@@ -20,7 +21,8 @@ import java.util.stream.Collectors;
 
 public final class AntiVpnCommand implements SimpleCommand {
 
-    private static final List<String> SUB = List.of("key", "stats", "reload");
+    private static final List<String> SUB = List.of("key", "stats", "reload", "blacklist", "unblacklist",
+            "whitelist", "unwhitelist");
 
     private final JarvisClient client;
     private final ProxyServer proxy;
@@ -52,6 +54,10 @@ public final class AntiVpnCommand implements SimpleCommand {
         switch (args[0].toLowerCase(Locale.ROOT)) {
             case "key"       -> setKey(src, args);
             case "stats"     -> stats(src);
+            case "blacklist"   -> blacklist(src, args, false);
+            case "unblacklist" -> blacklist(src, args, true);
+            case "whitelist"   -> whitelist(src, args, false);
+            case "unwhitelist" -> whitelist(src, args, true);
             case "reload"    -> {
 
                 if (!src.hasPermission("jarvis.admin")) { noPermission(src); return; }
@@ -147,6 +153,78 @@ public final class AntiVpnCommand implements SimpleCommand {
         src.sendMessage(help("key <license>", m("cmd.descKey")));
         src.sendMessage(help("stats",         m("cmd.descStats")));
         src.sendMessage(help("reload",        m("cmd.descReload")));
+        src.sendMessage(help("blacklist <player> [reason]", m("cmd.descBlacklist")));
+        src.sendMessage(help("unblacklist <player>",        m("cmd.descUnblacklist")));
+        src.sendMessage(help("whitelist <player> [time] [reason]", m("cmd.descWhitelist")));
+        src.sendMessage(help("unwhitelist <player>",               m("cmd.descUnwhitelist")));
+    }
+
+    static boolean pareceTiempo(String arg) {
+        if (arg == null || arg.isEmpty()) return false;
+        char c = arg.charAt(0);
+        if (c >= '0' && c <= '9') return true;
+        String s = arg.toLowerCase(Locale.ROOT);
+        return s.equals("perma") || s.equals("permanent") || s.equals("permanente");
+    }
+
+    private void whitelist(CommandSource src, String[] args, boolean remove) {
+        if (!puedeModerar(src)) { noPermission(src); return; }
+        if (args.length < 2 || args[1].isBlank()) {
+            src.sendMessage(pre().append(Component.text(
+                    m(remove ? "cmd.usageUnwhitelist" : "cmd.usageWhitelist"), NamedTextColor.YELLOW)));
+            return;
+        }
+        String target = args[1];
+
+        if (target.length() > 32) {
+            src.sendMessage(pre().append(Component.text(m("cmd.blacklistTooLong"), NamedTextColor.RED)));
+            return;
+        }
+        String time = null;
+        int iMotivo = 2;
+        if (!remove && args.length > 2 && pareceTiempo(args[2])) { time = args[2]; iMotivo = 3; }
+        String reason = (remove || args.length <= iMotivo) ? null
+                : String.join(" ", java.util.Arrays.copyOfRange(args, iMotivo, args.length));
+        String actor = (src instanceof Player p) ? p.getUsername() : "consola";
+        String sufijo = time == null ? "" : " (" + time + ")";
+        src.sendMessage(pre().append(Component.text(m("cmd.blacklistSending"), NamedTextColor.GRAY)));
+        client.whitelistAsync(target, time, reason, actor, remove).thenAccept(code -> {
+            if (code >= 200 && code < 300) {
+                src.sendMessage(pre().append(Component.text(
+                        m(remove ? "cmd.unwhitelistOk" : "cmd.whitelistOk") + " " + target + sufijo, NamedTextColor.GREEN)));
+            } else if (code == 400) {
+                src.sendMessage(pre().append(Component.text(m("cmd.whitelistBadTime"), NamedTextColor.RED)));
+            } else {
+                src.sendMessage(pre().append(Component.text(m("cmd.blacklistFail"), NamedTextColor.RED)));
+            }
+        });
+    }
+
+    private void blacklist(CommandSource src, String[] args, boolean remove) {
+        if (!puedeModerar(src)) { noPermission(src); return; }
+        if (args.length < 2 || args[1].isBlank()) {
+            src.sendMessage(pre().append(Component.text(
+                    m(remove ? "cmd.usageUnblacklist" : "cmd.usageBlacklist"), NamedTextColor.YELLOW)));
+            return;
+        }
+        String target = args[1];
+
+        if (target.length() > 32) {
+            src.sendMessage(pre().append(Component.text(m("cmd.blacklistTooLong"), NamedTextColor.RED)));
+            return;
+        }
+        String reason = (remove || args.length < 3) ? null
+                : String.join(" ", java.util.Arrays.copyOfRange(args, 2, args.length));
+        String actor = (src instanceof Player p) ? p.getUsername() : "consola";
+        src.sendMessage(pre().append(Component.text(m("cmd.blacklistSending"), NamedTextColor.GRAY)));
+        client.blacklistAsync(target, reason, actor, remove).thenAccept(ok -> {
+            if (ok) {
+                src.sendMessage(pre().append(Component.text(
+                        m(remove ? "cmd.unblacklistOk" : "cmd.blacklistOk") + " " + target, NamedTextColor.GREEN)));
+            } else {
+                src.sendMessage(pre().append(Component.text(m("cmd.blacklistFail"), NamedTextColor.RED)));
+            }
+        });
     }
 
     @Override
@@ -176,6 +254,10 @@ public final class AntiVpnCommand implements SimpleCommand {
     private static Component help(String usage, String desc) {
         return Component.text("  /antivpn " + usage, NamedTextColor.WHITE)
                 .append(Component.text(" - " + desc, NamedTextColor.DARK_GRAY));
+    }
+
+    private boolean puedeModerar(CommandSource src) {
+        return src.hasPermission("jarvis.staff") || src.hasPermission("jarvis.admin");
     }
 
     private void noPermission(CommandSource src) {

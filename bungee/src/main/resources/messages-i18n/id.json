@@ -30,5 +30,21 @@
   "cmd.descStats": "statistik cache lokal",
   "cmd.descReload": "muat ulang konfigurasi, kosongkan cache, dan sinkron ulang blokir",
   "cmd.noperm": "Tidak ada izin.",
-  "kick": "Kamu telah dikeluarkan."
+  "kick": "Kamu telah dikeluarkan.",
+  "cmd.descBlacklist": "memblokir pemain (tetap berlaku meski ganti IP)",
+  "cmd.descUnblacklist": "mencabut blokir pemain",
+  "cmd.usageBlacklist": "Penggunaan: /antivpn blacklist <pemain> [alasan]",
+  "cmd.usageUnblacklist": "Penggunaan: /antivpn unblacklist <pemain>",
+  "cmd.blacklistOk": "Pemain diblokir:",
+  "cmd.unblacklistOk": "Blokir dicabut:",
+  "cmd.blacklistFail": "Tidak dapat menghubungi server Jarvis. Coba lagi.",
+  "cmd.blacklistTooLong": "Nama itu terlalu panjang (maks 32).",
+  "cmd.blacklistSending": "Mengirim ke server Jarvis…",
+  "cmd.descWhitelist": "membiarkan pemain melewati pemeriksaan (bisa diberi waktu)",
+  "cmd.descUnwhitelist": "mencabut izin pemain",
+  "cmd.usageWhitelist": "Penggunaan: /antivpn whitelist <pemain> [waktu: 30m, 12h, 7d] [alasan]",
+  "cmd.usageUnwhitelist": "Penggunaan: /antivpn unwhitelist <pemain>",
+  "cmd.whitelistOk": "Pemain diizinkan:",
+  "cmd.unwhitelistOk": "Izin dicabut:",
+  "cmd.whitelistBadTime": "Waktu itu tidak dikenali. Gunakan 30m, 12h, 7d, 2w atau \"perma\"."
 }

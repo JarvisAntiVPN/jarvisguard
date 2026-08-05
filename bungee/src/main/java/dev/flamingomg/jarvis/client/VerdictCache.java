@@ -37,6 +37,11 @@ public final class VerdictCache {
         cache.asMap().keySet().removeIf(k -> k.startsWith(prefix));
     }
 
+    public void invalidateBySuffix(String suffix) {
+        if (suffix == null || suffix.isEmpty()) return;
+        cache.asMap().keySet().removeIf(k -> k.endsWith(suffix));
+    }
+
     public long estimatedSize() {
         return cache.estimatedSize();
     }
