@@ -39,6 +39,13 @@ public final class DetectionListener {
     private final BedrockDetector bedrockDetector;
     private final ConfigManager config;
     private final Log logger;
+
+    private final dev.flamingomg.jarvis.detection.PrivateIpWatch privateIpWatch =
+            new dev.flamingomg.jarvis.detection.PrivateIpWatch(
+                    "Check IP forwarding in whatever sits in front of your proxy (HAProxy, Docker, a DDoS filter).");
+
+    public dev.flamingomg.jarvis.detection.PrivateIpWatch privateIpWatch() { return privateIpWatch; }
+
     private final FloodGuard floodGuard;
     private final BanCache banCache;
 
@@ -83,6 +90,8 @@ public final class DetectionListener {
 
         String ip   = addr.getAddress().getHostAddress();
         String name = player.getUsername();
+
+        for (String l : privateIpWatch.lineas(ip, System.currentTimeMillis())) logger.warn(l);
 
         boolean bedrock = bedrockDetector.isBedrockPlayer(player.getUniqueId())
                 || bedrockDetector.isBedrockUsername(name);

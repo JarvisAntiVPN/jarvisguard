@@ -33,6 +33,14 @@ public final class VerdictCache {
         cache.invalidateAll();
     }
 
+    public void invalidateByPrefixes(java.util.Set<String> prefijos, char separador) {
+        if (prefijos == null || prefijos.isEmpty()) return;
+        cache.asMap().keySet().removeIf(k -> {
+            int sep = k.indexOf(separador);
+            return sep >= 0 && prefijos.contains(k.substring(0, sep + 1));
+        });
+    }
+
     public void invalidateByPrefix(String prefix) {
         cache.asMap().keySet().removeIf(k -> k.startsWith(prefix));
     }

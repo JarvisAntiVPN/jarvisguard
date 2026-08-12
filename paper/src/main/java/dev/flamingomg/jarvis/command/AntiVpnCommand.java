@@ -1,9 +1,12 @@
 package dev.flamingomg.jarvis.command;
 
+import dev.flamingomg.jarvis.util.Schedulers;
+
 import dev.flamingomg.jarvis.client.JarvisClient;
 import dev.flamingomg.jarvis.config.ConfigManager;
 import dev.flamingomg.jarvis.detection.BanCache;
 import dev.flamingomg.jarvis.detection.FloodGuard;
+import dev.flamingomg.jarvis.diag.Diagnostico;
 import dev.flamingomg.jarvis.i18n.Messages;
 import dev.flamingomg.jarvis.sync.SyncClient;
 import org.bukkit.Bukkit;
@@ -19,7 +22,7 @@ import java.util.stream.Collectors;
 
 public final class AntiVpnCommand implements CommandExecutor, TabCompleter {
 
-    private static final List<String> SUB = List.of("key", "stats", "reload", "blacklist", "unblacklist",
+    private static final List<String> SUB = List.of("key", "stats", "doctor", "reload", "blacklist", "unblacklist",
             "whitelist", "unwhitelist");
     private static final String PRE = "§b§l[Jarvis]§r ";
 
@@ -29,15 +32,18 @@ public final class AntiVpnCommand implements CommandExecutor, TabCompleter {
     private final Plugin plugin;
     private final FloodGuard floodGuard;
     private final SyncClient syncClient;
+    private final dev.flamingomg.jarvis.listener.DetectionListener listener;
 
     public AntiVpnCommand(JarvisClient client, BanCache banCache, ConfigManager config, Plugin plugin,
-                          FloodGuard floodGuard, SyncClient syncClient) {
+                          FloodGuard floodGuard, SyncClient syncClient,
+                          dev.flamingomg.jarvis.listener.DetectionListener listener) {
         this.client = client;
         this.banCache = banCache;
         this.config = config;
         this.plugin = plugin;
         this.floodGuard = floodGuard;
         this.syncClient = syncClient;
+        this.listener = listener;
     }
 
     private String m(String key) { return Messages.get(client.locale(), key); }
@@ -52,15 +58,19 @@ public final class AntiVpnCommand implements CommandExecutor, TabCompleter {
             case "whitelist"   -> whitelist(sender, args, false);
             case "unwhitelist" -> whitelist(sender, args, true);
             case "stats"  -> stats(sender);
+            case "doctor" -> doctor(sender);
             case "reload" -> {
                 if (!sender.hasPermission("jarvis.admin")) { sender.sendMessage(PRE + "§c" + m("cmd.noperm")); return true; }
-                config.reload();
+
+                if (!config.reload()) { sender.sendMessage(PRE + "§c" + m("cmd.reloadFail")); return true; }
 
                 floodGuard.reconfigure();
                 banCache.reconfigure();
+
+                client.setIpCheckDisabled(config.getBoolean("server.behind-proxy", false));
                 client.cache().invalidateAll();
 
-                Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+                Schedulers.async(plugin, () -> {
                     client.ensureReady();
                     client.fetchAndSyncBans(banCache);
                     client.refreshConfig();
@@ -83,7 +93,7 @@ public final class AntiVpnCommand implements CommandExecutor, TabCompleter {
         }
         if (!config.setKey(newKey)) { sender.sendMessage(PRE + "§c" + m("cmd.savefail")); return; }
         sender.sendMessage(PRE + "§e" + m("cmd.keysaved"));
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+        Schedulers.async(plugin, () -> {
             if (client.ensureReady()) {
                 client.fetchAndSyncBans(banCache);
                 sender.sendMessage(PRE + "§a" + m("cmd.active"));
@@ -102,9 +112,7 @@ public final class AntiVpnCommand implements CommandExecutor, TabCompleter {
         if (!sender.hasPermission("jarvis.admin")) { sender.sendMessage(PRE + "§c" + m("cmd.noperm")); return; }
         sender.sendMessage(PRE + "§b" + m("cmd.statsTitle"));
 
-        boolean canSign = client.signer() != null && client.signer().hasSecret() && !client.keyRejected();
-        boolean ipCheckDisabled = config.getBoolean("server.behind-proxy", false);
-        var estado = dev.flamingomg.jarvis.model.ProtectionState.of(canSign, client.backendHealthy(), ipCheckDisabled);
+        var estado = client.protectionState();
 
         if (estado.isProtecting()) {
             sender.sendMessage(PRE + "§a" + m("cmd.protected"));
@@ -130,13 +138,60 @@ public final class AntiVpnCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(kv(m("cmd.ipcache"),       String.valueOf(client.cache().estimatedSize())));
         sender.sendMessage(kv(m("cmd.blockedips"),    String.valueOf(banCache.size())));
         sender.sendMessage(kv(m("cmd.online"),        String.valueOf(Bukkit.getOnlinePlayers().size())));
-        sender.sendMessage(kv(m("cmd.backendstatus"), client.circuitBreakerStatus()));
+
+    }
+
+    private void doctor(CommandSender sender) {
+        if (!sender.hasPermission("jarvis.admin")) { sender.sendMessage(PRE + "\u00a7c" + m("cmd.noperm")); return; }
+        long ahora = System.currentTimeMillis();
+        var datos = new Diagnostico.Datos(
+
+                client.protectionState(),
+                client.keyRejected(),
+                client.signer() != null && client.signer().hasSecret(),
+                !isBlank(config.getString("backend.license-key", "")),
+                client.clock().offsetMs(),
+                syncClient.streamVivo(),
+                syncClient.ultimoRechazo(),
+                listener.privateIpWatch().privadaReciente(ahora, VENTANA_IP_PRIVADA_MS),
+                banCache.size());
+
+        sender.sendMessage(PRE + "\u00a7b" + m("cmd.doctorTitle"));
+        var lineas = Diagnostico.revisar(datos);
+        for (var l : lineas) sender.sendMessage(pintar(l));
+        if (Diagnostico.peor(lineas) == Diagnostico.Nivel.OK) {
+            sender.sendMessage(PRE + "\u00a7a" + m("cmd.diagAllOk"));
+        }
+    }
+
+    private static final long VENTANA_IP_PRIVADA_MS = 30 * 60 * 1000L;
+
+    private String pintar(Diagnostico.Linea l) {
+        String color = switch (l.nivel()) {
+            case OK     -> "\u00a7a";
+            case NEUTRO -> "\u00a77";
+            case AVISO  -> "\u00a7e";
+            case FALLO  -> "\u00a7c";
+        };
+
+        String marca = switch (l.nivel()) {
+            case OK     -> "\u2714";
+            case NEUTRO -> "\u2013";
+            default     -> "\u2716";
+        };
+        String texto = l.detalle() == null ? "" : m(l.detalle());
+        if (l.dato() != null) {
+            texto = texto.isEmpty() ? l.dato() : texto.replace("{ms}", l.dato()).replace("{ip}", l.dato());
+        }
+        String base = "  " + color + marca + " \u00a77" + m(l.etiqueta());
+        return texto.isEmpty() ? base : base + "\u00a77: " + color + texto;
     }
 
     private void sendHelp(CommandSender sender) {
         sender.sendMessage(PRE + "§b" + m("cmd.helpTitle"));
         sender.sendMessage(help("key <license>", m("cmd.descKey")));
         sender.sendMessage(help("stats",         m("cmd.descStats")));
+        sender.sendMessage(help("doctor",        m("cmd.descDoctor")));
         sender.sendMessage(help("reload",        m("cmd.descReload")));
         sender.sendMessage(help("blacklist <player> [reason]", m("cmd.descBlacklist")));
         sender.sendMessage(help("unblacklist <player>",        m("cmd.descUnblacklist")));
@@ -155,10 +210,11 @@ public final class AntiVpnCommand implements CommandExecutor, TabCompleter {
         String reason = (remove || args.length < 3) ? null
                 : String.join(" ", java.util.Arrays.copyOfRange(args, 2, args.length));
         String actor = (sender instanceof org.bukkit.entity.Player p) ? p.getName() : "consola";
+        if (sinFirma(sender)) return;
         sender.sendMessage(PRE + "§7" + m("cmd.blacklistSending"));
         client.blacklistAsync(target, reason, actor, remove).thenAccept(ok -> {
 
-            Bukkit.getScheduler().runTask(plugin, () -> {
+            Schedulers.aRemitente(plugin, sender, () -> {
                 if (ok) sender.sendMessage(PRE + "§a" + m(remove ? "cmd.unblacklistOk" : "cmd.blacklistOk") + " " + target);
                 else    sender.sendMessage(PRE + "§c" + m("cmd.blacklistFail"));
             });
@@ -189,10 +245,11 @@ public final class AntiVpnCommand implements CommandExecutor, TabCompleter {
                 : String.join(" ", java.util.Arrays.copyOfRange(args, iMotivo, args.length));
         String actor = (sender instanceof org.bukkit.entity.Player p) ? p.getName() : "consola";
         String sufijo = time == null ? "" : " (" + time + ")";
+        if (sinFirma(sender)) return;
         sender.sendMessage(PRE + "§7" + m("cmd.blacklistSending"));
         client.whitelistAsync(target, time, reason, actor, remove).thenAccept(code -> {
 
-            Bukkit.getScheduler().runTask(plugin, () -> {
+            Schedulers.aRemitente(plugin, sender, () -> {
                 if (code >= 200 && code < 300)
                     sender.sendMessage(PRE + "§a" + m(remove ? "cmd.unwhitelistOk" : "cmd.whitelistOk") + " " + target + sufijo);
                 else if (code == 400) sender.sendMessage(PRE + "§c" + m("cmd.whitelistBadTime"));
@@ -205,6 +262,18 @@ public final class AntiVpnCommand implements CommandExecutor, TabCompleter {
         return sender.hasPermission("jarvis.staff") || sender.hasPermission("jarvis.admin");
     }
 
+    private boolean sinFirma(CommandSender sender) {
+        if (client.keyRejected()) {
+            sender.sendMessage(PRE + "§c" + m("cmd.keyrejected"));
+            return true;
+        }
+        if (client.signer() == null || !client.signer().hasSecret()) {
+            sender.sendMessage(PRE + "§c" + m("cmd.notLinked"));
+            return true;
+        }
+        return false;
+    }
+
     private static String kv(String label, String value)  { return "  §7" + label + ": §f" + value; }
     private static String help(String usage, String desc) { return "  §f/antivpn " + usage + " §8- " + desc; }
 
@@ -215,5 +284,9 @@ public final class AntiVpnCommand implements CommandExecutor, TabCompleter {
             return SUB.stream().filter(s -> s.startsWith(q)).collect(Collectors.toList());
         }
         return List.of();
+    }
+
+    private static boolean isBlank(String s) {
+        return s == null || s.trim().isEmpty() || s.trim().equalsIgnoreCase("CHANGE_ME");
     }
 }

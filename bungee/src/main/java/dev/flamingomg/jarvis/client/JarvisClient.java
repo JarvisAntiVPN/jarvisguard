@@ -41,6 +41,8 @@ public final class JarvisClient {
     private volatile long lastSecretResetMs = 0L;
     private volatile boolean warnedNoKey = false;
     private volatile boolean warnedNoSecret = false;
+
+    private volatile boolean warnedNoReach = false;
     private volatile boolean keyRejected = false;
     private volatile boolean warnedUnsignedBans = false;
     private volatile int maxAccountsPerIp = 0;
@@ -142,6 +144,7 @@ public final class JarvisClient {
                     this.secretFromConfig = false;
                     this.keyRejected = false;
                     this.warnedNoSecret = false;
+                    this.warnedNoReach = false;
                     return _s;
                 }
             }
@@ -154,7 +157,13 @@ public final class JarvisClient {
             }
         } catch (Exception e) {
             this.keyRejected = false;
-            logger.warn("Couldn't reach the backend to fetch the configuration: {}", e.getMessage());
+            if (!warnedNoReach) {
+                warnedNoReach = true;
+                logger.warn("Couldn't reach the backend to fetch the configuration: {}. Retrying in the "
+                        + "background; this message won't repeat until it recovers.", e.getMessage());
+            } else {
+                logger.debug("backend still unreachable: {}", e.getMessage());
+            }
         }
         return null;
     }
@@ -243,7 +252,8 @@ public final class JarvisClient {
         this.cbOpenDurationMs   = Math.max(0L, (long) config.getInt("circuit-breaker.open-duration-ms", 30_000));
         this.backendTimeoutMs   = Math.max(1, config.getInt("backend.timeout-ms", 500));
         this.cbProbeTimeoutMs   = Math.max(1, config.getInt("circuit-breaker.probe-timeout-ms", 3000));
-        this.maxResponseAgeMs   = config.getInt("backend.max-response-age-ms", 30_000);
+
+        this.maxResponseAgeMs   = Math.max(90_000L, config.getInt("backend.max-response-age-ms", 90_000));
         this.licenseKey         = config.getString("backend.license-key", "");
     }
 
@@ -268,6 +278,12 @@ public final class JarvisClient {
                 return CompletableFuture.completedFuture(unknownVerdict());
             }
         } else if (state == CbState.HALF_OPEN) {
+
+            if (sondaColgada(System.currentTimeMillis(), cbOpenedAt, openDurationMs, cbProbeTimeoutMs)
+                    && cbState.compareAndSet(CbState.HALF_OPEN, CbState.OPEN)) {
+                cbOpenedAt = System.currentTimeMillis();
+                logger.warn("Circuit breaker: the reconnection probe never answered; reopening to retry.");
+            }
             return CompletableFuture.completedFuture(unknownVerdict());
         }
 
@@ -301,10 +317,17 @@ public final class JarvisClient {
                         return onFailure(ip, failThreshold);
                     }
                     if (!responseFresh(verdict.timestamp())) {
+
+                        Long total = clock.aprender(verdict.timestamp(), ts, clock.now(), offsetAlEnviar);
+                        if (total != null) {
+                            logger.warn("This machine's clock is off by {} ms from the Jarvis backend; requests "
+                                    + "are now corrected. Fix NTP on this server.", total);
+                        }
                         logger.warn("Stale/replay response for {} (ts={})", ip, verdict.timestamp());
                         return onFailure(ip, failThreshold);
                     }
                     cbFailures.set(0);
+                    ultimoVeredictoOkMs = System.currentTimeMillis();
                     if (cbState.compareAndSet(CbState.HALF_OPEN, CbState.CLOSED)) {
                         logger.debug("Circuit breaker CLOSED, backend recovered.");
                     }
@@ -337,7 +360,27 @@ public final class JarvisClient {
             return onFailure(ip, failThreshold);
         })
 
-        .completeOnTimeout(unknownVerdict(), timeoutMs + 4500L, java.util.concurrent.TimeUnit.MILLISECONDS);
+        .completeOnTimeout(VENCIDO, timeoutMs + 4500L, java.util.concurrent.TimeUnit.MILLISECONDS)
+        .thenApply(v -> {
+            if (v != VENCIDO) return v;
+            avisarVencimiento(ip);
+            return unknownVerdict();
+        });
+    }
+
+    private static final VerdictResponse VENCIDO = new VerdictResponse("UNKNOWN", null, 0L, "", null);
+
+    private final java.util.concurrent.atomic.AtomicLong ultimoAvisoVencimiento =
+            new java.util.concurrent.atomic.AtomicLong(0L);
+
+    private void avisarVencimiento(String ip) {
+        ultimoVeredictoFalloMs = System.currentTimeMillis();
+        long ahora = System.currentTimeMillis();
+        long previo = ultimoAvisoVencimiento.get();
+        if (previo != 0L && ahora >= previo && ahora - previo < 60_000L) return;
+        if (!ultimoAvisoVencimiento.compareAndSet(previo, ahora)) return;
+        logger.warn("The Jarvis backend accepted the connection but never finished answering; that login was let "
+                + "in WITHOUT being checked. If this repeats, check this server's network path to the backend.");
     }
 
     private static final long SECRET_RESET_MIN_INTERVAL_MS = 60_000L;
@@ -374,7 +417,31 @@ public final class JarvisClient {
 
     public void onSyncRejected(int status) { maybeResetSecret(status); }
 
+    static boolean sondaColgada(long ahoraMs, long cbOpenedAtMs, long openDurationMs, long probeTimeoutMs) {
+        return ahoraMs - cbOpenedAtMs > openDurationMs + probeTimeoutMs + 4_500L + 5_000L;
+    }
+
+    private void backendRespondio() {
+
+        if (cbState.get() == CbState.CLOSED) return;
+        cbFailures.set(0);
+        if (cbState.compareAndSet(CbState.OPEN, CbState.CLOSED)
+                || cbState.compareAndSet(CbState.HALF_OPEN, CbState.CLOSED)) {
+            logger.info("Jarvis backend reachable again; protection is back to normal.");
+        }
+    }
+
+    private volatile long ultimoVeredictoOkMs = 0L;
+    private volatile long ultimoVeredictoFalloMs = 0L;
+
+    static final long VENTANA_FALLO_MS = 180_000L;
+
+    static boolean veredictosFallando(long ahoraMs, long okMs, long falloMs, long ventanaMs) {
+        return falloMs > okMs && ahoraMs - falloMs <= ventanaMs;
+    }
+
     private VerdictResponse onFailure(String ip, int failThreshold) {
+        ultimoVeredictoFalloMs = System.currentTimeMillis();
         int failures = cbFailures.incrementAndGet();
 
         if (cbState.compareAndSet(CbState.HALF_OPEN, CbState.OPEN)) {
@@ -389,6 +456,13 @@ public final class JarvisClient {
 
     private static VerdictResponse unknownVerdict() {
         return new VerdictResponse("UNKNOWN", null, System.currentTimeMillis(), "", null);
+    }
+
+    public void invalidateIps(java.util.Collection<String> ips) {
+        if (ips == null || ips.isEmpty()) return;
+        java.util.Set<String> prefijos = new java.util.HashSet<>();
+        for (String ip : ips) if (ip != null) prefijos.add(canonIp(ip) + CK_SEP);
+        cache.invalidateByPrefixes(prefijos, CK_SEP);
     }
 
     public void invalidateIp(String ip) {
@@ -424,7 +498,8 @@ public final class JarvisClient {
 
         if (channels != null && !channels.isEmpty()) payload.put("channels", channels);
         if (protocolVersion != null) payload.put("protocolVersion", protocolVersion);
-        report("/api/v1/player/seen", ip, username, payload,
+
+        reportConIdentidad("/api/v1/player/seen", ip, username, uuid, premium, payload,
                 "Error reporting player seen " + username);
     }
 
@@ -630,6 +705,7 @@ public final class JarvisClient {
                             } catch (RuntimeException ignored) {  }
                         }
 
+                        banCache.listaAplicada(snapshotIps, listaCompletaVerificada);
                         if (listaCompletaVerificada) {
                             banCache.reconciliar(snapshotIps, tsLocal);
                         }
@@ -649,18 +725,40 @@ public final class JarvisClient {
         return cbState.get() == CbState.CLOSED;
     }
 
+    private final dev.flamingomg.jarvis.detection.ProtectionWatch protectionWatch =
+            new dev.flamingomg.jarvis.detection.ProtectionWatch();
+
+    public dev.flamingomg.jarvis.model.ProtectionState protectionState() {
+        HmacSigner s = signer;
+        boolean canSign = s != null && s.hasSecret() && !keyRejected;
+
+        boolean sano = backendHealthy() && !veredictosFallando(
+                System.currentTimeMillis(), ultimoVeredictoOkMs, ultimoVeredictoFalloMs, VENTANA_FALLO_MS);
+        return dev.flamingomg.jarvis.model.ProtectionState.of(canSign, sano, ipCheckDisabled);
+    }
+
+    private volatile boolean ipCheckDisabled = false;
+
+    public void setIpCheckDisabled(boolean v) { this.ipCheckDisabled = v; }
+
     public VerdictCache cache() { return cache; }
 
     private void startKeepAlive() {
-        int cfg = config.getInt("backend.keepalive-ms", 15_000);
-        if (cfg <= 0) return;
-        long periodMs = Math.max(5_000L, cfg);
+
+        long periodMs = Math.max(5_000L, config.getInt("backend.keepalive-ms", 15_000) <= 0
+                ? 15_000L : config.getInt("backend.keepalive-ms", 15_000));
         keepAlive.scheduleWithFixedDelay(this::pingBackend, periodMs, periodMs,
                 java.util.concurrent.TimeUnit.MILLISECONDS);
     }
 
+    private boolean pingDesactivado() { return config.getInt("backend.keepalive-ms", 15_000) <= 0; }
+
     private void pingBackend() {
         try {
+
+            if (!isBlank(licenseKey)) {
+                for (String l : protectionWatch.lineas(protectionState(), System.currentTimeMillis())) logger.warn(l);
+            }
             if (isBlank(licenseKey)) return;
 
             HmacSigner sg = signer;
@@ -673,12 +771,14 @@ public final class JarvisClient {
                 bt.setDaemon(true);
                 bt.start();
             }
+            if (pingDesactivado()) return;
             String url = ConfigManager.DEFAULT_BACKEND_URL;
             int connectMs = Math.max(1, config.getInt("backend.connect-timeout-ms", 8000));
             HttpRequest req = HttpRequest.newBuilder(URI.create(url + "/ready"))
                     .timeout(Duration.ofMillis(connectMs))
                     .GET().build();
-            http.sendAsync(req, HttpResponse.BodyHandlers.discarding())
+            http.sendAsync(req, HttpResponse.BodyHandlers.ofString())
+                    .thenAccept(r -> { if (r.statusCode() / 100 == 2) backendRespondio(); })
                     .exceptionally(e -> { logger.debug("keepalive ping failed: {}", e.getMessage()); return null; });
         } catch (Exception e) {
             logger.debug("keepalive error: {}", e.getMessage());
@@ -686,7 +786,8 @@ public final class JarvisClient {
     }
 
     public void shutdown() {
-        keepAlive.shutdownNow();
+
+        HttpExecutors.shutdownQuietly(keepAlive);
         denials.stop();
         HttpExecutors.closeQuietly(http);
         HttpExecutors.shutdownQuietly(httpExecutor);
@@ -770,21 +871,35 @@ public final class JarvisClient {
         String backendUrl = ConfigManager.DEFAULT_BACKEND_URL;
         String sig        = signer.sign(HmacSigner.requestPayload(ts, ipForSig, userForSig));
         payload.put("timestamp", ts);
-        sendAsync(backendUrl + endpoint, licKey, ts, sig, GSON.toJson(payload),
+        sendAsync(backendUrl + endpoint, licKey, ts, sig, null, GSON.toJson(payload),
                 () -> logger.debug("{}", errorMsg));
     }
 
-    private void sendAsync(String url, String licKey, long ts, String sig, String body, Runnable onError) {
+    private void reportConIdentidad(String endpoint, String ipForSig, String userForSig,
+                                    String uuid, boolean premium,
+                                    Map<String, Object> payload, String errorMsg) {
+        if (signer == null || !signer.hasSecret()) return;
+        long   ts         = clock.now();
+        String licKey     = licenseKey;
+        String backendUrl = ConfigManager.DEFAULT_BACKEND_URL;
+        String sig        = signer.sign(HmacSigner.requestPayloadWithIdentity(ts, ipForSig, userForSig, uuid, premium));
+        payload.put("timestamp", ts);
+        sendAsync(backendUrl + endpoint, licKey, ts, sig, HmacSigner.CANON_SEEN_AMPLIADO, GSON.toJson(payload),
+                () -> logger.debug("{}", errorMsg));
+    }
+
+    private void sendAsync(String url, String licKey, long ts, String sig, String canon, String body, Runnable onError) {
 
         long timeoutMs = Math.max(5000L, config.getInt("backend.connect-timeout-ms", 8000) + 5000L);
-        HttpRequest req = HttpRequest.newBuilder(URI.create(url))
+        HttpRequest.Builder b = HttpRequest.newBuilder(URI.create(url))
                 .timeout(Duration.ofMillis(timeoutMs))
                 .header("Content-Type",  "application/json")
                 .header("X-License-Key", licKey)
                 .header("X-Timestamp",   String.valueOf(ts))
-                .header("X-Signature",   sig)
-                .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
-                .build();
+                .header("X-Signature",   sig);
+
+        if (canon != null) b.header("X-Sig-Canon", canon);
+        HttpRequest req = b.POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8)).build();
         http.sendAsync(req, HttpResponse.BodyHandlers.discarding())
                 .exceptionally(e -> { onError.run(); return null; });
     }

@@ -17,10 +17,21 @@ public final class BanCache {
     private final Cache<String, Entry> banned;
     private final ConfigManager config;
 
+    private volatile BanSnapshot snapshot;
+
     private volatile int defaultTtlSeconds;
 
     public BanCache(ConfigManager config) {
+        this(config, null);
+    }
+
+    public BanCache(ConfigManager config, dev.flamingomg.jarvis.util.Log logger) {
         this.config = config;
+        if (logger != null && config.getBoolean("bans.persist", true)) {
+            BanSnapshot s = new BanSnapshot(config.dataDirectory(), logger);
+            s.cargar(licenciaActual(), System.currentTimeMillis());
+            this.snapshot = s;
+        }
         this.defaultTtlSeconds = Math.max(10, config.getInt("bans.local-ttl-seconds", 300));
         this.banned = Caffeine.newBuilder()
                 .maximumSize(100_000)
@@ -51,11 +62,32 @@ public final class BanCache {
     }
 
     public boolean isBanned(String ip) {
-        return banned.getIfPresent(key(ip)) != null;
+        String k = key(ip);
+        if (banned.getIfPresent(k) != null) return true;
+
+        BanSnapshot s = snapshot;
+        return s != null && s.cubre(k, licenciaActual());
     }
 
     public void unban(String ip) {
-        banned.invalidate(key(ip));
+        String k = key(ip);
+        banned.invalidate(k);
+
+        BanSnapshot s = snapshot;
+        if (s != null) s.olvidar(k);
+    }
+
+    public void unbanTodos(java.util.Collection<String> ips) {
+        if (ips == null || ips.isEmpty()) return;
+        java.util.List<String> claves = new java.util.ArrayList<>(ips.size());
+        for (String ip : ips) {
+            if (ip == null) continue;
+            String k = key(ip);
+            banned.invalidate(k);
+            claves.add(k);
+        }
+        BanSnapshot s = snapshot;
+        if (s != null) s.olvidar(claves);
     }
 
     public void reconciliar(Set<String> backendRawIps, long snapshotTs) {
@@ -66,6 +98,11 @@ public final class BanCache {
                 banned.invalidate(k);
             }
         });
+
+    }
+
+    private String licenciaActual() {
+        return config.getString("backend.license-key", "");
     }
 
     private static String key(String ip) {
@@ -81,11 +118,31 @@ public final class BanCache {
         this.defaultTtlSeconds = Math.max(10, config.getInt("bans.local-ttl-seconds", 300));
     }
 
+    public void listaAplicada(Set<String> ipsDeLaLista, boolean listaCertificada) {
+        BanSnapshot s = snapshot;
+        if (s == null) return;
+        java.util.Set<String> keep = new java.util.HashSet<>();
+        for (String ip : ipsDeLaLista) keep.add(key(ip));
+
+        java.util.Map<String, Long> conCaducidad = new java.util.HashMap<>();
+        banned.asMap().forEach((k, e) -> { if (keep.contains(k)) conCaducidad.put(k, e.expiryMs()); });
+
+        if (!conCaducidad.isEmpty() || listaCertificada) {
+            s.guardar(licenciaActual(), conCaducidad, System.currentTimeMillis());
+        }
+
+        s.descartar();
+    }
+
     public void clear() {
         banned.invalidateAll();
+
+        BanSnapshot s = snapshot;
+        if (s != null) s.descartar();
     }
 
     public long size() {
-        return banned.estimatedSize();
+        BanSnapshot s = snapshot;
+        return banned.estimatedSize() + (s == null ? 0 : s.vigentes(licenciaActual()));
     }
 }

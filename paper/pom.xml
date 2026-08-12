@@ -6,7 +6,7 @@
 
     <groupId>dev.flamingomg</groupId>
     <artifactId>jarvis-paper</artifactId>
-    <version>0.5.22</version>
+    <version>0.5.23</version>
     <packaging>jar</packaging>
 
     <name>Jarvis</name>
@@ -88,9 +88,10 @@
             <artifactId>gson</artifactId>
             <version>2.11.0</version>
         </dependency>
+
         <dependency>
             <groupId>org.bstats</groupId>
-            <artifactId>bstats-bukkit</artifactId>
+            <artifactId>bstats-base</artifactId>
             <version>3.0.2</version>
         </dependency>
 

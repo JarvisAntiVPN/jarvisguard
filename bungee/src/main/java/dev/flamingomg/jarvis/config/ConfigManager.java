@@ -30,6 +30,8 @@ public final class ConfigManager {
 
     private static final String SECRET_CACHE_FILE = ".connector-secret";
 
+    public java.nio.file.Path dataDirectory() { return dataDirectory; }
+
     public String readCachedSecret(String forLicenseKey) {
         if (forLicenseKey == null || forLicenseKey.isBlank()) return null;
         try {
@@ -86,7 +88,7 @@ public final class ConfigManager {
         }
     }
 
-    public void load() {
+    public boolean load() {
         try {
             Files.createDirectories(dataDirectory);
             Path file = dataDirectory.resolve(FILE_NAME);
@@ -98,21 +100,24 @@ public final class ConfigManager {
                 Map<String, Object> loaded = new Yaml().load(in);
                 this.root = normalize(loaded != null ? loaded : new java.util.LinkedHashMap<>());
             }
+            rebuildBypassSet();
             warnLegacyKeysOnce();
             logger.debug("Jarvis client configuration loaded.");
         } catch (IOException | RuntimeException e) {
 
             logger.error("Couldn't load {}; keeping the settings currently in memory.", FILE_NAME, e);
+            return false;
         }
-        rebuildBypassSet();
+        return true;
     }
 
     private void rebuildBypassSet() {
         java.util.Set<String> set = new java.util.HashSet<>();
         for (Object o : getList("bypass.usernames")) {
             if (o == null) continue;
-            String s = o.toString().trim().toLowerCase(java.util.Locale.ROOT);
-            if (!s.isEmpty()) set.add(s);
+            String name = o.toString().toLowerCase(java.util.Locale.ROOT).trim();
+            if (name.isEmpty()) continue;
+            set.add(name);
         }
         this.bypassSet = java.util.Collections.unmodifiableSet(set);
     }
@@ -144,7 +149,7 @@ public final class ConfigManager {
     private void copyDefault(Path target) throws IOException {
         try (InputStream in = getClass().getClassLoader().getResourceAsStream(FILE_NAME)) {
             if (in == null) {
-                throw new IOException("Recurso " + FILE_NAME + " no encontrado en el jar");
+                throw new IOException("Resource " + FILE_NAME + " not found in the jar");
             }
             Files.copy(in, target);
         }
@@ -175,13 +180,17 @@ public final class ConfigManager {
         return resolve(path) instanceof Boolean b ? b : def;
     }
 
+    public boolean isSet(String path) {
+        return resolve(path) != null;
+    }
+
     @SuppressWarnings("unchecked")
     public List<Object> getList(String path) {
         return resolve(path) instanceof List<?> list ? (List<Object>) list : Collections.emptyList();
     }
 
-    public void reload() {
-        load();
+    public boolean reload() {
+        return load();
     }
 
     public boolean setKey(String newKey) {
@@ -200,12 +209,21 @@ public final class ConfigManager {
                     ? new java.util.ArrayList<>(Files.readAllLines(file))
                     : new java.util.ArrayList<>();
             boolean replaced = false;
+            boolean enBackend = false;
             for (int i = 0; i < lines.size(); i++) {
-                String t = lines.get(i).trim();
-                if (!t.startsWith("#") && t.startsWith("key:")) {
-                    lines.set(i, keyLine);
+                String raw = lines.get(i);
+                String t = raw.trim();
+
+                if (t.isEmpty() || t.startsWith("#")) continue;
+                boolean nivelCero = !Character.isWhitespace(raw.charAt(0));
+                if (nivelCero) enBackend = t.startsWith("backend:");
+                if (nivelCero && (t.startsWith("key:") || t.startsWith("license-key:"))) {
+                    lines.set(i, (t.startsWith("key:") ? "key: \"" : "license-key: \"") + clean + "\"");
                     replaced = true;
-                    break;
+                } else if (enBackend && !nivelCero && t.startsWith("license-key:")) {
+                    String sangria = raw.substring(0, raw.length() - raw.stripLeading().length());
+                    lines.set(i, sangria + "license-key: \"" + clean + "\"");
+                    replaced = true;
                 }
             }
             if (!replaced) lines.add(keyLine);
@@ -218,6 +236,12 @@ public final class ConfigManager {
                 Files.move(tmp, file, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
             }
             load();
+
+            if (!clean.equals(getString("backend.license-key", ""))) {
+                logger.warn("The license key was written but it is not the one in use; check {} for a duplicate.",
+                        FILE_NAME);
+                return false;
+            }
             return true;
         } catch (IOException e) {
             try { Files.deleteIfExists(tmp); } catch (IOException ignored) {  }

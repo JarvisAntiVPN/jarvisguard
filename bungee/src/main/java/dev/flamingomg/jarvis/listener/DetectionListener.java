@@ -42,6 +42,13 @@ public final class DetectionListener implements Listener {
     private final BedrockDetector bedrockDetector;
     private final ConfigManager config;
     private final Log logger;
+
+    private final dev.flamingomg.jarvis.detection.PrivateIpWatch privateIpWatch =
+            new dev.flamingomg.jarvis.detection.PrivateIpWatch(
+                    "Check IP forwarding in whatever sits in front of your proxy (HAProxy, Docker, a DDoS filter).");
+
+    public dev.flamingomg.jarvis.detection.PrivateIpWatch privateIpWatch() { return privateIpWatch; }
+
     private final FloodGuard floodGuard;
     private final BanCache banCache;
 
@@ -88,6 +95,8 @@ public final class DetectionListener implements Listener {
 
         String ip   = addr.getAddress().getHostAddress();
         String name = conn.getName();
+
+        for (String l : privateIpWatch.lineas(ip, System.currentTimeMillis())) logger.warn(l);
         UUID uuid   = conn.getUniqueId();
 
         boolean bedrock = (uuid != null && bedrockDetector.isBedrockPlayer(uuid))
@@ -284,8 +293,11 @@ public final class DetectionListener implements Listener {
             String brand = clientBrands.getIfPresent(player.getUniqueId());
 
             String locale = player.getLocale() != null ? player.getLocale().toLanguageTag() : null;
+
             Integer viewDistance = null;
             String chatMode = null;
+            try { viewDistance = (int) player.getViewDistance(); } catch (Throwable ignored) {}
+            try { if (player.getChatMode() != null) chatMode = player.getChatMode().name(); } catch (Throwable ignored) {}
 
             String version = null;
 

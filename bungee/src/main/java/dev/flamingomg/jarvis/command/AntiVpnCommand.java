@@ -9,6 +9,7 @@ import dev.flamingomg.jarvis.client.JarvisClient;
 import dev.flamingomg.jarvis.config.ConfigManager;
 import dev.flamingomg.jarvis.detection.BanCache;
 import dev.flamingomg.jarvis.detection.FloodGuard;
+import dev.flamingomg.jarvis.diag.Diagnostico;
 import dev.flamingomg.jarvis.i18n.Messages;
 import dev.flamingomg.jarvis.sync.SyncClient;
 
@@ -23,7 +24,7 @@ import java.util.stream.Collectors;
 
 public final class AntiVpnCommand extends Command implements TabExecutor {
 
-    private static final List<String> SUB = List.of("key", "stats", "reload", "blacklist", "unblacklist",
+    private static final List<String> SUB = List.of("key", "stats", "doctor", "reload", "blacklist", "unblacklist",
             "whitelist", "unwhitelist");
 
     private final JarvisClient client;
@@ -33,11 +34,14 @@ public final class AntiVpnCommand extends Command implements TabExecutor {
     private final Plugin plugin;
     private final FloodGuard floodGuard;
     private final SyncClient syncClient;
+    private final dev.flamingomg.jarvis.listener.DetectionListener listener;
 
     public AntiVpnCommand(JarvisClient client, ProxyServer proxy,
                           BanCache banCache, ConfigManager config,
-                          Plugin plugin, FloodGuard floodGuard, SyncClient syncClient) {
+                          Plugin plugin, FloodGuard floodGuard, SyncClient syncClient,
+                          dev.flamingomg.jarvis.listener.DetectionListener listener) {
         super("antivpn", "jarvis.command", "jarvis", "avpn");
+        this.listener = listener;
         this.client = client;
         this.proxy = proxy;
         this.banCache = banCache;
@@ -60,10 +64,15 @@ public final class AntiVpnCommand extends Command implements TabExecutor {
             case "whitelist"   -> whitelist(sender, args, false);
             case "unwhitelist" -> whitelist(sender, args, true);
             case "stats"     -> stats(sender);
+            case "doctor"    -> doctor(sender);
             case "reload"    -> {
 
                 if (!sender.hasPermission("jarvis.admin")) { noPermission(sender); return; }
-                config.reload();
+
+                if (!config.reload()) {
+                    send(sender, pre().append(Component.text(m("cmd.reloadFail"), NamedTextColor.RED)));
+                    return;
+                }
 
                 floodGuard.reconfigure();
                 banCache.reconfigure();
@@ -119,9 +128,7 @@ public final class AntiVpnCommand extends Command implements TabExecutor {
         if (!sender.hasPermission("jarvis.admin")) { noPermission(sender); return; }
         send(sender, pre().append(Component.text(m("cmd.statsTitle"), NamedTextColor.AQUA)));
 
-        boolean canSign = client.signer() != null && client.signer().hasSecret() && !client.keyRejected();
-
-        var estado = dev.flamingomg.jarvis.model.ProtectionState.of(canSign, client.backendHealthy(), false);
+        var estado = client.protectionState();
 
         if (estado.isProtecting()) {
             send(sender, pre().append(Component.text(m("cmd.protected"), NamedTextColor.GREEN)));
@@ -147,13 +154,62 @@ public final class AntiVpnCommand extends Command implements TabExecutor {
         send(sender, kv(m("cmd.ipcache"), String.valueOf(client.cache().estimatedSize())));
         send(sender, kv(m("cmd.blockedips"), String.valueOf(banCache.size())));
         send(sender, kv(m("cmd.online"), String.valueOf(proxy.getOnlineCount())));
-        send(sender, kv(m("cmd.backendstatus"), client.circuitBreakerStatus()));
+
+    }
+
+    private void doctor(CommandSender sender) {
+        if (!sender.hasPermission("jarvis.admin")) { noPermission(sender); return; }
+        long ahora = System.currentTimeMillis();
+        var datos = new Diagnostico.Datos(
+
+                client.protectionState(),
+                client.keyRejected(),
+                client.signer() != null && client.signer().hasSecret(),
+                !isBlank(config.getString("backend.license-key", "")),
+                client.clock().offsetMs(),
+                syncClient.streamVivo(),
+                syncClient.ultimoRechazo(),
+                listener.privateIpWatch().privadaReciente(ahora, VENTANA_IP_PRIVADA_MS),
+                banCache.size());
+
+        send(sender, pre().append(Component.text(m("cmd.doctorTitle"), NamedTextColor.AQUA)));
+        var lineas = Diagnostico.revisar(datos);
+        for (var l : lineas) send(sender, pintar(l));
+        if (Diagnostico.peor(lineas) == Diagnostico.Nivel.OK) {
+            send(sender, pre().append(Component.text(m("cmd.diagAllOk"), NamedTextColor.GREEN)));
+        }
+    }
+
+    private static final long VENTANA_IP_PRIVADA_MS = 30 * 60 * 1000L;
+
+    private Component pintar(Diagnostico.Linea l) {
+        NamedTextColor color = switch (l.nivel()) {
+            case OK     -> NamedTextColor.GREEN;
+            case NEUTRO -> NamedTextColor.GRAY;
+            case AVISO  -> NamedTextColor.YELLOW;
+            case FALLO  -> NamedTextColor.RED;
+        };
+
+        String marca = switch (l.nivel()) {
+            case OK     -> "\u2714";
+            case NEUTRO -> "\u2013";
+            default     -> "\u2716";
+        };
+        String texto = l.detalle() == null ? "" : m(l.detalle());
+        if (l.dato() != null) {
+            texto = texto.isEmpty() ? l.dato() : texto.replace("{ms}", l.dato()).replace("{ip}", l.dato());
+        }
+        Component base = Component.text("  " + marca + " ", color)
+                .append(Component.text(m(l.etiqueta()), NamedTextColor.GRAY));
+        return texto.isEmpty() ? base : base.append(Component.text(": ", NamedTextColor.GRAY))
+                .append(Component.text(texto, color));
     }
 
     private void sendHelp(CommandSender sender) {
         send(sender, pre().append(Component.text(m("cmd.helpTitle"), NamedTextColor.AQUA)));
         send(sender, help("key <license>", m("cmd.descKey")));
         send(sender, help("stats",         m("cmd.descStats")));
+        send(sender, help("doctor",        m("cmd.descDoctor")));
         send(sender, help("reload",        m("cmd.descReload")));
         send(sender, help("blacklist <player> [reason]", m("cmd.descBlacklist")));
         send(sender, help("unblacklist <player>",        m("cmd.descUnblacklist")));
@@ -176,6 +232,7 @@ public final class AntiVpnCommand extends Command implements TabExecutor {
         String reason = (remove || args.length < 3) ? null
                 : String.join(" ", java.util.Arrays.copyOfRange(args, 2, args.length));
         String actor = (sender instanceof net.md_5.bungee.api.connection.ProxiedPlayer pp) ? pp.getName() : "consola";
+        if (sinFirma(sender)) return;
         send(sender, pre().append(Component.text(m("cmd.blacklistSending"), NamedTextColor.GRAY)));
         client.blacklistAsync(target, reason, actor, remove).thenAccept(ok -> {
             if (ok) {
@@ -215,6 +272,7 @@ public final class AntiVpnCommand extends Command implements TabExecutor {
                 : String.join(" ", java.util.Arrays.copyOfRange(args, iMotivo, args.length));
         String actor = (sender instanceof net.md_5.bungee.api.connection.ProxiedPlayer pp) ? pp.getName() : "consola";
         String sufijo = time == null ? "" : " (" + time + ")";
+        if (sinFirma(sender)) return;
         send(sender, pre().append(Component.text(m("cmd.blacklistSending"), NamedTextColor.GRAY)));
         client.whitelistAsync(target, time, reason, actor, remove).thenAccept(code -> {
             if (code >= 200 && code < 300) {
@@ -257,5 +315,21 @@ public final class AntiVpnCommand extends Command implements TabExecutor {
 
     private void noPermission(CommandSender sender) {
         send(sender, pre().append(Component.text(m("cmd.noperm"), NamedTextColor.RED)));
+    }
+
+    private boolean sinFirma(CommandSender sender) {
+        if (client.keyRejected()) {
+            send(sender, pre().append(Component.text(m("cmd.keyrejected"), NamedTextColor.RED)));
+            return true;
+        }
+        if (client.signer() == null || !client.signer().hasSecret()) {
+            send(sender, pre().append(Component.text(m("cmd.notLinked"), NamedTextColor.RED)));
+            return true;
+        }
+        return false;
+    }
+
+    private static boolean isBlank(String s) {
+        return s == null || s.trim().isEmpty() || s.trim().equalsIgnoreCase("CHANGE_ME");
     }
 }

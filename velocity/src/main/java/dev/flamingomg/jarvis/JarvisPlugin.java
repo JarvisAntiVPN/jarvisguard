@@ -34,7 +34,7 @@ import java.nio.file.Path;
 )
 public final class JarvisPlugin {
 
-    public static final String VERSION = "0.5.22";
+    public static final String VERSION = "0.5.23";
 
     private static final int BSTATS_PLUGIN_ID = 31671;
 
@@ -54,6 +54,10 @@ public final class JarvisPlugin {
     private volatile long pairExpiresAt;
     private boolean pairBannerShown = false;
 
+    private long pairNextStartAt = 0L;
+    private int  pairStartFails = 0;
+    private boolean pairWarned = false;
+
     @Inject
     public JarvisPlugin(ProxyServer proxy, Logger logger, @DataDirectory Path dataDirectory,
                         Metrics.Factory metricsFactory) {
@@ -72,7 +76,7 @@ public final class JarvisPlugin {
 
         BedrockDetector bedrockDetector = new BedrockDetector(proxy, config, logger);
         FloodGuard floodGuard = new FloodGuard(config);
-        this.banCache = new BanCache(config);
+        this.banCache = new BanCache(config, logger);
 
         this.syncClient = new SyncClient(config, logger, jarvisClient, banCache, proxy);
 
@@ -84,7 +88,8 @@ public final class JarvisPlugin {
         CommandManager cm = proxy.getCommandManager();
 
         CommandMeta antivpnMeta = cm.metaBuilder("antivpn").aliases("jarvis", "avpn").plugin(this).build();
-        cm.register(antivpnMeta, new AntiVpnCommand(jarvisClient, proxy, banCache, config, this, floodGuard, syncClient));
+        cm.register(antivpnMeta, new AntiVpnCommand(jarvisClient, proxy, banCache, config, this, floodGuard, syncClient,
+                detectionListener));
 
         syncClient.start();
         jarvisClient.fetchAndSyncBans(banCache);
@@ -93,8 +98,9 @@ public final class JarvisPlugin {
             try {
                 metricsFactory.make(this, BSTATS_PLUGIN_ID);
                 logger.debug("bStats metrics enabled.");
-            } catch (Exception e) {
-                logger.warn("Couldn't start bStats metrics: {}", e.getMessage());
+
+            } catch (Throwable t) {
+                logger.warn("Couldn't start bStats metrics: {}", t.toString());
             }
         }
 
@@ -123,10 +129,19 @@ public final class JarvisPlugin {
         dev.flamingomg.jarvis.client.PairingClient.Start s = pairing.start(null, server, VERSION);
         if (s == null || s.verificationUri() == null) {
             pairDeviceCode = null;
-            logger.warn("Couldn't generate the linking link; retrying shortly. "
-                    + "Alternative: /antivpn key <license>");
+
+            pairStartFails = Math.min(pairStartFails + 1, 6);
+            pairNextStartAt = System.currentTimeMillis() + Math.min(300_000L, 5_000L * (1L << pairStartFails));
+            if (!pairWarned) {
+                pairWarned = true;
+                logger.warn("Couldn't generate the linking link; retrying in the background. "
+                        + "Alternative: /antivpn key <license>");
+            }
             return;
         }
+        pairStartFails = 0;
+        pairNextStartAt = 0L;
+        pairWarned = false;
         pairDeviceCode = s.deviceCode();
         pairExpiresAt = System.currentTimeMillis() + s.expiresIn() * 1000L;
         if (!pairBannerShown) {
@@ -145,11 +160,27 @@ public final class JarvisPlugin {
         }
     }
 
+    private final java.util.concurrent.atomic.AtomicBoolean pairTickEnCurso =
+            new java.util.concurrent.atomic.AtomicBoolean(false);
+
     private void pairTick() {
+        if (!pairTickEnCurso.compareAndSet(false, true)) return;
+        try {
+            pairTickBody();
+        } finally {
+            pairTickEnCurso.set(false);
+        }
+    }
+
+    private void pairTickBody() {
 
         if (!isBlank(config.getString("backend.license-key", ""))) { stopPairing(); return; }
 
-        if (pairDeviceCode == null || System.currentTimeMillis() > pairExpiresAt) { requestAndPrintPairing(); return; }
+        if (pairDeviceCode == null || System.currentTimeMillis() > pairExpiresAt) {
+            if (System.currentTimeMillis() < pairNextStartAt) return;
+            requestAndPrintPairing();
+            return;
+        }
         String[] res = pairing.poll(pairDeviceCode);
         switch (res[0] == null ? "error" : res[0]) {
             case "approved" -> {

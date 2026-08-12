@@ -6,7 +6,7 @@
 
     <groupId>dev.flamingomg</groupId>
     <artifactId>jarvis</artifactId>
-    <version>0.5.22</version>
+    <version>0.5.23</version>
     <packaging>jar</packaging>
 
     <name>Jarvis</name>
@@ -15,7 +15,7 @@
     <properties>
         <maven.compiler.release>17</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <velocity.version>3.3.0-SNAPSHOT</velocity.version>
+        <velocity.version>3.4.0</velocity.version>
     </properties>
 
     <repositories>

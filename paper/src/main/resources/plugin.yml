@@ -4,11 +4,12 @@ version: ${project.version}
 author: TheFlamingOMG
 description: Anti-VPN/proxy client for Paper/Spigot (no proxy)
 api-version: '1.18'
+folia-supported: true
 softdepend: [floodgate]
 commands:
   antivpn:
     description: Manages the Jarvis Anti-VPN client
-    usage: /antivpn <key|stats|reload|blacklist|unblacklist|whitelist|unwhitelist>
+    usage: /antivpn <key|stats|doctor|reload|blacklist|unblacklist|whitelist|unwhitelist>
     aliases: [jarvis, avpn]
     permission: jarvis.command
 permissions:

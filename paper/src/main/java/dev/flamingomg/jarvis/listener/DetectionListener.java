@@ -1,5 +1,7 @@
 package dev.flamingomg.jarvis.listener;
 
+import dev.flamingomg.jarvis.util.Schedulers;
+
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import dev.flamingomg.jarvis.client.JarvisClient;
@@ -50,6 +52,13 @@ public final class DetectionListener implements Listener, PluginMessageListener 
     private final BedrockDetector bedrockDetector;
     private final ConfigManager config;
     private final Log logger;
+
+    private final dev.flamingomg.jarvis.detection.PrivateIpWatch privateIpWatch =
+            new dev.flamingomg.jarvis.detection.PrivateIpWatch(
+                    "This connector is for DIRECT servers. If yours is behind a BungeeCord/Velocity proxy, install the proxy connector THERE and remove this one; if not, fix IP forwarding in your container.");
+
+    public dev.flamingomg.jarvis.detection.PrivateIpWatch privateIpWatch() { return privateIpWatch; }
+
     private final FloodGuard floodGuard;
     private final BanCache banCache;
 
@@ -66,6 +75,9 @@ public final class DetectionListener implements Listener, PluginMessageListener 
             .expireAfterAccess(java.time.Duration.ofDays(7)).build();
 
     private final Cache<UUID, String> clientBrands = Caffeine.newBuilder().maximumSize(20_000).build();
+
+    private final Cache<UUID, java.util.Set<String>> knownChannels = Caffeine.newBuilder().maximumSize(20_000).build();
+    private static final int MAX_CHANNELS_PER_PLAYER = 64;
 
     public DetectionListener(Plugin plugin, JarvisClient client, BedrockDetector bedrockDetector,
                              ConfigManager config, Log logger, FloodGuard floodGuard, BanCache banCache) {
@@ -86,6 +98,8 @@ public final class DetectionListener implements Listener, PluginMessageListener 
 
         String ip   = event.getAddress().getHostAddress();
         String name = event.getName();
+
+        for (String l : privateIpWatch.lineas(ip, System.currentTimeMillis())) logger.warn(l);
         UUID uuid   = event.getUniqueId();
 
         boolean bedrock = (uuid != null && bedrockDetector.isBedrockPlayer(uuid))
@@ -202,16 +216,42 @@ public final class DetectionListener implements Listener, PluginMessageListener 
         String host = virtualHost(player);
         Integer vd = null;
         try { vd = player.getClientViewDistance(); } catch (Throwable ignored) {}
-        java.util.Set<String> ch = player.getListeningPluginChannels();
-        java.util.List<String> channels = (ch == null || ch.isEmpty()) ? null : java.util.List.copyOf(ch);
         final String localeF = locale, hostF = host, nameF = player.getName();
         final Integer vdF = vd;
 
-        Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, () -> {
+        Schedulers.asyncRetrasada(plugin, () -> {
             String brand = clientBrands.getIfPresent(uuid);
+
+            java.util.Set<String> ch = knownChannels.getIfPresent(uuid);
+            java.util.List<String> channels = (ch == null || ch.isEmpty()) ? null : java.util.List.copyOf(ch);
             client.reportPlayerSeen(uuid.toString(), nameF, ip, bedrock,
-                    null, brand, hostF, localeF, vdF, null, channels, premium, null);
+                    null, brand, hostF, localeF, vdF, null, channels, premium, protocoloDelCliente());
         }, 40L);
+    }
+
+    private volatile int protocoloCache = -1;
+
+    private Integer protocoloDelCliente() {
+        int cache = protocoloCache;
+        if (cache == -1) {
+            cache = calcularProtocolo();
+            protocoloCache = cache;
+        }
+        return cache > 0 ? cache : null;
+    }
+
+    private int calcularProtocolo() {
+        try {
+            var pm = plugin.getServer().getPluginManager();
+            for (String traductor : new String[]{"ViaVersion", "ProtocolSupport"}) {
+                if (pm.getPlugin(traductor) != null) return 0;
+            }
+            Object unsafe = org.bukkit.Bukkit.class.getMethod("getUnsafe").invoke(null);
+            Object v = unsafe.getClass().getMethod("getProtocolVersion").invoke(unsafe);
+            return (v instanceof Integer i && i > 0) ? i : 0;
+        } catch (Throwable t) {
+            return 0;
+        }
     }
 
     @Override
@@ -255,9 +295,20 @@ public final class DetectionListener implements Listener, PluginMessageListener 
     }
 
     @EventHandler
+    public void onChannelRegister(org.bukkit.event.player.PlayerRegisterChannelEvent event) {
+        java.util.Set<String> set = knownChannels.asMap()
+                .computeIfAbsent(event.getPlayer().getUniqueId(),
+                                 k -> java.util.concurrent.ConcurrentHashMap.newKeySet());
+        if (set.size() >= MAX_CHANNELS_PER_PLAYER) return;
+        String id = event.getChannel();
+        if (id != null && !id.isBlank()) set.add(id.trim());
+    }
+
+    @EventHandler
     public void onQuit(PlayerQuitEvent event) {
         Player player = event.getPlayer();
         clientBrands.invalidate(player.getUniqueId());
+        knownChannels.invalidate(player.getUniqueId());
 
         String estIp = sessionIp.asMap().remove(player.getUniqueId());
         if (estIp != null) connectedByIp.computeIfPresent(estIp, (k, v) -> v <= 1 ? null : v - 1);
@@ -268,7 +319,7 @@ public final class DetectionListener implements Listener, PluginMessageListener 
         if (addr == null || addr.getAddress() == null) return;
         String ip = addr.getAddress().getHostAddress();
         String name = player.getName();
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> client.reportSessionEnd(name, ip, durationMs));
+        Schedulers.async(plugin, () -> client.reportSessionEnd(name, ip, durationMs));
     }
 
     private static Component renderComponent(String msg) {
@@ -326,7 +377,7 @@ public final class DetectionListener implements Listener, PluginMessageListener 
 
     public void init() {
 
-        Bukkit.getScheduler().runTaskTimer(plugin, this::reconcile, 0L, 300L);
+        Schedulers.globalRepetida(plugin, this::reconcile, 0L, 300L);
     }
 
     private void reconcile() {
@@ -358,10 +409,15 @@ public final class DetectionListener implements Listener, PluginMessageListener 
         String template = config.getString("messages.staff-notify", Messages.get(client.locale(), "staff"));
         String text = LEGACY.serialize(MM.deserialize(template
                 .replace("{name}", MM.escapeTags(safeName)).replace("{ip}", MM.escapeTags(safeIp)).replace("{score}", "")));
-        Bukkit.getScheduler().runTask(plugin, () -> {
+
+        Schedulers.global(plugin, () -> {
 
             for (Player p : Bukkit.getOnlinePlayers())
-                if (p.hasPermission(client.notifyPermission()) || p.hasPermission("jarvis.admin")) p.sendMessage(text);
+
+                Schedulers.deEntidad(plugin, p, () -> {
+                    if (p.hasPermission(client.notifyPermission()) || p.hasPermission("jarvis.admin"))
+                        p.sendMessage(text);
+                });
         });
     }
 }

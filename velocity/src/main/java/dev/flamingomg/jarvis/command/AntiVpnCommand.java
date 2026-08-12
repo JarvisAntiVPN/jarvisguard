@@ -8,6 +8,7 @@ import dev.flamingomg.jarvis.client.JarvisClient;
 import dev.flamingomg.jarvis.config.ConfigManager;
 import dev.flamingomg.jarvis.detection.BanCache;
 import dev.flamingomg.jarvis.detection.FloodGuard;
+import dev.flamingomg.jarvis.diag.Diagnostico;
 import dev.flamingomg.jarvis.i18n.Messages;
 import dev.flamingomg.jarvis.sync.SyncClient;
 
@@ -21,7 +22,7 @@ import java.util.stream.Collectors;
 
 public final class AntiVpnCommand implements SimpleCommand {
 
-    private static final List<String> SUB = List.of("key", "stats", "reload", "blacklist", "unblacklist",
+    private static final List<String> SUB = List.of("key", "stats", "doctor", "reload", "blacklist", "unblacklist",
             "whitelist", "unwhitelist");
 
     private final JarvisClient client;
@@ -31,10 +32,12 @@ public final class AntiVpnCommand implements SimpleCommand {
     private final Object plugin;
     private final FloodGuard floodGuard;
     private final SyncClient syncClient;
+    private final dev.flamingomg.jarvis.listener.DetectionListener listener;
 
     public AntiVpnCommand(JarvisClient client, ProxyServer proxy,
                           BanCache banCache, ConfigManager config,
-                          Object plugin, FloodGuard floodGuard, SyncClient syncClient) {
+                          Object plugin, FloodGuard floodGuard, SyncClient syncClient,
+                          dev.flamingomg.jarvis.listener.DetectionListener listener) {
         this.client = client;
         this.proxy = proxy;
         this.banCache = banCache;
@@ -42,6 +45,7 @@ public final class AntiVpnCommand implements SimpleCommand {
         this.plugin = plugin;
         this.floodGuard = floodGuard;
         this.syncClient = syncClient;
+        this.listener = listener;
     }
 
     private String m(String key) { return Messages.get(client.locale(), key); }
@@ -54,6 +58,7 @@ public final class AntiVpnCommand implements SimpleCommand {
         switch (args[0].toLowerCase(Locale.ROOT)) {
             case "key"       -> setKey(src, args);
             case "stats"     -> stats(src);
+            case "doctor"    -> doctor(src);
             case "blacklist"   -> blacklist(src, args, false);
             case "unblacklist" -> blacklist(src, args, true);
             case "whitelist"   -> whitelist(src, args, false);
@@ -61,7 +66,11 @@ public final class AntiVpnCommand implements SimpleCommand {
             case "reload"    -> {
 
                 if (!src.hasPermission("jarvis.admin")) { noPermission(src); return; }
-                config.reload();
+
+                if (!config.reload()) {
+                    src.sendMessage(pre().append(Component.text(m("cmd.reloadFail"), NamedTextColor.RED)));
+                    return;
+                }
 
                 floodGuard.reconfigure();
                 banCache.reconfigure();
@@ -117,9 +126,7 @@ public final class AntiVpnCommand implements SimpleCommand {
         if (!src.hasPermission("jarvis.admin")) { noPermission(src); return; }
         src.sendMessage(pre().append(Component.text(m("cmd.statsTitle"), NamedTextColor.AQUA)));
 
-        boolean canSign = client.signer() != null && client.signer().hasSecret() && !client.keyRejected();
-
-        var estado = dev.flamingomg.jarvis.model.ProtectionState.of(canSign, client.backendHealthy(), false);
+        var estado = client.protectionState();
 
         if (estado.isProtecting()) {
             src.sendMessage(pre().append(Component.text(m("cmd.protected"), NamedTextColor.GREEN)));
@@ -145,13 +152,61 @@ public final class AntiVpnCommand implements SimpleCommand {
         src.sendMessage(kv(m("cmd.ipcache"), String.valueOf(client.cache().estimatedSize())));
         src.sendMessage(kv(m("cmd.blockedips"), String.valueOf(banCache.size())));
         src.sendMessage(kv(m("cmd.online"), String.valueOf(proxy.getPlayerCount())));
-        src.sendMessage(kv(m("cmd.backendstatus"), client.circuitBreakerStatus()));
+
+    }
+
+    private void doctor(CommandSource src) {
+        if (!src.hasPermission("jarvis.admin")) { noPermission(src); return; }
+        long ahora = System.currentTimeMillis();
+        var datos = new Diagnostico.Datos(
+                client.protectionState(),
+                client.keyRejected(),
+                client.signer() != null && client.signer().hasSecret(),
+                !isBlank(config.getString("backend.license-key", "")),
+                client.clock().offsetMs(),
+                syncClient.streamVivo(),
+                syncClient.ultimoRechazo(),
+                listener.privateIpWatch().privadaReciente(ahora, VENTANA_IP_PRIVADA_MS),
+                banCache.size());
+
+        src.sendMessage(pre().append(Component.text(m("cmd.doctorTitle"), NamedTextColor.AQUA)));
+        var lineas = Diagnostico.revisar(datos);
+        for (var l : lineas) src.sendMessage(pintar(l));
+        if (Diagnostico.peor(lineas) == Diagnostico.Nivel.OK) {
+            src.sendMessage(pre().append(Component.text(m("cmd.diagAllOk"), NamedTextColor.GREEN)));
+        }
+    }
+
+    private static final long VENTANA_IP_PRIVADA_MS = 30 * 60 * 1000L;
+
+    private Component pintar(Diagnostico.Linea l) {
+        NamedTextColor color = switch (l.nivel()) {
+            case OK     -> NamedTextColor.GREEN;
+            case NEUTRO -> NamedTextColor.GRAY;
+            case AVISO  -> NamedTextColor.YELLOW;
+            case FALLO  -> NamedTextColor.RED;
+        };
+
+        String marca = switch (l.nivel()) {
+            case OK     -> "✔";
+            case NEUTRO -> "–";
+            default     -> "✖";
+        };
+        String texto = l.detalle() == null ? "" : m(l.detalle());
+        if (l.dato() != null) {
+            texto = texto.isEmpty() ? l.dato() : texto.replace("{ms}", l.dato()).replace("{ip}", l.dato());
+        }
+        Component base = Component.text("  " + marca + " ", color)
+                .append(Component.text(m(l.etiqueta()), NamedTextColor.GRAY));
+        return texto.isEmpty() ? base : base.append(Component.text(": ", NamedTextColor.GRAY))
+                .append(Component.text(texto, color));
     }
 
     private void sendHelp(CommandSource src) {
         src.sendMessage(pre().append(Component.text(m("cmd.helpTitle"), NamedTextColor.AQUA)));
         src.sendMessage(help("key <license>", m("cmd.descKey")));
         src.sendMessage(help("stats",         m("cmd.descStats")));
+        src.sendMessage(help("doctor",        m("cmd.descDoctor")));
         src.sendMessage(help("reload",        m("cmd.descReload")));
         src.sendMessage(help("blacklist <player> [reason]", m("cmd.descBlacklist")));
         src.sendMessage(help("unblacklist <player>",        m("cmd.descUnblacklist")));
@@ -187,6 +242,7 @@ public final class AntiVpnCommand implements SimpleCommand {
                 : String.join(" ", java.util.Arrays.copyOfRange(args, iMotivo, args.length));
         String actor = (src instanceof Player p) ? p.getUsername() : "consola";
         String sufijo = time == null ? "" : " (" + time + ")";
+        if (sinFirma(src)) return;
         src.sendMessage(pre().append(Component.text(m("cmd.blacklistSending"), NamedTextColor.GRAY)));
         client.whitelistAsync(target, time, reason, actor, remove).thenAccept(code -> {
             if (code >= 200 && code < 300) {
@@ -216,6 +272,7 @@ public final class AntiVpnCommand implements SimpleCommand {
         String reason = (remove || args.length < 3) ? null
                 : String.join(" ", java.util.Arrays.copyOfRange(args, 2, args.length));
         String actor = (src instanceof Player p) ? p.getUsername() : "consola";
+        if (sinFirma(src)) return;
         src.sendMessage(pre().append(Component.text(m("cmd.blacklistSending"), NamedTextColor.GRAY)));
         client.blacklistAsync(target, reason, actor, remove).thenAccept(ok -> {
             if (ok) {
@@ -262,5 +319,21 @@ public final class AntiVpnCommand implements SimpleCommand {
 
     private void noPermission(CommandSource src) {
         src.sendMessage(pre().append(Component.text(m("cmd.noperm"), NamedTextColor.RED)));
+    }
+
+    private boolean sinFirma(CommandSource src) {
+        if (client.keyRejected()) {
+            src.sendMessage(pre().append(Component.text(m("cmd.keyrejected"), NamedTextColor.RED)));
+            return true;
+        }
+        if (client.signer() == null || !client.signer().hasSecret()) {
+            src.sendMessage(pre().append(Component.text(m("cmd.notLinked"), NamedTextColor.RED)));
+            return true;
+        }
+        return false;
+    }
+
+    private static boolean isBlank(String s) {
+        return s == null || s.trim().isEmpty() || s.trim().equalsIgnoreCase("CHANGE_ME");
     }
 }

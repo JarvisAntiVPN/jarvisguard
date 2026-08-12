@@ -29,6 +29,11 @@ public final class PairingClient {
         this.logger = logger;
     }
 
+    public void shutdown() {
+        HttpExecutors.closeQuietly(http);
+        HttpExecutors.shutdownQuietly(httpExecutor);
+    }
+
     private String base() {
         return ConfigManager.DEFAULT_BACKEND_URL;
     }
@@ -71,11 +76,6 @@ public final class PairingClient {
         } catch (Exception e) {
             return new String[]{"error", null};
         }
-    }
-
-    public void shutdown() {
-        HttpExecutors.closeQuietly(http);
-        HttpExecutors.shutdownQuietly(httpExecutor);
     }
 
     private static String str(Object o) { return o == null ? null : String.valueOf(o); }
