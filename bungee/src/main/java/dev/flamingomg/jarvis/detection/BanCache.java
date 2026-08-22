@@ -10,7 +10,7 @@ import java.util.concurrent.TimeUnit;
 
 public final class BanCache {
 
-    private record Entry(long expiryMs, long writtenAt, boolean deLaLista) {}
+    private record Entry(long expiryMs, long writtenAt, boolean deLaLista, String msgKey) {}
 
     private static final long PERMANENT_MS = Long.MAX_VALUE / 2;
 
@@ -51,14 +51,28 @@ public final class BanCache {
     }
 
     public void ban(String ip) {
+
+        ban(ip, "vpn_proxy");
+    }
+
+    public void ban(String ip, String msgKey) {
         long now = System.currentTimeMillis();
-        banned.put(key(ip), new Entry(now + defaultTtlSeconds * 1_000L, now, false));
+        banned.put(key(ip), new Entry(now + defaultTtlSeconds * 1_000L, now, false, msgKey));
     }
 
     public void ban(String ip, int ttlSeconds) {
+        ban(ip, ttlSeconds, null);
+    }
+
+    public void ban(String ip, int ttlSeconds, String msgKey) {
         long now = System.currentTimeMillis();
         long expiryMs = ttlSeconds > 0 ? now + ttlSeconds * 1_000L : PERMANENT_MS;
-        banned.put(key(ip), new Entry(expiryMs, now, true));
+        banned.put(key(ip), new Entry(expiryMs, now, true, msgKey));
+    }
+
+    public String msgKeyDe(String ip) {
+        Entry e = banned.getIfPresent(key(ip));
+        return e == null ? null : e.msgKey();
     }
 
     public boolean isBanned(String ip) {

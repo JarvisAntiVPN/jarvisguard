@@ -33,15 +33,36 @@ public final class HttpExecutors {
         return pool;
     }
 
+    static final long CIERRE_TOPE_MS = 6_000L;
+
     public static void closeQuietly(HttpClient http) {
         if (http == null) return;
+
+        java.lang.reflect.Method shutdown, shutdownNow, awaitTermination;
         try {
+            shutdown = HttpClient.class.getMethod("shutdown");
+            shutdownNow = HttpClient.class.getMethod("shutdownNow");
+            awaitTermination = HttpClient.class.getMethod("awaitTermination", java.time.Duration.class);
+        } catch (NoSuchMethodException javaAnteriorA21) {
 
-            HttpClient.class.getMethod("close").invoke(http);
-        } catch (NoSuchMethodException notSupported) {
+            return;
+        }
+        boolean interrumpido = false;
+        try {
+            shutdown.invoke(http);
+            Object termino = awaitTermination.invoke(http, java.time.Duration.ofMillis(CIERRE_TOPE_MS));
+            if (!Boolean.TRUE.equals(termino)) {
+                shutdownNow.invoke(http);
+                awaitTermination.invoke(http, java.time.Duration.ofMillis(200L));
+            }
+        } catch (Exception e) {
 
-        } catch (Exception ignored) {
+            Throwable causa = e.getCause();
+            if (causa instanceof InterruptedException) interrumpido = true;
+            try { shutdownNow.invoke(http); } catch (Exception ignored) { }
+        } finally {
 
+            if (interrumpido) Thread.currentThread().interrupt();
         }
     }
 

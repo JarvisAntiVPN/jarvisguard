@@ -25,7 +25,11 @@ public final class BedrockDetector {
             return false;
         }
         String prefix = config.getString("floodgate.username-prefix", ".");
-        return !prefix.isEmpty() && username.startsWith(prefix);
+        return coincidePrefijo(username, prefix);
+    }
+
+    static boolean coincidePrefijo(String username, String prefix) {
+        return username != null && prefix != null && !prefix.isEmpty() && username.startsWith(prefix);
     }
 
     public boolean isBedrockPlayer(UUID uuid) {

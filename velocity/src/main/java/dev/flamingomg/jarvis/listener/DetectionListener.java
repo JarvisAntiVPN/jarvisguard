@@ -68,6 +68,8 @@ public final class DetectionListener {
 
                     .expireAfterAccess(java.time.Duration.ofDays(7)).build();
 
+    private final Cache<String, String> ultimoBloqueo;
+
     public DetectionListener(ProxyServer proxy, Object pluginInstance, JarvisClient client,
                              BedrockDetector bedrockDetector, ConfigManager config,
                              Log logger, FloodGuard floodGuard, BanCache banCache) {
@@ -79,6 +81,12 @@ public final class DetectionListener {
         this.logger = logger;
         this.floodGuard = floodGuard;
         this.banCache = banCache;
+
+        long recuerdoMin = Math.min(Math.max(0, config.getInt("bans.remember-kick-minutes", 1440)), 43_200);
+        this.ultimoBloqueo = Caffeine.newBuilder()
+                .maximumSize(10_000)
+                .expireAfterWrite(java.time.Duration.ofMinutes(recuerdoMin))
+                .build();
     }
 
     @Subscribe
@@ -106,13 +114,19 @@ public final class DetectionListener {
                 client.denials().record(dev.flamingomg.jarvis.client.LocalDenialReporter.FLOOD, ip, name);
                 String msg = config.getString("messages.flood",
                         dev.flamingomg.jarvis.i18n.Messages.get(client.locale(), "flood"));
-                event.setResult(ResultedEvent.ComponentResult.denied(renderBrandedLocal(msg)));
+                event.setResult(ResultedEvent.ComponentResult.denied(renderBrandedLocal(msg, name)));
                 return null;
             }
             if (banCache.isBanned(ip)) {
                 client.denials().record(dev.flamingomg.jarvis.client.LocalDenialReporter.LOCAL_BAN, ip, name);
-                String msg = config.getString("messages.block", dev.flamingomg.jarvis.i18n.Messages.get(client.locale(), "block"));
-                event.setResult(ResultedEvent.ComponentResult.denied(renderBrandedLocal(msg)));
+
+                String recordado = ultimoBloqueo.getIfPresent(claveBloqueo(ip, name));
+                if (recordado != null) {
+                    event.setResult(ResultedEvent.ComponentResult.denied(renderBranded(recordado)));
+                    return null;
+                }
+                String msg = textoBloqueoLocal(ip);
+                event.setResult(ResultedEvent.ComponentResult.denied(renderBrandedLocal(msg, name)));
                 return null;
             }
 
@@ -121,13 +135,13 @@ public final class DetectionListener {
 
                 int connecting = connectingByIp.merge(ip, 1, Integer::sum);
                 reservedIp = true;
-                if (connecting + connectedByIp.getOrDefault(ip, 0) > maxPerIp) {
+                if (superaAforo(connecting, connectedByIp.getOrDefault(ip, 0), maxPerIp)) {
                     releaseConnecting(ip);
                     reservedIp = false;
                     client.denials().record(dev.flamingomg.jarvis.client.LocalDenialReporter.MAX_PER_IP, ip, name);
                     String msg = config.getString("messages.maxperip",
                             dev.flamingomg.jarvis.i18n.Messages.get(client.locale(), "maxperip"));
-                    event.setResult(ResultedEvent.ComponentResult.denied(renderBrandedLocal(msg)));
+                    event.setResult(ResultedEvent.ComponentResult.denied(renderBrandedLocal(msg, name)));
                     return null;
                 }
             }
@@ -171,12 +185,17 @@ public final class DetectionListener {
                 }
 
                 if (type.denies()) {
-                    banCache.ban(ip);
-                    String msg = verdict.message() != null
-                            ? verdict.message()
-                            : config.getString("messages.block", dev.flamingomg.jarvis.i18n.Messages.get(client.locale(), "block"));
-                    event.setResult(ResultedEvent.ComponentResult.denied(renderBranded(msg)));
-                    notifyStaff(name, ip);
+
+                    banCache.ban(ip, esMotivo(verdict.msgKey()) ? verdict.msgKey() : "vpn_proxy");
+                    if (verdict.message() != null) {
+
+                        ultimoBloqueo.put(claveBloqueo(ip, name), verdict.message());
+                        event.setResult(ResultedEvent.ComponentResult.denied(renderBranded(verdict.message())));
+                    } else {
+                        String msg = textoBloqueoLocal(ip);
+                        event.setResult(ResultedEvent.ComponentResult.denied(renderBrandedLocal(msg, name)));
+                    }
+                    notifyStaff(name, ip, verdict.msgKey());
                 }
             } catch (Exception e) {
                 logger.warn("Exception applying the verdict for {} ({}): {}", name, ip, e.toString());
@@ -293,6 +312,35 @@ public final class DetectionListener {
         return render(msg).append(brandingFor(client.locale()));
     }
 
+    private String textoBloqueoLocal(String ip) {
+        String motivo = banCache.msgKeyDe(ip);
+        String delPanel = client.offlineMessage(motivo);
+
+        String propio = dev.flamingomg.jarvis.i18n.Messages.get(client.locale(), claveTextoLocal(motivo));
+        return config.getString("messages.block", delPanel != null ? delPanel : propio);
+    }
+
+    static String claveBloqueo(String ip, String name) {
+        return ip + " " + (name == null ? "" : name.toLowerCase(java.util.Locale.ROOT));
+    }
+
+    private Component renderBrandedLocal(String rawText, String name) {
+        if (rawText != null && rawText.indexOf('{') >= 0) {
+            return renderBranded(rellenarNombre(rawText, name));
+        }
+        return renderBrandedLocal(rawText);
+    }
+
+    static String nombreSeguro(String name) {
+        if (name == null || name.isEmpty()) return "";
+        StringBuilder sb = new StringBuilder(Math.min(name.length(), 32));
+        for (int i = 0; i < name.length() && sb.length() < 32; i++) {
+            char c = name.charAt(i);
+            if (Character.isLetterOrDigit(c) || c == '_' || c == '.' || c == ' ') sb.append(c);
+        }
+        return sb.toString();
+    }
+
     private record LocalMsg(String locale, String rawText, Component rendered) {}
     private volatile LocalMsg localMsg;
 
@@ -326,8 +374,7 @@ public final class DetectionListener {
                 truth.merge(a.getAddress().getHostAddress(), 1, Integer::sum);
             }
         }
-        connectedByIp.keySet().removeIf(k -> !truth.containsKey(k));
-        connectedByIp.putAll(truth);
+        reconciliar(connectedByIp, truth);
     }
 
     private void releaseConnecting(String ip) {
@@ -339,7 +386,55 @@ public final class DetectionListener {
         return username != null && config.bypassUsernames().contains(username.toLowerCase(java.util.Locale.ROOT));
     }
 
-    private void notifyStaff(String name, String ip) {
+    private static final java.util.Set<String> MOTIVOS = java.util.Set.of(
+            "vpn_proxy", "mobile_hotspot", "lockdown", "invalid_username", "block", "game_relay");
+
+    static String claveTextoLocal(String motivo) {
+        if ("vpn_proxy".equals(motivo)) return "block.vpn";
+        if ("game_relay".equals(motivo)) return "block.game_relay";
+        return "block";
+    }
+
+    static boolean superaAforo(int enCurso, int yaConectados, int maxPorIp) {
+        return maxPorIp > 0 && enCurso + yaConectados > maxPorIp;
+    }
+
+    static void descontar(java.util.Map<String, Integer> contador, String ip) {
+        if (contador == null || ip == null) return;
+        contador.computeIfPresent(ip, (k, v) -> v <= 1 ? null : v - 1);
+    }
+
+    static void reconciliar(java.util.Map<String, Integer> contador, java.util.Map<String, Integer> verdad) {
+        if (contador == null || verdad == null) return;
+        contador.keySet().removeIf(k -> !verdad.containsKey(k));
+        contador.putAll(verdad);
+    }
+
+    static String rellenarNombre(String rawText, String name) {
+        return rawText == null ? null : rawText.replace("{username}", nombreSeguro(name));
+    }
+
+    static String textoStaff(String plantilla, String nombre, String ip, String motivo) {
+        if (plantilla == null) return "";
+        String n = (nombre != null) ? nombre : "?";
+        String i = (ip != null) ? ip : "?";
+        String r = (motivo != null) ? motivo : "";
+        return plantilla.replace("{name}", MM.escapeTags(n))
+                        .replace("{ip}", MM.escapeTags(i))
+                        .replace("{score}", "")
+                        .replace("{reason}", MM.escapeTags(r));
+    }
+
+    private static boolean esMotivo(String msgKey) {
+        return msgKey != null && MOTIVOS.contains(msgKey);
+    }
+
+    private String motivoLegible(String msgKey) {
+        if (!esMotivo(msgKey)) return "";
+        return dev.flamingomg.jarvis.i18n.Messages.get(client.locale(), "motivo." + msgKey);
+    }
+
+    private void notifyStaff(String name, String ip, String msgKey) {
         if (!client.notifyStaffEnabled()) return;
 
         String safeName = (name != null) ? name : "?";
@@ -348,9 +443,7 @@ public final class DetectionListener {
                 dev.flamingomg.jarvis.i18n.Messages.get(client.locale(), "staff"));
 
         net.kyori.adventure.text.Component notification = MM.deserialize(
-                template.replace("{name}", MM.escapeTags(safeName))
-                        .replace("{ip}", MM.escapeTags(safeIp))
-                        .replace("{score}", ""));
+                textoStaff(template, safeName, safeIp, motivoLegible(msgKey)));
         proxy.getAllPlayers().stream()
 
                 .filter(p -> p.hasPermission(client.notifyPermission()) || p.hasPermission("jarvis.admin"))
@@ -365,7 +458,7 @@ public final class DetectionListener {
         knownChannels.invalidate(uuid);
 
         String estIp = sessionIp.asMap().remove(uuid);
-        if (estIp != null) connectedByIp.computeIfPresent(estIp, (k, v) -> v <= 1 ? null : v - 1);
+        descontar(connectedByIp, estIp);
 
         long[] startArr = sessionStart.asMap().remove(uuid);
         if (startArr == null) return null;

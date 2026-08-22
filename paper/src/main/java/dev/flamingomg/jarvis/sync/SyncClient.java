@@ -263,6 +263,10 @@ public final class SyncClient {
 
     private volatile int ultimoRechazoSse = 0;
 
+    static boolean dentroDeVentana(long ahoraMs, long tsMs, long ventanaMs) {
+        return Math.abs(ahoraMs - tsMs) <= ventanaMs;
+    }
+
     private boolean eventSignatureOk(String event, String data, long ahora) {
         String sigB64 = extractField(data, "_sig");
         if (sigB64 == null) return false;
@@ -272,7 +276,7 @@ public final class SyncClient {
             ts = (t == null) ? 0L : Long.parseLong(t.trim());
         } catch (NumberFormatException e) { return false; }
 
-        if (Math.abs(ahora - ts) > EVENT_FRESH_MS) return false;
+        if (!dentroDeVentana(ahora, ts, EVENT_FRESH_MS)) return false;
         StringBuilder sb = new StringBuilder().append(event).append(SIGN_SEP).append(ts);
         for (String f : SIGN_FIELDS) {
             String v = extractField(data, f);

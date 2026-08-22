@@ -34,7 +34,7 @@ import java.nio.file.Path;
 )
 public final class JarvisPlugin {
 
-    public static final String VERSION = "0.5.23";
+    public static final String VERSION = "0.5.24";
 
     private static final int BSTATS_PLUGIN_ID = 31671;
 
@@ -55,6 +55,9 @@ public final class JarvisPlugin {
     private boolean pairBannerShown = false;
 
     private long pairNextStartAt = 0L;
+
+    private long pairNextPollAt = System.nanoTime();
+    private long pairPollIntervalNanos = dev.flamingomg.jarvis.client.PairingClient.intervaloPollNanos(0);
     private int  pairStartFails = 0;
     private boolean pairWarned = false;
 
@@ -143,7 +146,10 @@ public final class JarvisPlugin {
         pairNextStartAt = 0L;
         pairWarned = false;
         pairDeviceCode = s.deviceCode();
-        pairExpiresAt = System.currentTimeMillis() + s.expiresIn() * 1000L;
+        long ahoraPar = System.currentTimeMillis();
+        pairExpiresAt = dev.flamingomg.jarvis.client.PairingClient.caducidadMs(ahoraPar, s.expiresIn());
+        pairPollIntervalNanos = dev.flamingomg.jarvis.client.PairingClient.intervaloPollNanos(s.interval());
+        pairNextPollAt = System.nanoTime();
         if (!pairBannerShown) {
             pairBannerShown = true;
             logger.warn("");
@@ -181,18 +187,23 @@ public final class JarvisPlugin {
             requestAndPrintPairing();
             return;
         }
+
+        long ahoraPoll = System.nanoTime();
+        if (!dev.flamingomg.jarvis.client.PairingClient.tocaSondear(ahoraPoll, pairNextPollAt)) return;
+        pairNextPollAt = ahoraPoll + pairPollIntervalNanos;
         String[] res = pairing.poll(pairDeviceCode);
         switch (res[0] == null ? "error" : res[0]) {
             case "approved" -> {
-                if (res[1] != null && !res[1].isBlank()) { applyPairedKey(res[1]); stopPairing(); }
+
+                if (res[1] != null && !res[1].isBlank() && applyPairedKey(res[1])) stopPairing();
             }
             case "denied", "expired" -> pairDeviceCode = null;
             default -> {  }
         }
     }
 
-    private void applyPairedKey(String key) {
-        if (!config.setKey(key)) { logger.warn("Couldn't save the linked key."); return; }
+    private boolean applyPairedKey(String key) {
+        if (!config.setKey(key)) { logger.warn("Couldn't save the linked key."); return false; }
         proxy.getScheduler().buildTask(this, () -> {
             boolean ok = jarvisClient.ensureReady();
 
@@ -205,6 +216,7 @@ public final class JarvisPlugin {
                 logger.warn(dev.flamingomg.jarvis.i18n.Messages.get(jarvisClient.locale(), "log.pairedUnprotected"));
             }
         }).schedule();
+        return true;
     }
 
     private void stopPairing() {
@@ -216,6 +228,10 @@ public final class JarvisPlugin {
         return s == null || s.trim().isEmpty() || s.trim().equalsIgnoreCase("CHANGE_ME");
     }
 
+    static boolean pingMedido(long ping) {
+        return ping > 0;
+    }
+
     private void reportPresence() {
         try {
             java.util.List<java.util.Map<String, Object>> players = new java.util.ArrayList<>();
@@ -225,6 +241,9 @@ public final class JarvisPlugin {
                 entry.put("uuid", p.getUniqueId().toString());
                 entry.put("server", p.getCurrentServer()
                         .map(s -> s.getServerInfo().getName()).orElse(""));
+
+                long ping = p.getPing();
+                if (pingMedido(ping)) entry.put("ping", ping);
                 players.add(entry);
             }
             jarvisClient.reportPresence(players.size(), players);
@@ -237,6 +256,7 @@ public final class JarvisPlugin {
     @Subscribe
     public void onProxyShutdown(ProxyShutdownEvent event) {
 
+        stopPairing();
         if (syncClient != null) syncClient.stop();
         if (jarvisClient != null) jarvisClient.shutdown();
         if (pairing != null) pairing.shutdown();

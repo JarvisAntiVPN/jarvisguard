@@ -18,7 +18,7 @@ public final class JarvisBungeePlugin extends Plugin {
 
     private static final int BSTATS_PLUGIN_ID = 31796;
 
-    public static final String VERSION = "0.5.23";
+    public static final String VERSION = "0.5.24";
 
     private dev.flamingomg.jarvis.util.Log logger;
 
@@ -34,6 +34,9 @@ public final class JarvisBungeePlugin extends Plugin {
     private boolean pairBannerShown = false;
 
     private long pairNextStartAt = 0L;
+
+    private long pairNextPollAt = System.nanoTime();
+    private long pairPollIntervalNanos = dev.flamingomg.jarvis.client.PairingClient.intervaloPollNanos(0);
     private int  pairStartFails = 0;
     private boolean pairWarned = false;
 
@@ -106,7 +109,10 @@ public final class JarvisBungeePlugin extends Plugin {
         pairNextStartAt = 0L;
         pairWarned = false;
         pairDeviceCode = s.deviceCode();
-        pairExpiresAt = System.currentTimeMillis() + s.expiresIn() * 1000L;
+        long ahoraPar = System.currentTimeMillis();
+        pairExpiresAt = dev.flamingomg.jarvis.client.PairingClient.caducidadMs(ahoraPar, s.expiresIn());
+        pairPollIntervalNanos = dev.flamingomg.jarvis.client.PairingClient.intervaloPollNanos(s.interval());
+        pairNextPollAt = System.nanoTime();
         if (!pairBannerShown) {
             pairBannerShown = true;
             logger.warn("");
@@ -144,18 +150,23 @@ public final class JarvisBungeePlugin extends Plugin {
             requestAndPrintPairing();
             return;
         }
+
+        long ahoraPoll = System.nanoTime();
+        if (!dev.flamingomg.jarvis.client.PairingClient.tocaSondear(ahoraPoll, pairNextPollAt)) return;
+        pairNextPollAt = ahoraPoll + pairPollIntervalNanos;
         String[] res = pairing.poll(pairDeviceCode);
         switch (res[0] == null ? "error" : res[0]) {
             case "approved" -> {
-                if (res[1] != null && !res[1].isBlank()) { applyPairedKey(res[1]); stopPairing(); }
+
+                if (res[1] != null && !res[1].isBlank() && applyPairedKey(res[1])) stopPairing();
             }
             case "denied", "expired" -> pairDeviceCode = null;
             default -> {  }
         }
     }
 
-    private void applyPairedKey(String key) {
-        if (!config.setKey(key)) { logger.warn("Couldn't save the linked key."); return; }
+    private boolean applyPairedKey(String key) {
+        if (!config.setKey(key)) { logger.warn("Couldn't save the linked key."); return false; }
         getProxy().getScheduler().runAsync(this, () -> {
             boolean ok = jarvisClient.ensureReady();
 
@@ -168,6 +179,7 @@ public final class JarvisBungeePlugin extends Plugin {
                 logger.warn(dev.flamingomg.jarvis.i18n.Messages.get(jarvisClient.locale(), "log.pairedUnprotected"));
             }
         });
+        return true;
     }
 
     private void stopPairing() {
@@ -179,6 +191,10 @@ public final class JarvisBungeePlugin extends Plugin {
         return s == null || s.trim().isEmpty() || s.trim().equalsIgnoreCase("CHANGE_ME");
     }
 
+    static boolean pingMedido(long ping) {
+        return ping > 0;
+    }
+
     private void reportPresence() {
         try {
             java.util.List<java.util.Map<String, Object>> players = new java.util.ArrayList<>();
@@ -187,6 +203,9 @@ public final class JarvisBungeePlugin extends Plugin {
                 entry.put("name", p.getName());
                 entry.put("uuid", p.getUniqueId().toString());
                 entry.put("server", p.getServer() != null ? p.getServer().getInfo().getName() : "");
+
+                int ping = p.getPing();
+                if (pingMedido(ping)) entry.put("ping", ping);
                 players.add(entry);
             }
             jarvisClient.reportPresence(players.size(), players);
@@ -199,6 +218,7 @@ public final class JarvisBungeePlugin extends Plugin {
     @Override
     public void onDisable() {
 
+        stopPairing();
         if (syncClient != null) syncClient.stop();
         if (jarvisClient != null) jarvisClient.shutdown();
         if (pairing != null) pairing.shutdown();

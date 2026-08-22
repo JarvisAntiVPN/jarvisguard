@@ -40,6 +40,30 @@ public final class PairingClient {
 
     public record Start(String deviceCode, String userCode, String verificationUri, int interval, int expiresIn) {}
 
+    static final int VIGENCIA_MIN_SEG = 120;
+    static final int VIGENCIA_MAX_SEG = 3600;
+    static final int POLL_MIN_SEG = 5;
+    static final int POLL_MAX_SEG = 60;
+
+    public static long caducidadMs(long ahoraMs, int expiresInSegundos) {
+        int seg = Math.max(VIGENCIA_MIN_SEG, Math.min(VIGENCIA_MAX_SEG, expiresInSegundos));
+        return ahoraMs + seg * 1000L;
+    }
+
+    public static long intervaloPollMs(int intervalSegundos) {
+        return Math.max(POLL_MIN_SEG, Math.min(POLL_MAX_SEG, intervalSegundos)) * 1000L;
+    }
+
+    public static long intervaloPollNanos(int intervalSegundos) {
+        return intervaloPollMs(intervalSegundos) * 1_000_000L;
+    }
+
+    public static boolean tocaSondear(long ahoraNanos, long proximoNanos) {
+        return ahoraNanos - (proximoNanos - JITTER_NANOS) >= 0;
+    }
+
+    static final long JITTER_NANOS = 500_000_000L;
+
     public Start start(String host, String server, String connVer) {
         try {
             Map<String, Object> body = new java.util.LinkedHashMap<>();

@@ -79,6 +79,8 @@ public final class DetectionListener implements Listener, PluginMessageListener 
     private final Cache<UUID, java.util.Set<String>> knownChannels = Caffeine.newBuilder().maximumSize(20_000).build();
     private static final int MAX_CHANNELS_PER_PLAYER = 64;
 
+    private final Cache<String, String> ultimoBloqueo;
+
     public DetectionListener(Plugin plugin, JarvisClient client, BedrockDetector bedrockDetector,
                              ConfigManager config, Log logger, FloodGuard floodGuard, BanCache banCache) {
         this.plugin = plugin;
@@ -88,6 +90,12 @@ public final class DetectionListener implements Listener, PluginMessageListener 
         this.logger = logger;
         this.floodGuard = floodGuard;
         this.banCache = banCache;
+
+        long recuerdoMin = Math.min(Math.max(0, config.getInt("bans.remember-kick-minutes", 1440)), 43_200);
+        this.ultimoBloqueo = Caffeine.newBuilder()
+                .maximumSize(10_000)
+                .expireAfterWrite(java.time.Duration.ofMinutes(recuerdoMin))
+                .build();
     }
 
     @EventHandler(priority = EventPriority.HIGH)
@@ -113,12 +121,15 @@ public final class DetectionListener implements Listener, PluginMessageListener 
         if (!bedrockBypass) {
             if (floodGuard.checkAndRecord(ip)) {
                 client.denials().record(dev.flamingomg.jarvis.client.LocalDenialReporter.FLOOD, ip, name);
-                denyLocal(event, config.getString("messages.flood", Messages.get(client.locale(), "flood")));
+                denyLocal(event, config.getString("messages.flood", Messages.get(client.locale(), "flood")), name);
                 return;
             }
             if (banCache.isBanned(ip)) {
                 client.denials().record(dev.flamingomg.jarvis.client.LocalDenialReporter.LOCAL_BAN, ip, name);
-                denyLocal(event, config.getString("messages.block", Messages.get(client.locale(), "block")));
+
+                String recordado = ultimoBloqueo.getIfPresent(claveBloqueo(ip, name));
+                if (recordado != null) deny(event, recordado);
+                else denyLocal(event, textoBloqueoLocal(ip), name);
                 return;
             }
             int maxPerIp = client.maxAccountsPerIp();
@@ -126,11 +137,11 @@ public final class DetectionListener implements Listener, PluginMessageListener 
 
                 int connecting = connectingByIp.merge(ip, 1, Integer::sum);
                 reservedIp = true;
-                if (connecting + connectedByIp.getOrDefault(ip, 0) > maxPerIp) {
+                if (superaAforo(connecting, connectedByIp.getOrDefault(ip, 0), maxPerIp)) {
                     releaseConnecting(ip);
                     reservedIp = false;
                     client.denials().record(dev.flamingomg.jarvis.client.LocalDenialReporter.MAX_PER_IP, ip, name);
-                    denyLocal(event, config.getString("messages.maxperip", Messages.get(client.locale(), "maxperip")));
+                    denyLocal(event, config.getString("messages.maxperip", Messages.get(client.locale(), "maxperip")), name);
                     return;
                 }
             }
@@ -168,12 +179,16 @@ public final class DetectionListener implements Listener, PluginMessageListener 
             if (type != VerdictType.ALLOW) logger.debug("[detection] {} ({}) -> {}", name, ip, type);
 
             if (type.denies()) {
-                banCache.ban(ip);
-                String msg = verdict.message() != null
-                        ? verdict.message()
-                        : config.getString("messages.block", Messages.get(client.locale(), "block"));
-                deny(event, msg);
-                notifyStaff(name, ip);
+
+                banCache.ban(ip, esMotivo(verdict.msgKey()) ? verdict.msgKey() : "vpn_proxy");
+                if (verdict.message() != null) {
+
+                    ultimoBloqueo.put(claveBloqueo(ip, name), verdict.message());
+                    deny(event, verdict.message());
+                } else {
+                    denyLocal(event, textoBloqueoLocal(ip), name);
+                }
+                notifyStaff(name, ip, verdict.msgKey());
             }
         } finally {
             if (reservedIp) releaseConnecting(ip);
@@ -186,6 +201,10 @@ public final class DetectionListener implements Listener, PluginMessageListener 
 
     private void denyLocal(AsyncPlayerPreLoginEvent event, String rawMsg) {
         event.disallow(AsyncPlayerPreLoginEvent.Result.KICK_OTHER, renderBrandedLocal(rawMsg));
+    }
+
+    private void denyLocal(AsyncPlayerPreLoginEvent event, String rawMsg, String name) {
+        event.disallow(AsyncPlayerPreLoginEvent.Result.KICK_OTHER, renderBrandedLocal(rawMsg, name));
     }
 
     private void applyFallbackPolicy(AsyncPlayerPreLoginEvent event, String name, String ip) {
@@ -311,7 +330,7 @@ public final class DetectionListener implements Listener, PluginMessageListener 
         knownChannels.invalidate(player.getUniqueId());
 
         String estIp = sessionIp.asMap().remove(player.getUniqueId());
-        if (estIp != null) connectedByIp.computeIfPresent(estIp, (k, v) -> v <= 1 ? null : v - 1);
+        descontar(connectedByIp, estIp);
         Long start = sessionStart.asMap().remove(player.getUniqueId());
         if (start == null) return;
         long durationMs = System.currentTimeMillis() - start;
@@ -355,6 +374,35 @@ public final class DetectionListener implements Listener, PluginMessageListener 
         return LEGACY.serialize(renderComponent(msg).append(brandingFor(client.locale())));
     }
 
+    private String textoBloqueoLocal(String ip) {
+        String motivo = banCache.msgKeyDe(ip);
+        String delPanel = client.offlineMessage(motivo);
+
+        String propio = dev.flamingomg.jarvis.i18n.Messages.get(client.locale(), claveTextoLocal(motivo));
+        return config.getString("messages.block", delPanel != null ? delPanel : propio);
+    }
+
+    static String claveBloqueo(String ip, String name) {
+        return ip + " " + (name == null ? "" : name.toLowerCase(java.util.Locale.ROOT));
+    }
+
+    private String renderBrandedLocal(String rawText, String name) {
+        if (rawText != null && rawText.indexOf('{') >= 0) {
+            return renderBranded(rellenarNombre(rawText, name));
+        }
+        return renderBrandedLocal(rawText);
+    }
+
+    static String nombreSeguro(String name) {
+        if (name == null || name.isEmpty()) return "";
+        StringBuilder sb = new StringBuilder(Math.min(name.length(), 32));
+        for (int i = 0; i < name.length() && sb.length() < 32; i++) {
+            char c = name.charAt(i);
+            if (Character.isLetterOrDigit(c) || c == '_' || c == '.' || c == ' ') sb.append(c);
+        }
+        return sb.toString();
+    }
+
     private record LocalMsg(String locale, String rawText, String rendered) {}
     private volatile LocalMsg localMsg;
 
@@ -388,8 +436,7 @@ public final class DetectionListener implements Listener, PluginMessageListener 
                 truth.merge(a.getAddress().getHostAddress(), 1, Integer::sum);
             }
         }
-        connectedByIp.keySet().removeIf(k -> !truth.containsKey(k));
-        connectedByIp.putAll(truth);
+        reconciliar(connectedByIp, truth);
     }
 
     private void releaseConnecting(String ip) {
@@ -401,14 +448,61 @@ public final class DetectionListener implements Listener, PluginMessageListener 
         return username != null && config.bypassUsernames().contains(username.toLowerCase(java.util.Locale.ROOT));
     }
 
-    private void notifyStaff(String name, String ip) {
+    private static final java.util.Set<String> MOTIVOS = java.util.Set.of(
+            "vpn_proxy", "mobile_hotspot", "lockdown", "invalid_username", "block", "game_relay");
+
+    static String claveTextoLocal(String motivo) {
+        if ("vpn_proxy".equals(motivo)) return "block.vpn";
+        if ("game_relay".equals(motivo)) return "block.game_relay";
+        return "block";
+    }
+
+    static boolean superaAforo(int enCurso, int yaConectados, int maxPorIp) {
+        return maxPorIp > 0 && enCurso + yaConectados > maxPorIp;
+    }
+
+    static void descontar(java.util.Map<String, Integer> contador, String ip) {
+        if (contador == null || ip == null) return;
+        contador.computeIfPresent(ip, (k, v) -> v <= 1 ? null : v - 1);
+    }
+
+    static void reconciliar(java.util.Map<String, Integer> contador, java.util.Map<String, Integer> verdad) {
+        if (contador == null || verdad == null) return;
+        contador.keySet().removeIf(k -> !verdad.containsKey(k));
+        contador.putAll(verdad);
+    }
+
+    static String rellenarNombre(String rawText, String name) {
+        return rawText == null ? null : rawText.replace("{username}", nombreSeguro(name));
+    }
+
+    static String textoStaff(String plantilla, String nombre, String ip, String motivo) {
+        if (plantilla == null) return "";
+        String n = (nombre != null) ? nombre : "?";
+        String i = (ip != null) ? ip : "?";
+        String r = (motivo != null) ? motivo : "";
+        return plantilla.replace("{name}", MM.escapeTags(n))
+                        .replace("{ip}", MM.escapeTags(i))
+                        .replace("{score}", "")
+                        .replace("{reason}", MM.escapeTags(r));
+    }
+
+    private static boolean esMotivo(String msgKey) {
+        return msgKey != null && MOTIVOS.contains(msgKey);
+    }
+
+    private String motivoLegible(String msgKey) {
+        if (!esMotivo(msgKey)) return "";
+        return dev.flamingomg.jarvis.i18n.Messages.get(client.locale(), "motivo." + msgKey);
+    }
+
+    private void notifyStaff(String name, String ip, String msgKey) {
         if (!client.notifyStaffEnabled()) return;
 
         String safeName = (name != null) ? name : "?";
         String safeIp   = (ip != null) ? ip : "?";
         String template = config.getString("messages.staff-notify", Messages.get(client.locale(), "staff"));
-        String text = LEGACY.serialize(MM.deserialize(template
-                .replace("{name}", MM.escapeTags(safeName)).replace("{ip}", MM.escapeTags(safeIp)).replace("{score}", "")));
+        String text = LEGACY.serialize(MM.deserialize(textoStaff(template, safeName, safeIp, motivoLegible(msgKey))));
 
         Schedulers.global(plugin, () -> {
 

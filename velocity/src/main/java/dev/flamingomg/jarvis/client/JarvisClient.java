@@ -50,6 +50,8 @@ public final class JarvisClient {
     private volatile boolean notifyStaff = true;
     private volatile String notifyPermission = "jarvis.admin";
 
+    private volatile java.util.Map<String, String> offlineMessages = java.util.Map.of();
+
     private volatile int    cbFailureThreshold = 5;
     private volatile long   cbOpenDurationMs   = 30_000L;
     private volatile int    backendTimeoutMs   = 500;
@@ -150,7 +152,7 @@ public final class JarvisClient {
             }
 
             boolean backendReject = resp.headers().firstValue("X-Jarvis-Reject").isPresent();
-            this.keyRejected = (status == 401 || status == 403 || status == 404) && backendReject;
+            this.keyRejected = licenciaRechazada(status, backendReject);
             if (!warnedNoSecret) {
                 warnedNoSecret = true;
                 logger.warn("No connector secret from backend (HTTP {}). Check your license key; if it's correct and your license has team members, set backend.shared-secret in config.yml (copy it from your panel).", status);
@@ -191,6 +193,13 @@ public final class JarvisClient {
 
     public boolean notifyStaffEnabled() { return notifyStaff; }
 
+    public String offlineMessage(String clave) {
+        java.util.Map<String, String> m = offlineMessages;
+        if (m.isEmpty()) return null;
+        String v = clave == null ? null : m.get(clave);
+        return v != null ? v : m.get("block");
+    }
+
     public String notifyPermission() { return notifyPermission; }
 
     private void applyPanelConfig(Map<?, ?> body) {
@@ -204,6 +213,19 @@ public final class JarvisClient {
 
         Object np = body.get("notifyPermission");
         if (np != null && !String.valueOf(np).isBlank()) this.notifyPermission = String.valueOf(np).trim();
+
+        this.offlineMessages = offlineTrasConfig(body.get("offlineMessages"), this.offlineMessages);
+    }
+
+    static java.util.Map<String, String> offlineTrasConfig(Object delPanel, java.util.Map<String, String> actual) {
+        if (!(delPanel instanceof Map<?, ?> m)) return actual;
+        java.util.Map<String, String> out = new LinkedHashMap<>();
+        for (Map.Entry<?, ?> e : m.entrySet()) {
+            if (e.getKey() == null || e.getValue() == null) continue;
+            String v = String.valueOf(e.getValue()).trim();
+            if (!v.isEmpty()) out.put(String.valueOf(e.getKey()), v);
+        }
+        return java.util.Map.copyOf(out);
     }
 
     public void refreshConfig() {
@@ -248,7 +270,7 @@ public final class JarvisClient {
     }
 
     private void snapshotConfig() {
-        this.cbFailureThreshold = Math.max(1, config.getInt("circuit-breaker.failure-threshold", 5));
+        this.cbFailureThreshold = umbralFallos(config.getInt("circuit-breaker.failure-threshold", 5));
         this.cbOpenDurationMs   = Math.max(0L, (long) config.getInt("circuit-breaker.open-duration-ms", 30_000));
         this.backendTimeoutMs   = Math.max(1, config.getInt("backend.timeout-ms", 500));
         this.cbProbeTimeoutMs   = Math.max(1, config.getInt("circuit-breaker.probe-timeout-ms", 3000));
@@ -335,7 +357,7 @@ public final class JarvisClient {
                     if (verdict.message() != null && !dev.flamingomg.jarvis.security.VerdictVerifier.verifyMessage(
                             verdict.timestamp(), verdict.verdict(), verdict.message(), verdict.msgSig())) {
                         logger.warn("Kick message signature mismatch for {}; using local message", ip);
-                        verdict = new VerdictResponse(verdict.verdict(), null, verdict.timestamp(), verdict.sig(), verdict.msgSig());
+                        verdict = verdict.sinMensaje();
                     }
                     if (verdict.verdictType() != VerdictType.CHALLENGE) cache.put(ck(ip, username), verdict);
                     return verdict;
@@ -368,7 +390,7 @@ public final class JarvisClient {
         });
     }
 
-    private static final VerdictResponse VENCIDO = new VerdictResponse("UNKNOWN", null, 0L, "", null);
+    private static final VerdictResponse VENCIDO = new VerdictResponse("UNKNOWN", null, 0L, "", null, null);
 
     private final java.util.concurrent.atomic.AtomicLong ultimoAvisoVencimiento =
             new java.util.concurrent.atomic.AtomicLong(0L);
@@ -417,6 +439,14 @@ public final class JarvisClient {
 
     public void onSyncRejected(int status) { maybeResetSecret(status); }
 
+    static int umbralFallos(int configurado) {
+        return Math.max(1, configurado);
+    }
+
+    static boolean licenciaRechazada(int status, boolean vieneDelBackend) {
+        return vieneDelBackend && (status == 401 || status == 403 || status == 404);
+    }
+
     static boolean sondaColgada(long ahoraMs, long cbOpenedAtMs, long openDurationMs, long probeTimeoutMs) {
         return ahoraMs - cbOpenedAtMs > openDurationMs + probeTimeoutMs + 4_500L + 5_000L;
     }
@@ -455,7 +485,7 @@ public final class JarvisClient {
     }
 
     private static VerdictResponse unknownVerdict() {
-        return new VerdictResponse("UNKNOWN", null, System.currentTimeMillis(), "", null);
+        return new VerdictResponse("UNKNOWN", null, System.currentTimeMillis(), "", null, null);
     }
 
     public void invalidateIps(java.util.Collection<String> ips) {
@@ -699,7 +729,9 @@ public final class JarvisClient {
                                 } else {
                                     continue;
                                 }
-                                banCache.ban(banIp, ttlSec);
+
+                                Object mk = ban.get("msgKey");
+                                banCache.ban(banIp, ttlSec, mk instanceof String s2 && !s2.isBlank() ? s2 : null);
                                 snapshotIps.add(banIp);
                                 count++;
                             } catch (RuntimeException ignored) {  }

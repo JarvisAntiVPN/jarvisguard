@@ -5,10 +5,16 @@ public record VerdictResponse(
         String message,
         long timestamp,
         String sig,
-        String msgSig
+        String msgSig,
+
+        String msgKey
 ) {
     public VerdictType verdictType() {
 
         return VerdictType.parse(verdict);
+    }
+
+    public VerdictResponse sinMensaje() {
+        return new VerdictResponse(verdict, null, timestamp, sig, msgSig, msgKey);
     }
 }
