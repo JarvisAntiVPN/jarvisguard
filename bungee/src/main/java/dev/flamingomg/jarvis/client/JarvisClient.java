@@ -73,6 +73,10 @@ public final class JarvisClient {
 
     private final LocalDenialReporter denials = new LocalDenialReporter(this::reportLocalDenials);
 
+    private volatile dev.flamingomg.jarvis.detection.BanCache banCacheParaExentos;
+
+    public void setBanCacheParaExentos(dev.flamingomg.jarvis.detection.BanCache c) { this.banCacheParaExentos = c; }
+
     public LocalDenialReporter denials() { return denials; }
 
     private final ClockOffset clock = new ClockOffset();
@@ -390,7 +394,7 @@ public final class JarvisClient {
         });
     }
 
-    private static final VerdictResponse VENCIDO = new VerdictResponse("UNKNOWN", null, 0L, "", null, null);
+    private static final VerdictResponse VENCIDO = new VerdictResponse("UNKNOWN", null, 0L, "", null, null, null);
 
     private final java.util.concurrent.atomic.AtomicLong ultimoAvisoVencimiento =
             new java.util.concurrent.atomic.AtomicLong(0L);
@@ -485,7 +489,7 @@ public final class JarvisClient {
     }
 
     private static VerdictResponse unknownVerdict() {
-        return new VerdictResponse("UNKNOWN", null, System.currentTimeMillis(), "", null, null);
+        return new VerdictResponse("UNKNOWN", null, System.currentTimeMillis(), "", null, null, null);
     }
 
     public void invalidateIps(java.util.Collection<String> ips) {
@@ -509,6 +513,15 @@ public final class JarvisClient {
                                  String locale, Integer viewDistance, String chatMode,
                                  java.util.List<String> channels, boolean premium,
                                  Integer protocolVersion) {
+        reportPlayerSeen(uuid, username, ip, bedrock, version, brand, host, locale, viewDistance, chatMode,
+                channels, premium, protocolVersion, null);
+    }
+
+    public void reportPlayerSeen(String uuid, String username, String ip, boolean bedrock,
+                                 String version, String brand, String host,
+                                 String locale, Integer viewDistance, String chatMode,
+                                 java.util.List<String> channels, boolean premium,
+                                 Integer protocolVersion, String loginIntent) {
 
         VerdictResponse cached = cache.getIfPresent(ck(ip, username));
         String verdictStr = cached != null ? cached.verdict() : "UNKNOWN";
@@ -528,16 +541,23 @@ public final class JarvisClient {
 
         if (channels != null && !channels.isEmpty()) payload.put("channels", channels);
         if (protocolVersion != null) payload.put("protocolVersion", protocolVersion);
+        if (loginIntent != null && !loginIntent.isBlank()) payload.put("loginIntent", loginIntent);
 
         reportConIdentidad("/api/v1/player/seen", ip, username, uuid, premium, payload,
                 "Error reporting player seen " + username);
     }
+
+    private volatile boolean apagando = false;
+
+    public void marcarApagando() { this.apagando = true; }
 
     public void reportSessionEnd(String username, String ip, long durationMs) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("username", username);
         payload.put("ip", ip);
         payload.put("durationMs", durationMs);
+
+        payload.put("end", apagando ? "SHUTDOWN" : "QUIT");
         report("/api/v1/session/end", ip, username, payload,
                 "Error reporting session end for " + username);
     }
@@ -575,7 +595,8 @@ public final class JarvisClient {
                 .header("X-Signature",   sig)
                 .POST(HttpRequest.BodyPublishers.ofString(GSON.toJson(payload), StandardCharsets.UTF_8))
                 .build();
-        http.sendAsync(req, HttpResponse.BodyHandlers.discarding())
+
+        http.sendAsync(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8))
                 .thenAccept(resp -> {
                     if (resp.statusCode() == 404) {
                         if (localDenials404.incrementAndGet() == LOCAL_DENIALS_404_GIVE_UP) {
@@ -583,9 +604,40 @@ public final class JarvisClient {
                         }
                     } else {
                         localDenials404.set(0);
+                        aplicarExentos(resp.statusCode(), resp.body());
                     }
                 })
                 .exceptionally(e -> { logger.debug("[local-denials] report failed: {}", e.toString()); return null; });
+    }
+
+    private static final int EXENTOS_MAX_BYTES = 64 * 1024;
+
+    private void aplicarExentos(int status, String body) {
+        try {
+            dev.flamingomg.jarvis.detection.BanCache bc = banCacheParaExentos;
+            if (bc == null || status < 200 || status >= 300) return;
+            if (body == null || body.isEmpty() || body.length() > EXENTOS_MAX_BYTES) return;
+            com.google.gson.JsonObject o = GSON.fromJson(body, com.google.gson.JsonObject.class);
+            if (o == null) return;
+            java.util.List<String> nombres = listaDeCadenas(o, "exemptNames");
+            java.util.List<String> ips = listaDeCadenas(o, "exemptIps");
+            if (nombres.isEmpty() && ips.isEmpty()) return;
+            bc.marcarExentos(nombres, ips);
+            logger.debug("[local-denials] {} name(s) and {} ip(s) exempted by the owner's whitelist",
+                    nombres.size(), ips.size());
+        } catch (Exception e) {
+            logger.debug("[local-denials] could not read exemptions: {}", e.toString());
+        }
+    }
+
+    private static java.util.List<String> listaDeCadenas(com.google.gson.JsonObject o, String campo) {
+        java.util.List<String> out = new java.util.ArrayList<>();
+        com.google.gson.JsonElement el = o.get(campo);
+        if (el == null || !el.isJsonArray()) return out;
+        for (com.google.gson.JsonElement x : el.getAsJsonArray()) {
+            if (x != null && x.isJsonPrimitive() && out.size() < 1_000) out.add(x.getAsString());
+        }
+        return out;
     }
 
     public void reportChallengeComplete(String username, String ip) {
@@ -836,10 +888,50 @@ public final class JarvisClient {
         return delta <= windowMs && delta >= -windowMs;
     }
 
-    public java.util.concurrent.CompletableFuture<Boolean> blacklistAsync(
+    public record RespuestaLista(int code, Boolean found, Boolean saved, Boolean already,
+                                 Integer ipUnbanned, Long expiresAt) {
+        public boolean ok() { return code >= 200 && code < 300; }
+
+        static RespuestaLista sinRed() { return new RespuestaLista(0, null, null, null, null, null); }
+    }
+
+    static RespuestaLista leerRespuestaLista(int code, String body) {
+        if (body == null || body.isEmpty()) return new RespuestaLista(code, null, null, null, null, null);
+        try {
+
+            com.google.gson.JsonObject o = GSON.fromJson(body, com.google.gson.JsonObject.class);
+            if (o == null) return new RespuestaLista(code, null, null, null, null, null);
+            return new RespuestaLista(code, booleano(o, "found"), booleano(o, "saved"),
+                    booleano(o, "already"), entero(o, "ipUnbanned"), largo(o, "expiresAt"));
+        } catch (RuntimeException e) {
+            return new RespuestaLista(code, null, null, null, null, null);
+        }
+    }
+
+    private static com.google.gson.JsonPrimitive prim(com.google.gson.JsonObject o, String k) {
+        com.google.gson.JsonElement e = o.get(k);
+        return (e != null && e.isJsonPrimitive()) ? e.getAsJsonPrimitive() : null;
+    }
+
+    private static Boolean booleano(com.google.gson.JsonObject o, String k) {
+        com.google.gson.JsonPrimitive p = prim(o, k);
+        return (p != null && p.isBoolean()) ? p.getAsBoolean() : null;
+    }
+
+    private static Integer entero(com.google.gson.JsonObject o, String k) {
+        com.google.gson.JsonPrimitive p = prim(o, k);
+        return (p != null && p.isNumber()) ? p.getAsInt() : null;
+    }
+
+    private static Long largo(com.google.gson.JsonObject o, String k) {
+        com.google.gson.JsonPrimitive p = prim(o, k);
+        return (p != null && p.isNumber()) ? p.getAsLong() : null;
+    }
+
+    public java.util.concurrent.CompletableFuture<RespuestaLista> blacklistAsync(
             String username, String reason, String actor, boolean remove) {
         if (signer == null || !signer.hasSecret()) {
-            return java.util.concurrent.CompletableFuture.completedFuture(false);
+            return java.util.concurrent.CompletableFuture.completedFuture(RespuestaLista.sinRed());
         }
         long   ts  = clock.now();
         String sig = signer.sign(HmacSigner.requestPayload(ts, remove ? "unblacklist" : "blacklist",
@@ -860,15 +952,18 @@ public final class JarvisClient {
                 .header("X-Signature",   sig)
                 .POST(HttpRequest.BodyPublishers.ofString(GSON.toJson(payload), StandardCharsets.UTF_8))
                 .build();
-        return http.sendAsync(req, HttpResponse.BodyHandlers.discarding())
-                .thenApply(r -> r.statusCode() >= 200 && r.statusCode() < 300)
-                .exceptionally(e -> { logger.debug("blacklist {}: {}", username, e.toString()); return false; });
+        return http.sendAsync(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8))
+                .thenApply(r -> leerRespuestaLista(r.statusCode(), r.body()))
+                .exceptionally(e -> {
+                    logger.debug("blacklist {}: {}", username, e.toString());
+                    return RespuestaLista.sinRed();
+                });
     }
 
-    public java.util.concurrent.CompletableFuture<Integer> whitelistAsync(
+    public java.util.concurrent.CompletableFuture<RespuestaLista> whitelistAsync(
             String username, String time, String reason, String actor, boolean remove) {
         if (signer == null || !signer.hasSecret()) {
-            return java.util.concurrent.CompletableFuture.completedFuture(0);
+            return java.util.concurrent.CompletableFuture.completedFuture(RespuestaLista.sinRed());
         }
         long   ts  = clock.now();
         String accion = remove ? "unwhitelist" : ("whitelist:" + (time == null ? "" : time));
@@ -890,9 +985,12 @@ public final class JarvisClient {
                 .header("X-Signature",   sig)
                 .POST(HttpRequest.BodyPublishers.ofString(GSON.toJson(payload), StandardCharsets.UTF_8))
                 .build();
-        return http.sendAsync(req, HttpResponse.BodyHandlers.discarding())
-                .thenApply(HttpResponse::statusCode)
-                .exceptionally(e -> { logger.debug("whitelist {}: {}", username, e.toString()); return 0; });
+        return http.sendAsync(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8))
+                .thenApply(r -> leerRespuestaLista(r.statusCode(), r.body()))
+                .exceptionally(e -> {
+                    logger.debug("whitelist {}: {}", username, e.toString());
+                    return RespuestaLista.sinRed();
+                });
     }
 
     private void report(String endpoint, String ipForSig, String userForSig,

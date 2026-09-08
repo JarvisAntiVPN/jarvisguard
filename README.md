@@ -19,12 +19,17 @@ The connector links your server to the Jarvis Guard service, which makes the ant
 
 ## Setup
 
-1. Download the connector for your platform from https://jarvisguard.com (or build it, see below).
+1. Download the official connector for your platform from https://jarvisguard.com.
 2. Place the jar in your `plugins` folder and start the server.
 3. Create a free account at https://jarvisguard.com and copy your license key.
 4. Run `/antivpn key <your-key>`.
 
-## Build
+## Why this code is public
+
+So you can read exactly what runs on your server and what data leaves it. That is the
+only reason it is here. It is not a licence to reuse it: see LICENSE.
+
+## Build it yourself to check it
 
 Each platform is an independent Maven project. From its folder:
 
@@ -33,6 +38,10 @@ mvn package
 ```
 
 The jar is produced in `target/`. Requires JDK 17 or newer, for all three modules.
+
+Building is for auditing: compare what you get with the official jar, or just read the
+code. On your server, run the official build from https://jarvisguard.com, so that
+support and updates match what we ship.
 
 ## Links
 

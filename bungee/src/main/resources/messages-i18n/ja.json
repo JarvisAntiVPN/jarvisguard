@@ -10,6 +10,7 @@
   "motivo.game_relay": "ゲームアクセラレーター",
   "motivo.mobile_hotspot": "モバイルデータ",
   "motivo.lockdown": "サーバーの制限",
+  "motivo.home_country": "普段と違う国",
   "motivo.invalid_username": "無効な名前",
   "motivo.block": "ブロック",
   "cmd.reloaded": "設定を再読み込みし、キャッシュを消去してブロックを再同期しています。",
@@ -56,6 +57,11 @@
   "cmd.whitelistOk": "プレイヤーを許可しました:",
   "cmd.unwhitelistOk": "許可を解除しました:",
   "cmd.whitelistBadTime": "その期間は認識できません。30m、12h、7d、2w または \"perma\" を使ってください。",
+  "cmd.notSaved": "保存できませんでした。もう一度お試しください:",
+  "cmd.notInList": "リストにありませんでした:",
+  "cmd.alreadyInList": "すでにリストにあります:",
+  "cmd.expiresIn": "{t} 後に期限切れ",
+  "cmd.ipsLifted": "解除した IP: {n}",
   "cmd.descDoctor": "すべて動いているかと、問題があれば何を直すかを確認",
   "cmd.doctorTitle": "診断",
   "cmd.diagLicense": "ライセンス",
@@ -68,5 +74,7 @@
   "cmd.diagIp": "プレイヤーの IP",
   "cmd.diagIpPrivate": "{ip} を受け取っています。これはプレイヤーのものではありません。本当の IP がこのサーバーにどう届いているか確認してください",
   "cmd.diagBans": "読み込み済みのブロック",
+  "cmd.diagConfig": "設定ファイル",
+  "cmd.diagConfigStale": "読み込めませんでした: ディスク上ではなく以前の設定が使われています。コンソールを確認して /antivpn reload を実行してください",
   "cmd.diagAllOk": "すべて正常です。対応は不要です。"
 }

@@ -10,6 +10,7 @@
   "motivo.game_relay": "žaidimų greitintuvas",
   "motivo.mobile_hotspot": "mobilusis internetas",
   "motivo.lockdown": "serverio apribojimas",
+  "motivo.home_country": "neįprasta šalis",
   "motivo.invalid_username": "netinkamas vardas",
   "motivo.block": "užblokuota",
   "cmd.reloaded": "Konfigūracija perkrauta, talpykla išvalyta ir blokavimai sinchronizuojami.",
@@ -56,6 +57,11 @@
   "cmd.whitelistOk": "Zaidejui leista:",
   "cmd.unwhitelistOk": "Leidimas atsauktas:",
   "cmd.whitelistBadTime": "Nesuprantu tokio laiko. Naudokite 30m, 12h, 7d, 2w arba \"perma\".",
+  "cmd.notSaved": "Nepavyko išsaugoti, bandyk dar kartą:",
+  "cmd.notInList": "Nebuvo sąraše:",
+  "cmd.alreadyInList": "Jau buvo sąraše:",
+  "cmd.expiresIn": "Baigiasi po {t}",
+  "cmd.ipsLifted": "Atblokuoti IP: {n}",
   "cmd.descDoctor": "patikrina, ar viskas veikia, ir ką taisyti jei ne",
   "cmd.doctorTitle": "Diagnostika",
   "cmd.diagLicense": "Licencija",
@@ -68,5 +74,7 @@
   "cmd.diagIp": "Žaidėjų IP",
   "cmd.diagIpPrivate": "gauname {ip}, o tai ne žaidėjo adresas; patikrink, kaip tikrasis IP pasiekia šį serverį",
   "cmd.diagBans": "Įkelti blokavimai",
+  "cmd.diagConfig": "Konfigūracijos failas",
+  "cmd.diagConfigStale": "nepavyko perskaityti: galioja ankstesni nustatymai, ne tie, kurie diske. Patikrink konsolę ir paleisk /antivpn reload",
   "cmd.diagAllOk": "Viskas veikia. Nieko daryti nereikia."
 }

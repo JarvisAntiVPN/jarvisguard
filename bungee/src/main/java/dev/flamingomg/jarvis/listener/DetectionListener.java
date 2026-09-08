@@ -5,6 +5,8 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import dev.flamingomg.jarvis.client.JarvisClient;
 import dev.flamingomg.jarvis.config.ConfigManager;
 import dev.flamingomg.jarvis.detection.BanCache;
+import dev.flamingomg.jarvis.detection.IntencionDeConexion;
+import dev.flamingomg.jarvis.detection.MarcaDeCliente;
 import dev.flamingomg.jarvis.detection.BedrockDetector;
 import dev.flamingomg.jarvis.detection.FloodGuard;
 import dev.flamingomg.jarvis.model.VerdictType;
@@ -66,6 +68,24 @@ public final class DetectionListener implements Listener {
             Caffeine.newBuilder().maximumSize(20_000).build();
     private static final int MAX_CHANNELS_PER_PLAYER = 64;
 
+    private final Cache<String, String> intencionPorConexion =
+            Caffeine.newBuilder().maximumSize(20_000)
+                    .expireAfterWrite(2, TimeUnit.MINUTES).build();
+
+    @EventHandler
+    public void onHandshake(net.md_5.bungee.api.event.PlayerHandshakeEvent event) {
+        try {
+            String valor = IntencionDeConexion.deProtocolo(event.getHandshake().getRequestedProtocol());
+            if (valor == null) return;
+            java.net.SocketAddress sa = event.getConnection().getSocketAddress();
+            if (!(sa instanceof java.net.InetSocketAddress a)) return;
+            String clave = IntencionDeConexion.clave(a);
+            if (clave != null) intencionPorConexion.put(clave, valor);
+        } catch (Throwable ignored) {
+
+        }
+    }
+
     private final Cache<UUID, String> clientBrands =
             Caffeine.newBuilder().maximumSize(20_000).build();
 
@@ -124,7 +144,8 @@ public final class DetectionListener implements Listener {
                 event.setCancelReason(serialize(renderBrandedLocal(msg, name)));
                 return;
             }
-            if (banCache.isBanned(ip)) {
+
+            if (banCache.isBannedFor(ip, name)) {
                 client.denials().record(dev.flamingomg.jarvis.client.LocalDenialReporter.LOCAL_BAN, ip, name);
                 event.setCancelled(true);
 
@@ -198,7 +219,10 @@ public final class DetectionListener implements Listener {
 
                 if (type.denies()) {
 
-                    banCache.ban(ip, esMotivo(verdict.msgKey()) ? verdict.msgKey() : "vpn_proxy");
+                    if (!Boolean.FALSE.equals(verdict.cacheIp())) {
+
+                        banCache.ban(ip, motivoParaRecordar(verdict.msgKey()));
+                    }
                     event.setCancelled(true);
                     if (verdict.message() != null) {
 
@@ -307,9 +331,31 @@ public final class DetectionListener implements Listener {
         String host = vh != null ? vh.getHostString() : null;
         boolean premium = conn.isOnlineMode();
 
+        programarInforme(player, ip, bedrock, host, premium, 1);
+    }
+
+    private boolean reprogramar(ProxiedPlayer player, String ip, boolean bedrock, String host,
+                                boolean premium, int intento) {
+        try {
+            programarInforme(player, ip, bedrock, host, premium, intento);
+            return true;
+        } catch (Throwable apagando) {
+            return false;
+        }
+    }
+
+    private void programarInforme(ProxiedPlayer player, String ip, boolean bedrock, String host,
+                                  boolean premium, int intento) {
         proxy.getScheduler().schedule(plugin, () -> {
 
             String brand = clientBrands.getIfPresent(player.getUniqueId());
+            boolean conectado = player.isConnected();
+            int tope = MarcaDeCliente.intentos(
+                    config.getInt("seen.brand-wait-attempts", MarcaDeCliente.INTENTOS_POR_DEFECTO));
+            if (MarcaDeCliente.paso(brand, conectado, intento, tope) == MarcaDeCliente.Paso.ESPERAR
+                    && reprogramar(player, ip, bedrock, host, premium, intento + 1)) {
+                return;
+            }
 
             String locale = player.getLocale() != null ? player.getLocale().toLanguageTag() : null;
 
@@ -325,9 +371,12 @@ public final class DetectionListener implements Listener {
                     ? null : java.util.List.copyOf(ch);
             Integer protocolVersion = null;
             try { protocolVersion = player.getPendingConnection().getVersion(); } catch (Throwable ignored) {}
+            java.net.SocketAddress sa = player.getPendingConnection().getSocketAddress();
+            String claveConexion = (sa instanceof java.net.InetSocketAddress ra) ? IntencionDeConexion.clave(ra) : null;
+            String intencion = claveConexion == null ? null : intencionPorConexion.getIfPresent(claveConexion);
             client.reportPlayerSeen(player.getUniqueId().toString(), player.getName(),
                     ip, bedrock, version, brand, host, locale, viewDistance, chatMode, channels,
-                    premium, protocolVersion);
+                    premium, protocolVersion, intencion);
         }, 2, TimeUnit.SECONDS);
     }
 
@@ -369,6 +418,8 @@ public final class DetectionListener implements Listener {
     }
 
     private Component renderBranded(String msg) {
+
+        if (msg != null && msg.contains("jarvisguard.com")) return render(msg);
         return render(msg).append(brandingFor(client.locale()));
     }
 
@@ -451,7 +502,9 @@ public final class DetectionListener implements Listener {
     }
 
     private static final java.util.Set<String> MOTIVOS = java.util.Set.of(
-            "vpn_proxy", "mobile_hotspot", "lockdown", "invalid_username", "block", "game_relay");
+            "vpn_proxy", "mobile_hotspot", "lockdown", "invalid_username", "block", "game_relay",
+
+            "home_country");
 
     static String claveTextoLocal(String motivo) {
         if ("vpn_proxy".equals(motivo)) return "block.vpn";
@@ -487,6 +540,11 @@ public final class DetectionListener implements Listener {
                         .replace("{ip}", MM.escapeTags(i))
                         .replace("{score}", "")
                         .replace("{reason}", MM.escapeTags(r));
+    }
+
+    static String motivoParaRecordar(String msgKey) {
+        if (msgKey == null || msgKey.isBlank()) return "vpn_proxy";
+        return esMotivo(msgKey) ? msgKey : "block";
     }
 
     private static boolean esMotivo(String msgKey) {

@@ -6,7 +6,7 @@
 
     <groupId>dev.flamingomg</groupId>
     <artifactId>jarvis</artifactId>
-    <version>0.5.24</version>
+    <version>0.5.25</version>
     <packaging>jar</packaging>
 
     <name>Jarvis</name>
@@ -30,6 +30,12 @@
     </repositories>
 
     <dependencies>
+
+        <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+            <version>2.11.0</version>
+        </dependency>
         <dependency>
             <groupId>com.velocitypowered</groupId>
             <artifactId>velocity-api</artifactId>
@@ -54,12 +60,6 @@
             <groupId>org.yaml</groupId>
             <artifactId>snakeyaml</artifactId>
             <version>2.3</version>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.code.gson</groupId>
-            <artifactId>gson</artifactId>
-            <version>2.11.0</version>
         </dependency>
 
         <dependency>

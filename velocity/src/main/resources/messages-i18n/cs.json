@@ -10,6 +10,7 @@
   "motivo.game_relay": "herní akcelerátor",
   "motivo.mobile_hotspot": "mobilní data",
   "motivo.lockdown": "omezení serveru",
+  "motivo.home_country": "neobvyklá země",
   "motivo.invalid_username": "neplatné jméno",
   "motivo.block": "zablokován",
   "cmd.reloaded": "Konfigurace znovu načtena, mezipaměť vyprázdněna a bloky se resynchronizují.",
@@ -56,6 +57,11 @@
   "cmd.whitelistOk": "Hrac povolen:",
   "cmd.unwhitelistOk": "Povoleni odebrano:",
   "cmd.whitelistBadTime": "Tomu casu nerozumim. Pouzij 30m, 12h, 7d, 2w nebo \"perma\".",
+  "cmd.notSaved": "Nepodařilo se uložit, zkus to znovu:",
+  "cmd.notInList": "Nebyl na seznamu:",
+  "cmd.alreadyInList": "Už byl na seznamu:",
+  "cmd.expiresIn": "Vyprší za {t}",
+  "cmd.ipsLifted": "Odblokované IP: {n}",
   "cmd.descDoctor": "zkontroluj, že vše funguje, a co opravit když ne",
   "cmd.doctorTitle": "Diagnostika",
   "cmd.diagLicense": "Licence",
@@ -68,5 +74,7 @@
   "cmd.diagIp": "IP hráčů",
   "cmd.diagIpPrivate": "dostáváme {ip}, což není adresa hráče; zkontroluj, jak se skutečná IP dostane na tento server",
   "cmd.diagBans": "Načtené bloky",
+  "cmd.diagConfig": "Konfigurační soubor",
+  "cmd.diagConfigStale": "nešel načíst: platí předchozí nastavení, ne to na disku. Zkontroluj konzoli a spusť /antivpn reload",
   "cmd.diagAllOk": "Vše funguje. Není co řešit."
 }

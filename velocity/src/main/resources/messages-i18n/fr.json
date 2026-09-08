@@ -10,6 +10,7 @@
   "motivo.game_relay": "accélérateur de jeu",
   "motivo.mobile_hotspot": "données mobiles",
   "motivo.lockdown": "restriction du serveur",
+  "motivo.home_country": "pays inhabituel",
   "motivo.invalid_username": "nom invalide",
   "motivo.block": "bloqué",
   "cmd.reloaded": "Config rechargée, cache vidé et blocages en cours de resynchronisation.",
@@ -56,6 +57,11 @@
   "cmd.whitelistOk": "Joueur autorise :",
   "cmd.unwhitelistOk": "Autorisation retiree :",
   "cmd.whitelistBadTime": "Duree incomprise. Utilise 30m, 12h, 7d, 2w ou \"perma\".",
+  "cmd.notSaved": "Impossible d'enregistrer, réessaie :",
+  "cmd.notInList": "N'était pas dans la liste :",
+  "cmd.alreadyInList": "Était déjà dans la liste :",
+  "cmd.expiresIn": "Expire dans {t}",
+  "cmd.ipsLifted": "IP débloquées : {n}",
   "cmd.descDoctor": "vérifier que tout fonctionne, et quoi corriger sinon",
   "cmd.doctorTitle": "Diagnostic",
   "cmd.diagLicense": "Licence",
@@ -68,5 +74,7 @@
   "cmd.diagIp": "IP des joueurs",
   "cmd.diagIpPrivate": "on reçoit {ip}, qui n'est pas celle du joueur ; vérifie comment la vraie IP arrive à ce serveur",
   "cmd.diagBans": "Blocages chargés",
+  "cmd.diagConfig": "Fichier de configuration",
+  "cmd.diagConfigStale": "illisible : les réglages actifs sont les précédents, pas ceux du disque. Regarde la console et fais /antivpn reload",
   "cmd.diagAllOk": "Tout fonctionne. Rien à faire."
 }

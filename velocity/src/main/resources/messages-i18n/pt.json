@@ -10,6 +10,7 @@
   "motivo.game_relay": "acelerador de jogo",
   "motivo.mobile_hotspot": "dados móveis",
   "motivo.lockdown": "restrição do servidor",
+  "motivo.home_country": "país diferente do habitual",
   "motivo.invalid_username": "nome inválido",
   "motivo.block": "bloqueado",
   "cmd.reloaded": "Configuração recarregada, cache esvaziado e bloqueios sendo ressincronizados.",
@@ -56,6 +57,11 @@
   "cmd.whitelistOk": "Jogador permitido:",
   "cmd.unwhitelistOk": "Permissao retirada:",
   "cmd.whitelistBadTime": "Nao percebi esse tempo. Usa 30m, 12h, 7d, 2w ou \"perma\".",
+  "cmd.notSaved": "Não foi possível guardar, tenta de novo:",
+  "cmd.notInList": "Não estava na lista:",
+  "cmd.alreadyInList": "Já estava na lista:",
+  "cmd.expiresIn": "Expira em {t}",
+  "cmd.ipsLifted": "IP desbloqueados: {n}",
   "cmd.descDoctor": "verifica se está tudo a funcionar, e o que corrigir se não",
   "cmd.doctorTitle": "Diagnóstico",
   "cmd.diagLicense": "Licença",
@@ -68,5 +74,7 @@
   "cmd.diagIp": "IP dos jogadores",
   "cmd.diagIpPrivate": "estamos a receber {ip}, que não é a do jogador; verifica como o IP real chega a este servidor",
   "cmd.diagBans": "Bloqueios carregados",
+  "cmd.diagConfig": "Ficheiro de configuração",
+  "cmd.diagConfigStale": "não foi possível ler: estão a ser usadas as definições anteriores, não as do disco. Vê a consola e faz /antivpn reload",
   "cmd.diagAllOk": "Está tudo a funcionar. Não há nada a fazer."
 }

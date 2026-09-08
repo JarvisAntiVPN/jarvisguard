@@ -10,6 +10,7 @@
   "motivo.game_relay": "遊戲加速器",
   "motivo.mobile_hotspot": "行動數據",
   "motivo.lockdown": "伺服器限制",
+  "motivo.home_country": "不常用的國家/地區",
   "motivo.invalid_username": "名稱無效",
   "motivo.block": "已攔截",
   "cmd.reloaded": "設定已重新載入，快取已清空，攔截正在重新同步。",
@@ -56,6 +57,11 @@
   "cmd.whitelistOk": "已放行玩家:",
   "cmd.unwhitelistOk": "已撤銷放行:",
   "cmd.whitelistBadTime": "無法識別該時間。請使用 30m、12h、7d、2w 或 \"perma\"。",
+  "cmd.notSaved": "儲存失敗，請再試一次：",
+  "cmd.notInList": "不在清單中：",
+  "cmd.alreadyInList": "已在清單中：",
+  "cmd.expiresIn": "{t} 後到期",
+  "cmd.ipsLifted": "已解封 IP：{n}",
   "cmd.descDoctor": "檢查是否一切正常，以及有問題時該改什麼",
   "cmd.doctorTitle": "診斷",
   "cmd.diagLicense": "授權",
@@ -68,5 +74,7 @@
   "cmd.diagIp": "玩家 IP",
   "cmd.diagIpPrivate": "我們收到的是 {ip}，不是玩家的位址；請檢查真實 IP 是如何到達這台伺服器的",
   "cmd.diagBans": "已載入的封鎖",
+  "cmd.diagConfig": "設定檔",
+  "cmd.diagConfigStale": "讀取失敗：目前使用的是先前的設定，而非磁碟上的。請查看主控台並執行 /antivpn reload",
   "cmd.diagAllOk": "一切正常，無需處理。"
 }

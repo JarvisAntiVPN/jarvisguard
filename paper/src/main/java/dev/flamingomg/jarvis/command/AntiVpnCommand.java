@@ -154,7 +154,8 @@ public final class AntiVpnCommand implements CommandExecutor, TabCompleter {
                 syncClient.streamVivo(),
                 syncClient.ultimoRechazo(),
                 listener.privateIpWatch().privadaReciente(ahora, VENTANA_IP_PRIVADA_MS),
-                banCache.size());
+                banCache.size(),
+                config.motivoCargaFallida());
 
         sender.sendMessage(PRE + "\u00a7b" + m("cmd.doctorTitle"));
         var lineas = Diagnostico.revisar(datos);
@@ -212,13 +213,27 @@ public final class AntiVpnCommand implements CommandExecutor, TabCompleter {
         String actor = (sender instanceof org.bukkit.entity.Player p) ? p.getName() : "consola";
         if (sinFirma(sender)) return;
         sender.sendMessage(PRE + "§7" + m("cmd.blacklistSending"));
-        client.blacklistAsync(target, reason, actor, remove).thenAccept(ok -> {
+        client.blacklistAsync(target, reason, actor, remove).thenAccept(r -> {
 
             Schedulers.aRemitente(plugin, sender, () -> {
-                if (ok) sender.sendMessage(PRE + "§a" + m(remove ? "cmd.unblacklistOk" : "cmd.blacklistOk") + " " + target);
-                else    sender.sendMessage(PRE + "§c" + m("cmd.blacklistFail"));
+                if (r.ok())
+                    pintar(sender, resumirLista(r, remove, remove ? "cmd.unblacklistOk" : "cmd.blacklistOk",
+                            target, null, this::m, System.currentTimeMillis()));
+                else sender.sendMessage(PRE + "§c" + m("cmd.blacklistFail"));
             });
         });
+    }
+
+    private void pintar(CommandSender sender, ResumenLista res) {
+        String color = switch (res.tono()) {
+            case HECHO -> "§a";
+            case AVISO -> "§e";
+            case FALLO -> "§c";
+        };
+        sender.sendMessage(PRE + color + res.titular());
+        for (String d : res.detalles()) {
+            sender.sendMessage(PRE + "§7" + d);
+        }
     }
 
     static boolean pareceTiempo(String arg) {
@@ -227,6 +242,72 @@ public final class AntiVpnCommand implements CommandExecutor, TabCompleter {
         if (c >= '0' && c <= '9') return true;
         String s = arg.toLowerCase(Locale.ROOT);
         return s.equals("perma") || s.equals("permanent") || s.equals("permanente");
+    }
+
+    enum Tono { HECHO, AVISO, FALLO }
+
+    record ResumenLista(Tono tono, String titular, List<String> detalles) {}
+
+    static ResumenLista resumirLista(dev.flamingomg.jarvis.client.JarvisClient.RespuestaLista r, boolean remove,
+                                     String claveOk, String objetivo, String ecoTiempo,
+                                     java.util.function.UnaryOperator<String> tr, long ahoraMs) {
+
+        List<String> detalles = new java.util.ArrayList<>(2);
+        if (Boolean.FALSE.equals(r.saved())) {
+
+            return new ResumenLista(Tono.FALLO, tr.apply("cmd.notSaved") + " " + objetivo, detalles);
+        }
+        boolean nadaQueQuitar = remove && Boolean.FALSE.equals(r.found());
+        boolean yaEstaba      = !remove && Boolean.TRUE.equals(r.already());
+        String titular;
+        if (nadaQueQuitar) {
+            titular = tr.apply("cmd.notInList") + " " + objetivo;
+        } else if (yaEstaba) {
+            titular = tr.apply("cmd.alreadyInList") + " " + objetivo;
+        } else {
+            String eco = (r.expiresAt() == null && ecoTiempo != null && !ecoTiempo.isEmpty())
+                    ? " (" + ecoTiempo + ")" : "";
+            titular = tr.apply(claveOk) + " " + objetivo + eco;
+        }
+        Long caduca = r.expiresAt();
+        if (!remove && caduca != null && caduca > 0) {
+            detalles.add(tr.apply("cmd.expiresIn").replace("{t}", tiempoRelativo(caduca - ahoraMs)));
+        }
+        Integer ips = r.ipUnbanned();
+        if (ips != null && ips > 0) {
+            detalles.add(tr.apply("cmd.ipsLifted").replace("{n}", String.valueOf(ips)));
+        }
+        return new ResumenLista(nadaQueQuitar || yaEstaba ? Tono.AVISO : Tono.HECHO, titular, detalles);
+    }
+
+    static String tiempoRelativo(long ms) {
+        if (ms < 60_000L) return "<1m";
+        long dias = ms / 86_400_000L;
+        if (dias >= 1) return dias + "d";
+        long horas = ms / 3_600_000L;
+        if (horas >= 1) return horas + "h";
+        return (ms / 60_000L) + "m";
+    }
+
+    private static final java.util.Set<String> SUB_JUGADOR =
+            java.util.Set.of("blacklist", "unblacklist", "whitelist", "unwhitelist");
+
+    private static final int TOPE_SUGERENCIAS = 50;
+
+    static List<String> filtrarNombres(java.util.Collection<String> conectados, String prefijo) {
+        if (conectados == null || conectados.isEmpty()) return List.of();
+        String q = prefijo == null ? "" : prefijo.toLowerCase(Locale.ROOT);
+        return conectados.stream()
+                .filter(n -> n != null && !n.isEmpty())
+                .filter(n -> n.toLowerCase(Locale.ROOT).startsWith(q))
+                .distinct()
+                .sorted(String.CASE_INSENSITIVE_ORDER)
+                .limit(TOPE_SUGERENCIAS)
+                .collect(Collectors.toList());
+    }
+
+    static boolean autocompletaJugador(String sub) {
+        return sub != null && SUB_JUGADOR.contains(sub.toLowerCase(Locale.ROOT));
     }
 
     private void whitelist(CommandSender sender, String[] args, boolean remove) {
@@ -244,16 +325,17 @@ public final class AntiVpnCommand implements CommandExecutor, TabCompleter {
         String reason = (remove || args.length <= iMotivo) ? null
                 : String.join(" ", java.util.Arrays.copyOfRange(args, iMotivo, args.length));
         String actor = (sender instanceof org.bukkit.entity.Player p) ? p.getName() : "consola";
-        String sufijo = time == null ? "" : " (" + time + ")";
         if (sinFirma(sender)) return;
         sender.sendMessage(PRE + "§7" + m("cmd.blacklistSending"));
-        client.whitelistAsync(target, time, reason, actor, remove).thenAccept(code -> {
+        final String eco = time;
+        client.whitelistAsync(target, time, reason, actor, remove).thenAccept(r -> {
 
             Schedulers.aRemitente(plugin, sender, () -> {
-                if (code >= 200 && code < 300)
-                    sender.sendMessage(PRE + "§a" + m(remove ? "cmd.unwhitelistOk" : "cmd.whitelistOk") + " " + target + sufijo);
-                else if (code == 400) sender.sendMessage(PRE + "§c" + m("cmd.whitelistBadTime"));
-                else                  sender.sendMessage(PRE + "§c" + m("cmd.blacklistFail"));
+                if (r.ok())
+                    pintar(sender, resumirLista(r, remove, remove ? "cmd.unwhitelistOk" : "cmd.whitelistOk",
+                            target, eco, this::m, System.currentTimeMillis()));
+                else if (r.code() == 400) sender.sendMessage(PRE + "§c" + m("cmd.whitelistBadTime"));
+                else                      sender.sendMessage(PRE + "§c" + m("cmd.blacklistFail"));
             });
         });
     }
@@ -283,7 +365,20 @@ public final class AntiVpnCommand implements CommandExecutor, TabCompleter {
             String q = args[0].toLowerCase(Locale.ROOT);
             return SUB.stream().filter(s -> s.startsWith(q)).collect(Collectors.toList());
         }
+
+        if (args.length == 2 && autocompletaJugador(args[0]) && puedeModerar(sender)) {
+            return filtrarNombres(nombresConectados(), args[1]);
+        }
         return List.of();
+    }
+
+    private static List<String> nombresConectados() {
+        try {
+            return Bukkit.getOnlinePlayers().stream()
+                    .map(org.bukkit.entity.Player::getName).collect(Collectors.toList());
+        } catch (RuntimeException e) {
+            return List.of();
+        }
     }
 
     private static boolean isBlank(String s) {

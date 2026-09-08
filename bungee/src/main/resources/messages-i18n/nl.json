@@ -10,6 +10,7 @@
   "motivo.game_relay": "gameversneller",
   "motivo.mobile_hotspot": "mobiele data",
   "motivo.lockdown": "serverbeperking",
+  "motivo.home_country": "ongebruikelijk land",
   "motivo.invalid_username": "ongeldige naam",
   "motivo.block": "geblokkeerd",
   "cmd.reloaded": "Configuratie herladen, cache gewist en blokkades worden opnieuw gesynchroniseerd.",
@@ -56,6 +57,11 @@
   "cmd.whitelistOk": "Speler toegestaan:",
   "cmd.unwhitelistOk": "Toestemming ingetrokken:",
   "cmd.whitelistBadTime": "Die tijd begrijp ik niet. Gebruik 30m, 12h, 7d, 2w of \"perma\".",
+  "cmd.notSaved": "Kon niet worden opgeslagen, probeer opnieuw:",
+  "cmd.notInList": "Stond niet op de lijst:",
+  "cmd.alreadyInList": "Stond al op de lijst:",
+  "cmd.expiresIn": "Verloopt over {t}",
+  "cmd.ipsLifted": "Gedeblokkeerde IP's: {n}",
   "cmd.descDoctor": "controleer of alles werkt, en wat je moet oplossen",
   "cmd.doctorTitle": "Diagnose",
   "cmd.diagLicense": "Licentie",
@@ -68,5 +74,7 @@
   "cmd.diagIp": "IP van spelers",
   "cmd.diagIpPrivate": "we ontvangen {ip}, en dat is niet die van de speler; controleer hoe het echte IP deze server bereikt",
   "cmd.diagBans": "Geladen blokkades",
+  "cmd.diagConfig": "Configuratiebestand",
+  "cmd.diagConfigStale": "kon niet worden gelezen: de vorige instellingen zijn actief, niet die op schijf. Bekijk de console en doe /antivpn reload",
   "cmd.diagAllOk": "Alles werkt. Niets te doen."
 }

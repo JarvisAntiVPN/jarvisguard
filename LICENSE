@@ -1,0 +1,8 @@
+Copyright (c) 2026 JarvisAntiVPN. All rights reserved.
+
+This source code is published for TRANSPARENCY: so that anyone running the Jarvis
+connector can read exactly what it does and what data leaves their server. Publishing
+it does not grant any licence to use, copy, modify or redistribute it.
+
+Use of the connector and of the Jarvis Guard service is governed by the Terms at
+https://jarvisguard.com/legal/terms. Servers must run the official connector build.

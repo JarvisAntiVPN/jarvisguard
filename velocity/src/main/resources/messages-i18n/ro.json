@@ -10,6 +10,7 @@
   "motivo.game_relay": "accelerator de joc",
   "motivo.mobile_hotspot": "date mobile",
   "motivo.lockdown": "restricție a serverului",
+  "motivo.home_country": "țară neobișnuită",
   "motivo.invalid_username": "nume invalid",
   "motivo.block": "blocat",
   "cmd.reloaded": "Configurație reîncărcată, cache golit și blocările se resincronizează.",
@@ -56,6 +57,11 @@
   "cmd.whitelistOk": "Jucator permis:",
   "cmd.unwhitelistOk": "Permisiune retrasa:",
   "cmd.whitelistBadTime": "Nu inteleg durata. Foloseste 30m, 12h, 7d, 2w sau \"perma\".",
+  "cmd.notSaved": "Nu s-a putut salva, încearcă din nou:",
+  "cmd.notInList": "Nu era pe listă:",
+  "cmd.alreadyInList": "Era deja pe listă:",
+  "cmd.expiresIn": "Expiră în {t}",
+  "cmd.ipsLifted": "IP deblocate: {n}",
   "cmd.descDoctor": "verifică dacă totul funcționează și ce e de reparat",
   "cmd.doctorTitle": "Diagnostic",
   "cmd.diagLicense": "Licență",
@@ -68,5 +74,7 @@
   "cmd.diagIp": "IP-ul jucătorilor",
   "cmd.diagIpPrivate": "primim {ip}, care nu este a jucătorului; verifică cum ajunge IP-ul real la acest server",
   "cmd.diagBans": "Blocări încărcate",
+  "cmd.diagConfig": "Fișierul de configurare",
+  "cmd.diagConfigStale": "nu a putut fi citit: se folosesc setările anterioare, nu cele de pe disc. Verifică consola și rulează /antivpn reload",
   "cmd.diagAllOk": "Totul funcționează. Nu e nimic de făcut."
 }

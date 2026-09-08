@@ -7,7 +7,9 @@ public record VerdictResponse(
         String sig,
         String msgSig,
 
-        String msgKey
+        String msgKey,
+
+        Boolean cacheIp
 ) {
     public VerdictType verdictType() {
 
@@ -15,6 +17,6 @@ public record VerdictResponse(
     }
 
     public VerdictResponse sinMensaje() {
-        return new VerdictResponse(verdict, null, timestamp, sig, msgSig, msgKey);
+        return new VerdictResponse(verdict, null, timestamp, sig, msgSig, msgKey, cacheIp);
     }
 }

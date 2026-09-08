@@ -10,6 +10,7 @@
   "motivo.game_relay": "游戏加速器",
   "motivo.mobile_hotspot": "移动数据",
   "motivo.lockdown": "服务器限制",
+  "motivo.home_country": "不常用的国家/地区",
   "motivo.invalid_username": "名称无效",
   "motivo.block": "已拦截",
   "cmd.reloaded": "配置已重载，缓存已清空，拦截正在重新同步。",
@@ -56,6 +57,11 @@
   "cmd.whitelistOk": "已放行玩家:",
   "cmd.unwhitelistOk": "已撤销放行:",
   "cmd.whitelistBadTime": "无法识别该时间。请使用 30m、12h、7d、2w 或 \"perma\"。",
+  "cmd.notSaved": "保存失败，请重试：",
+  "cmd.notInList": "不在列表中：",
+  "cmd.alreadyInList": "已在列表中：",
+  "cmd.expiresIn": "{t} 后过期",
+  "cmd.ipsLifted": "已解封 IP：{n}",
   "cmd.descDoctor": "检查是否一切正常，以及有问题时该改什么",
   "cmd.doctorTitle": "诊断",
   "cmd.diagLicense": "许可证",
@@ -68,5 +74,7 @@
   "cmd.diagIp": "玩家 IP",
   "cmd.diagIpPrivate": "我们收到的是 {ip}，不是玩家的地址；请检查真实 IP 是如何到达这台服务器的",
   "cmd.diagBans": "已加载的封锁",
+  "cmd.diagConfig": "配置文件",
+  "cmd.diagConfigStale": "读取失败：当前使用的是之前的设置，而不是磁盘上的。请查看控制台并执行 /antivpn reload",
   "cmd.diagAllOk": "一切正常，无需处理。"
 }

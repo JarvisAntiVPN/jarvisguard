@@ -10,6 +10,7 @@
   "motivo.game_relay": "Gaming-Beschleuniger",
   "motivo.mobile_hotspot": "mobile Daten",
   "motivo.lockdown": "Serverbeschränkung",
+  "motivo.home_country": "ungewöhnliches Land",
   "motivo.invalid_username": "ungültiger Name",
   "motivo.block": "blockiert",
   "cmd.reloaded": "Config neu geladen, Cache geleert und Blockierungen werden neu synchronisiert.",
@@ -56,6 +57,11 @@
   "cmd.whitelistOk": "Spieler freigegeben:",
   "cmd.unwhitelistOk": "Freigabe entzogen:",
   "cmd.whitelistBadTime": "Diese Zeit verstehe ich nicht. Nutze 30m, 12h, 7d, 2w oder \"perma\".",
+  "cmd.notSaved": "Konnte nicht gespeichert werden, versuche es erneut:",
+  "cmd.notInList": "Nicht auf der Liste:",
+  "cmd.alreadyInList": "Stand schon auf der Liste:",
+  "cmd.expiresIn": "Läuft ab in {t}",
+  "cmd.ipsLifted": "Entsperrte IPs: {n}",
   "cmd.descDoctor": "prüfen, ob alles funktioniert, und was sonst zu tun ist",
   "cmd.doctorTitle": "Diagnose",
   "cmd.diagLicense": "Lizenz",
@@ -68,5 +74,7 @@
   "cmd.diagIp": "Spieler-IP",
   "cmd.diagIpPrivate": "wir empfangen {ip}, das ist nicht die des Spielers; prüfe, wie die echte IP zu diesem Server gelangt",
   "cmd.diagBans": "Geladene Sperren",
+  "cmd.diagConfig": "Konfigurationsdatei",
+  "cmd.diagConfigStale": "konnte nicht gelesen werden: es gelten die vorherigen Einstellungen, nicht die auf der Festplatte. Prüfe die Konsole und führe /antivpn reload aus",
   "cmd.diagAllOk": "Alles funktioniert. Nichts zu tun."
 }

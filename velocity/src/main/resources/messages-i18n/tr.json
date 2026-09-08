@@ -10,6 +10,7 @@
   "motivo.game_relay": "oyun hızlandırıcı",
   "motivo.mobile_hotspot": "mobil veri",
   "motivo.lockdown": "sunucu kısıtlaması",
+  "motivo.home_country": "alışılmadık ülke",
   "motivo.invalid_username": "geçersiz isim",
   "motivo.block": "engellendi",
   "cmd.reloaded": "Yapılandırma yeniden yüklendi, önbellek temizlendi ve engellemeler yeniden senkronize ediliyor.",
@@ -56,6 +57,11 @@
   "cmd.whitelistOk": "Oyuncuya izin verildi:",
   "cmd.unwhitelistOk": "Izin kaldirildi:",
   "cmd.whitelistBadTime": "Bu sureyi anlamadim. 30m, 12h, 7d, 2w veya \"perma\" kullan.",
+  "cmd.notSaved": "Kaydedilemedi, tekrar dene:",
+  "cmd.notInList": "Listede değildi:",
+  "cmd.alreadyInList": "Zaten listedeydi:",
+  "cmd.expiresIn": "{t} sonra sona erer",
+  "cmd.ipsLifted": "Engeli kaldırılan IP: {n}",
   "cmd.descDoctor": "her şeyin çalıştığını kontrol et, çalışmıyorsa ne yapılmalı",
   "cmd.doctorTitle": "Tanılama",
   "cmd.diagLicense": "Lisans",
@@ -68,5 +74,7 @@
   "cmd.diagIp": "Oyuncu IP'si",
   "cmd.diagIpPrivate": "{ip} alıyoruz, bu oyuncunun adresi değil; gerçek IP'nin bu sunucuya nasıl ulaştığını kontrol et",
   "cmd.diagBans": "Yüklü engeller",
+  "cmd.diagConfig": "Yapılandırma dosyası",
+  "cmd.diagConfigStale": "okunamadı: diskteki değil, önceki ayarlar kullanılıyor. Konsola bak ve /antivpn reload çalıştır",
   "cmd.diagAllOk": "Her şey çalışıyor. Yapılacak bir şey yok."
 }

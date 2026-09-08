@@ -7,6 +7,7 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import dev.flamingomg.jarvis.client.JarvisClient;
 import dev.flamingomg.jarvis.config.ConfigManager;
 import dev.flamingomg.jarvis.detection.BanCache;
+import dev.flamingomg.jarvis.detection.MarcaDeCliente;
 import dev.flamingomg.jarvis.detection.BedrockDetector;
 import dev.flamingomg.jarvis.detection.FloodGuard;
 import dev.flamingomg.jarvis.i18n.Messages;
@@ -124,7 +125,8 @@ public final class DetectionListener implements Listener, PluginMessageListener 
                 denyLocal(event, config.getString("messages.flood", Messages.get(client.locale(), "flood")), name);
                 return;
             }
-            if (banCache.isBanned(ip)) {
+
+            if (banCache.isBannedFor(ip, name)) {
                 client.denials().record(dev.flamingomg.jarvis.client.LocalDenialReporter.LOCAL_BAN, ip, name);
 
                 String recordado = ultimoBloqueo.getIfPresent(claveBloqueo(ip, name));
@@ -180,7 +182,10 @@ public final class DetectionListener implements Listener, PluginMessageListener 
 
             if (type.denies()) {
 
-                banCache.ban(ip, esMotivo(verdict.msgKey()) ? verdict.msgKey() : "vpn_proxy");
+                if (!Boolean.FALSE.equals(verdict.cacheIp())) {
+
+                    banCache.ban(ip, motivoParaRecordar(verdict.msgKey()));
+                }
                 if (verdict.message() != null) {
 
                     ultimoBloqueo.put(claveBloqueo(ip, name), verdict.message());
@@ -237,9 +242,30 @@ public final class DetectionListener implements Listener, PluginMessageListener 
         try { vd = player.getClientViewDistance(); } catch (Throwable ignored) {}
         final String localeF = locale, hostF = host, nameF = player.getName();
         final Integer vdF = vd;
+        programarInforme(player, uuid, ip, bedrock, premium, localeF, hostF, vdF, nameF, 1);
+    }
 
+    private boolean reprogramar(Player player, UUID uuid, String ip, boolean bedrock, boolean premium,
+                                String localeF, String hostF, Integer vdF, String nameF, int intento) {
+        try {
+            programarInforme(player, uuid, ip, bedrock, premium, localeF, hostF, vdF, nameF, intento);
+            return true;
+        } catch (Throwable apagando) {
+            return false;
+        }
+    }
+
+    private void programarInforme(Player player, UUID uuid, String ip, boolean bedrock, boolean premium,
+                                  String localeF, String hostF, Integer vdF, String nameF, int intento) {
         Schedulers.asyncRetrasada(plugin, () -> {
             String brand = clientBrands.getIfPresent(uuid);
+            boolean conectado = player.isOnline();
+            int tope = MarcaDeCliente.intentos(
+                    config.getInt("seen.brand-wait-attempts", MarcaDeCliente.INTENTOS_POR_DEFECTO));
+            if (MarcaDeCliente.paso(brand, conectado, intento, tope) == MarcaDeCliente.Paso.ESPERAR
+                    && reprogramar(player, uuid, ip, bedrock, premium, localeF, hostF, vdF, nameF, intento + 1)) {
+                return;
+            }
 
             java.util.Set<String> ch = knownChannels.getIfPresent(uuid);
             java.util.List<String> channels = (ch == null || ch.isEmpty()) ? null : java.util.List.copyOf(ch);
@@ -371,6 +397,7 @@ public final class DetectionListener implements Listener, PluginMessageListener 
 
     private String renderBranded(String msg) {
 
+        if (msg != null && msg.contains("jarvisguard.com")) return LEGACY.serialize(renderComponent(msg));
         return LEGACY.serialize(renderComponent(msg).append(brandingFor(client.locale())));
     }
 
@@ -449,7 +476,9 @@ public final class DetectionListener implements Listener, PluginMessageListener 
     }
 
     private static final java.util.Set<String> MOTIVOS = java.util.Set.of(
-            "vpn_proxy", "mobile_hotspot", "lockdown", "invalid_username", "block", "game_relay");
+            "vpn_proxy", "mobile_hotspot", "lockdown", "invalid_username", "block", "game_relay",
+
+            "home_country");
 
     static String claveTextoLocal(String motivo) {
         if ("vpn_proxy".equals(motivo)) return "block.vpn";
@@ -485,6 +514,11 @@ public final class DetectionListener implements Listener, PluginMessageListener 
                         .replace("{ip}", MM.escapeTags(i))
                         .replace("{score}", "")
                         .replace("{reason}", MM.escapeTags(r));
+    }
+
+    static String motivoParaRecordar(String msgKey) {
+        if (msgKey == null || msgKey.isBlank()) return "vpn_proxy";
+        return esMotivo(msgKey) ? msgKey : "block";
     }
 
     private static boolean esMotivo(String msgKey) {

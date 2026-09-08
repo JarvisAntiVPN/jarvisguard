@@ -10,6 +10,7 @@
   "motivo.game_relay": "ตัวเร่งความเร็วเกม",
   "motivo.mobile_hotspot": "เน็ตมือถือ",
   "motivo.lockdown": "ข้อจำกัดของเซิร์ฟเวอร์",
+  "motivo.home_country": "ประเทศที่ไม่ปกติ",
   "motivo.invalid_username": "ชื่อไม่ถูกต้อง",
   "motivo.block": "ถูกบล็อก",
   "cmd.reloaded": "โหลดค่าตั้งใหม่แล้ว ล้างแคชและกำลังซิงค์รายการบล็อกใหม่",
@@ -56,6 +57,11 @@
   "cmd.whitelistOk": "อนุญาตผู้เล่นแล้ว:",
   "cmd.unwhitelistOk": "ยกเลิกสิทธิ์แล้ว:",
   "cmd.whitelistBadTime": "ไม่เข้าใจเวลานั้น ใช้ 30m, 12h, 7d, 2w หรือ \"perma\"",
+  "cmd.notSaved": "บันทึกไม่สำเร็จ ลองอีกครั้ง:",
+  "cmd.notInList": "ไม่ได้อยู่ในรายการ:",
+  "cmd.alreadyInList": "อยู่ในรายการอยู่แล้ว:",
+  "cmd.expiresIn": "หมดอายุใน {t}",
+  "cmd.ipsLifted": "IP ที่ปลดบล็อก: {n}",
   "cmd.descDoctor": "ตรวจสอบว่าทุกอย่างทำงานอยู่ และต้องแก้อะไรถ้าไม่",
   "cmd.doctorTitle": "การวินิจฉัย",
   "cmd.diagLicense": "ไลเซนส์",
@@ -68,5 +74,7 @@
   "cmd.diagIp": "IP ของผู้เล่น",
   "cmd.diagIpPrivate": "เรารับค่า {ip} ซึ่งไม่ใช่ของผู้เล่น ตรวจสอบว่า IP จริงมาถึงเซิร์ฟเวอร์นี้อย่างไร",
   "cmd.diagBans": "การบล็อกที่โหลดแล้ว",
+  "cmd.diagConfig": "ไฟล์ตั้งค่า",
+  "cmd.diagConfigStale": "อ่านไม่ได้: กำลังใช้การตั้งค่าเดิม ไม่ใช่ที่อยู่บนดิสก์ ดูคอนโซลแล้วสั่ง /antivpn reload",
   "cmd.diagAllOk": "ทุกอย่างทำงานปกติ ไม่ต้องทำอะไร"
 }

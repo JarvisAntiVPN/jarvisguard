@@ -21,6 +21,11 @@ public final class BanCache {
 
     private volatile int defaultTtlSeconds;
 
+    private final Cache<String, Boolean> exentos = Caffeine.newBuilder()
+            .maximumSize(1_000)
+            .expireAfterWrite(java.time.Duration.ofMinutes(10))
+            .build();
+
     public BanCache(ConfigManager config) {
         this(config, null);
     }
@@ -81,6 +86,24 @@ public final class BanCache {
 
         BanSnapshot s = snapshot;
         return s != null && s.cubre(k, licenciaActual());
+    }
+
+    public void marcarExentos(java.util.Collection<String> nombres, java.util.Collection<String> ips) {
+        if (nombres != null) for (String n : nombres) {
+            if (n != null && !n.isBlank()) exentos.put("n:" + n.toLowerCase(java.util.Locale.ROOT), Boolean.TRUE);
+        }
+        if (ips != null) for (String i : ips) {
+            if (i != null && !i.isBlank()) exentos.put("i:" + key(i), Boolean.TRUE);
+        }
+    }
+
+    public long exentosVivos() { exentos.cleanUp(); return exentos.estimatedSize(); }
+
+    public boolean isBannedFor(String ip, String username) {
+        if (!isBanned(ip)) return false;
+        if (username != null && !username.isBlank()
+                && exentos.getIfPresent("n:" + username.toLowerCase(java.util.Locale.ROOT)) != null) return false;
+        return exentos.getIfPresent("i:" + key(ip)) == null;
     }
 
     public void unban(String ip) {

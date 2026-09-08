@@ -10,6 +10,7 @@
   "motivo.game_relay": "игровой ускоритель",
   "motivo.mobile_hotspot": "мобильный интернет",
   "motivo.lockdown": "ограничение сервера",
+  "motivo.home_country": "необычная страна",
   "motivo.invalid_username": "недопустимое имя",
   "motivo.block": "заблокирован",
   "cmd.reloaded": "Конфиг перезагружен, кэш очищен, блокировки пересинхронизируются.",
@@ -56,6 +57,11 @@
   "cmd.whitelistOk": "Игроку разрешено:",
   "cmd.unwhitelistOk": "Разрешение отозвано:",
   "cmd.whitelistBadTime": "Не понимаю этот срок. Используйте 30m, 12h, 7d, 2w или \"perma\".",
+  "cmd.notSaved": "Не удалось сохранить, попробуйте ещё раз:",
+  "cmd.notInList": "Не было в списке:",
+  "cmd.alreadyInList": "Уже было в списке:",
+  "cmd.expiresIn": "Истекает через {t}",
+  "cmd.ipsLifted": "Разблокировано IP: {n}",
   "cmd.descDoctor": "проверить, всё ли работает, и что чинить, если нет",
   "cmd.doctorTitle": "Диагностика",
   "cmd.diagLicense": "Лицензия",
@@ -68,5 +74,7 @@
   "cmd.diagIp": "IP игроков",
   "cmd.diagIpPrivate": "мы получаем {ip}, а это не адрес игрока; проверьте, как настоящий IP доходит до этого сервера",
   "cmd.diagBans": "Загружено блокировок",
+  "cmd.diagConfig": "Файл конфигурации",
+  "cmd.diagConfigStale": "не удалось прочитать: используются прежние настройки, а не те, что на диске. Проверьте консоль и выполните /antivpn reload",
   "cmd.diagAllOk": "Всё работает. Делать ничего не нужно."
 }

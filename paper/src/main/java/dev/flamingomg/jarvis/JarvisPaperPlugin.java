@@ -24,7 +24,7 @@ import java.util.Map;
 
 public final class JarvisPaperPlugin extends JavaPlugin {
 
-    public static final String VERSION = "0.5.24";
+    public static final String VERSION = "0.5.25";
 
     private static final int BSTATS_PLUGIN_ID = 31883;
 
@@ -53,7 +53,7 @@ public final class JarvisPaperPlugin extends JavaPlugin {
     public void onEnable() {
         this.logger = new Log(getLogger());
         this.config = new ConfigManager(getDataFolder().toPath(), logger);
-        config.load();
+        this.configCargada = config.load();
 
         if (Schedulers.folia()) {
             if (Schedulers.disponible()) {
@@ -94,6 +94,8 @@ public final class JarvisPaperPlugin extends JavaPlugin {
         FloodGuard floodGuard = new FloodGuard(config);
         this.banCache = new BanCache(config, logger);
 
+        jarvisClient.setBanCacheParaExentos(this.banCache);
+
         this.syncClient = new SyncClient(config, logger, jarvisClient, banCache, this);
 
         DetectionListener listener = new DetectionListener(this, jarvisClient, bedrockDetector, config,
@@ -119,13 +121,19 @@ public final class JarvisPaperPlugin extends JavaPlugin {
         Schedulers.globalRepetida(this, this::reportPresence, 200L, 200L);
 
         this.pairing = new PairingClient(config, logger);
-        if (isBlank(config.getString("backend.license-key", ""))) startPairingFlow();
+        switch (ConfigManager.arranque(configCargada, isBlank(config.getString("backend.license-key", "")))) {
+            case VINCULAR -> startPairingFlow();
+            case CONFIG_ILEGIBLE -> avisoConfigIlegible();
+            case PROTEGER -> { }
+        }
 
         logger.info("Jarvis v{} client active.", VERSION);
     }
 
     @Override
     public void onDisable() {
+
+        if (jarvisClient != null) jarvisClient.marcarApagando();
 
         stopPairing();
         if (syncClient != null) syncClient.stop();
@@ -160,6 +168,20 @@ public final class JarvisPaperPlugin extends JavaPlugin {
 
             logger.debug("reportPresence failed: {}", e.getMessage());
         }
+    }
+
+    private boolean configCargada;
+
+    private void avisoConfigIlegible() {
+        String motivo = config.motivoCargaFallida();
+        logger.warn("");
+        logger.warn("=================== JARVIS · CHECK YOUR CONFIG ===================");
+        logger.warn("  Jarvis is NOT protecting this server.");
+        logger.warn("  {}", motivo != null ? motivo : "config.yml couldn't be loaded.");
+        logger.warn("  Fix the file and restart the server.");
+        logger.warn("  The linking link is NOT shown on purpose: your license key may");
+        logger.warn("  already be in that file, and linking would overwrite it.");
+        logger.warn("==================================================================");
     }
 
     private void startPairingFlow() {

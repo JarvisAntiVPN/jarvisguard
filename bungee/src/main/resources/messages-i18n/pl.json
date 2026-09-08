@@ -10,6 +10,7 @@
   "motivo.game_relay": "akcelerator gier",
   "motivo.mobile_hotspot": "dane mobilne",
   "motivo.lockdown": "ograniczenie serwera",
+  "motivo.home_country": "nietypowy kraj",
   "motivo.invalid_username": "nieprawidłowa nazwa",
   "motivo.block": "zablokowany",
   "cmd.reloaded": "Config przeładowana, cache wyczyszczona, blokady są resynchronizowane.",
@@ -56,6 +57,11 @@
   "cmd.whitelistOk": "Gracz dopuszczony:",
   "cmd.unwhitelistOk": "Zezwolenie cofniete:",
   "cmd.whitelistBadTime": "Nie rozumiem tego czasu. Uzyj 30m, 12h, 7d, 2w lub \"perma\".",
+  "cmd.notSaved": "Nie udało się zapisać, spróbuj ponownie:",
+  "cmd.notInList": "Nie było na liście:",
+  "cmd.alreadyInList": "Już było na liście:",
+  "cmd.expiresIn": "Wygasa za {t}",
+  "cmd.ipsLifted": "Odblokowane IP: {n}",
   "cmd.descDoctor": "sprawdź, czy wszystko działa, i co naprawić jeśli nie",
   "cmd.doctorTitle": "Diagnostyka",
   "cmd.diagLicense": "Licencja",
@@ -68,5 +74,7 @@
   "cmd.diagIp": "IP graczy",
   "cmd.diagIpPrivate": "otrzymujemy {ip}, a to nie jest adres gracza; sprawdź, jak prawdziwe IP dociera do tego serwera",
   "cmd.diagBans": "Wczytane blokady",
+  "cmd.diagConfig": "Plik konfiguracyjny",
+  "cmd.diagConfigStale": "nie dał się odczytać: działają poprzednie ustawienia, nie te z dysku. Sprawdź konsolę i wykonaj /antivpn reload",
   "cmd.diagAllOk": "Wszystko działa. Nie ma nic do zrobienia."
 }

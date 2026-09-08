@@ -10,6 +10,7 @@
   "motivo.game_relay": "akselerator game",
   "motivo.mobile_hotspot": "data seluler",
   "motivo.lockdown": "pembatasan server",
+  "motivo.home_country": "negara tidak biasa",
   "motivo.invalid_username": "nama tidak valid",
   "motivo.block": "diblokir",
   "cmd.reloaded": "Konfigurasi dimuat ulang, cache dikosongkan, dan blokir sedang disinkronkan ulang.",
@@ -56,6 +57,11 @@
   "cmd.whitelistOk": "Pemain diizinkan:",
   "cmd.unwhitelistOk": "Izin dicabut:",
   "cmd.whitelistBadTime": "Waktu itu tidak dikenali. Gunakan 30m, 12h, 7d, 2w atau \"perma\".",
+  "cmd.notSaved": "Gagal disimpan, coba lagi:",
+  "cmd.notInList": "Tidak ada dalam daftar:",
+  "cmd.alreadyInList": "Sudah ada dalam daftar:",
+  "cmd.expiresIn": "Kedaluwarsa dalam {t}",
+  "cmd.ipsLifted": "IP dibuka blokirnya: {n}",
   "cmd.descDoctor": "periksa semuanya berjalan, dan apa yang harus diperbaiki",
   "cmd.doctorTitle": "Diagnosis",
   "cmd.diagLicense": "Lisensi",
@@ -68,5 +74,7 @@
   "cmd.diagIp": "IP pemain",
   "cmd.diagIpPrivate": "kami menerima {ip}, yang bukan milik pemain; periksa bagaimana IP asli sampai ke server ini",
   "cmd.diagBans": "Pemblokiran dimuat",
+  "cmd.diagConfig": "Berkas konfigurasi",
+  "cmd.diagConfigStale": "gagal dibaca: yang dipakai adalah pengaturan sebelumnya, bukan yang di disk. Cek konsol dan jalankan /antivpn reload",
   "cmd.diagAllOk": "Semuanya berjalan. Tidak ada yang perlu dilakukan."
 }

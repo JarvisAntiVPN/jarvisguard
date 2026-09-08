@@ -18,7 +18,7 @@ public final class JarvisBungeePlugin extends Plugin {
 
     private static final int BSTATS_PLUGIN_ID = 31796;
 
-    public static final String VERSION = "0.5.24";
+    public static final String VERSION = "0.5.25";
 
     private dev.flamingomg.jarvis.util.Log logger;
 
@@ -44,13 +44,15 @@ public final class JarvisBungeePlugin extends Plugin {
     public void onEnable() {
         this.logger = new dev.flamingomg.jarvis.util.Log(getLogger());
         this.config = new ConfigManager(getDataFolder().toPath(), logger);
-        config.load();
+        this.configCargada = config.load();
 
         this.jarvisClient = new JarvisClient(config, logger);
 
         BedrockDetector bedrockDetector = new BedrockDetector(getProxy(), config, logger);
         FloodGuard floodGuard = new FloodGuard(config);
         this.banCache = new BanCache(config, logger);
+
+        jarvisClient.setBanCacheParaExentos(this.banCache);
 
         this.syncClient = new SyncClient(config, logger, jarvisClient, banCache, getProxy());
 
@@ -79,9 +81,27 @@ public final class JarvisBungeePlugin extends Plugin {
         getProxy().getScheduler().schedule(this, this::reportPresence, 10, 10, TimeUnit.SECONDS);
 
         this.pairing = new dev.flamingomg.jarvis.client.PairingClient(config, logger);
-        if (isBlank(config.getString("backend.license-key", ""))) startPairingFlow();
+        switch (ConfigManager.arranque(configCargada, isBlank(config.getString("backend.license-key", "")))) {
+            case VINCULAR -> startPairingFlow();
+            case CONFIG_ILEGIBLE -> avisoConfigIlegible();
+            case PROTEGER -> { }
+        }
 
         logger.info("Jarvis v{} client active.", VERSION);
+    }
+
+    private boolean configCargada;
+
+    private void avisoConfigIlegible() {
+        String motivo = config.motivoCargaFallida();
+        logger.warn("");
+        logger.warn("=================== JARVIS · CHECK YOUR CONFIG ===================");
+        logger.warn("  Jarvis is NOT protecting this server.");
+        logger.warn("  {}", motivo != null ? motivo : "config.yml couldn't be loaded.");
+        logger.warn("  Fix the file and restart the server.");
+        logger.warn("  The linking link is NOT shown on purpose: your license key may");
+        logger.warn("  already be in that file, and linking would overwrite it.");
+        logger.warn("==================================================================");
     }
 
     private void startPairingFlow() {
@@ -217,6 +237,8 @@ public final class JarvisBungeePlugin extends Plugin {
 
     @Override
     public void onDisable() {
+
+        if (jarvisClient != null) jarvisClient.marcarApagando();
 
         stopPairing();
         if (syncClient != null) syncClient.stop();

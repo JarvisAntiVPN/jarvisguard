@@ -89,9 +89,11 @@ public final class ConfigManager {
     }
 
     public boolean load() {
+        boolean existia = false;
         try {
             Files.createDirectories(dataDirectory);
             Path file = dataDirectory.resolve(FILE_NAME);
+            existia = Files.exists(file);
             if (Files.notExists(file)) {
                 copyDefault(file);
                 logger.info("config.yml created at {}", file);
@@ -106,9 +108,29 @@ public final class ConfigManager {
         } catch (IOException | RuntimeException e) {
 
             logger.error("Couldn't load {}; keeping the settings currently in memory.", FILE_NAME, e);
+
+            this.motivoCargaFallida = existia
+                    ? "config.yml exists but couldn't be read: " + e
+                    : "config.yml couldn't be created or read: " + e;
             return false;
         }
+        this.motivoCargaFallida = null;
         return true;
+    }
+
+    private volatile String motivoCargaFallida;
+
+    public String motivoCargaFallida() { return motivoCargaFallida; }
+
+    public enum Arranque {
+         PROTEGER,
+         VINCULAR,
+         CONFIG_ILEGIBLE
+    }
+
+    public static Arranque arranque(boolean cargaOk, boolean claveEnBlanco) {
+        if (!cargaOk) return Arranque.CONFIG_ILEGIBLE;
+        return claveEnBlanco ? Arranque.VINCULAR : Arranque.PROTEGER;
     }
 
     private void rebuildBypassSet() {

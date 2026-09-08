@@ -10,6 +10,7 @@
   "motivo.game_relay": "játékgyorsító",
   "motivo.mobile_hotspot": "mobilnet",
   "motivo.lockdown": "szerverkorlátozás",
+  "motivo.home_country": "szokatlan ország",
   "motivo.invalid_username": "érvénytelen név",
   "motivo.block": "letiltva",
   "cmd.reloaded": "A konfiguráció újratöltve, a gyorsítótár törölve, a blokkok szinkronizálása folyamatban.",
@@ -56,6 +57,11 @@
   "cmd.whitelistOk": "Jatekos engedelyezve:",
   "cmd.unwhitelistOk": "Engedely visszavonva:",
   "cmd.whitelistBadTime": "Nem ertem ezt az idot. Hasznald: 30m, 12h, 7d, 2w vagy \"perma\".",
+  "cmd.notSaved": "Nem sikerült menteni, próbáld újra:",
+  "cmd.notInList": "Nem volt a listán:",
+  "cmd.alreadyInList": "Már a listán volt:",
+  "cmd.expiresIn": "Lejár {t} múlva",
+  "cmd.ipsLifted": "Feloldott IP-k: {n}",
   "cmd.descDoctor": "ellenőrzi, hogy minden működik-e, és mit kell javítani",
   "cmd.doctorTitle": "Diagnosztika",
   "cmd.diagLicense": "Licenc",
@@ -68,5 +74,7 @@
   "cmd.diagIp": "Játékos IP",
   "cmd.diagIpPrivate": "{ip} címet kapunk, ami nem a játékosé; ellenőrizd, hogyan jut el a valódi IP erre a szerverre",
   "cmd.diagBans": "Betöltött tiltások",
+  "cmd.diagConfig": "Konfigurációs fájl",
+  "cmd.diagConfigStale": "nem sikerült beolvasni: a korábbi beállítások vannak érvényben, nem a lemezen lévők. Nézd meg a konzolt és futtasd: /antivpn reload",
   "cmd.diagAllOk": "Minden működik. Nincs teendő."
 }

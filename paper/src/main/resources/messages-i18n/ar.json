@@ -10,6 +10,7 @@
   "motivo.game_relay": "مسرّع ألعاب",
   "motivo.mobile_hotspot": "بيانات الجوال",
   "motivo.lockdown": "قيود السيرفر",
+  "motivo.home_country": "بلد غير معتاد",
   "motivo.invalid_username": "اسم غير صالح",
   "motivo.block": "محظور",
   "cmd.reloaded": "تم إعادة تحميل الإعدادات، ومسح الذاكرة المؤقتة، وإعادة مزامنة الحظر.",
@@ -56,6 +57,11 @@
   "cmd.whitelistOk": "تم السماح للاعب:",
   "cmd.unwhitelistOk": "تم إلغاء الإذن:",
   "cmd.whitelistBadTime": "لم أفهم هذه المدة. استخدم 30m أو 12h أو 7d أو 2w أو \"perma\".",
+  "cmd.notSaved": "تعذر الحفظ، حاول مرة أخرى:",
+  "cmd.notInList": "ليس في القائمة:",
+  "cmd.alreadyInList": "موجود في القائمة بالفعل:",
+  "cmd.expiresIn": "ينتهي خلال {t}",
+  "cmd.ipsLifted": "عناوين IP التي أُلغي حظرها: {n}",
   "cmd.descDoctor": "تحقق من أن كل شيء يعمل، وما الذي يجب إصلاحه إن لم يكن كذلك",
   "cmd.doctorTitle": "التشخيص",
   "cmd.diagLicense": "الترخيص",
@@ -68,5 +74,7 @@
   "cmd.diagIp": "عنوان IP للاعبين",
   "cmd.diagIpPrivate": "نستقبل {ip}، وهو ليس عنوان اللاعب؛ تحقق من كيفية وصول عنوان IP الحقيقي إلى هذا الخادم",
   "cmd.diagBans": "عمليات الحظر المحمّلة",
+  "cmd.diagConfig": "ملف الإعدادات",
+  "cmd.diagConfigStale": "تعذرت قراءته: الإعدادات المستخدمة هي السابقة وليست التي على القرص. راجع الطرفية ونفّذ /antivpn reload",
   "cmd.diagAllOk": "كل شيء يعمل. لا شيء يستدعي التدخل."
 }

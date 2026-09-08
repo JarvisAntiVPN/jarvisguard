@@ -16,7 +16,8 @@ public final class Diagnostico {
     public record Datos(ProtectionState estado, boolean claveRechazada, boolean vinculado,
                         boolean claveConfigurada,
                         long desfaseRelojMs, boolean canalVivo, int ultimoRechazoSse,
-                        String ipPrivadaVista, long bansLocales) {}
+                        String ipPrivadaVista, long bansLocales,
+                        String errorDeConfig) {}
 
     public static final long DESFASE_AVISO_MS = 30_000L;
 
@@ -28,6 +29,7 @@ public final class Diagnostico {
         out.add(canal(d));
         out.add(ipDelJugador(d));
         out.add(new Linea(Nivel.OK, "cmd.diagBans", null, String.valueOf(d.bansLocales())));
+        out.add(config(d));
         return out;
     }
 
@@ -40,6 +42,11 @@ public final class Diagnostico {
             if (l.nivel() == Nivel.NEUTRO && peor == Nivel.OK) peor = Nivel.NEUTRO;
         }
         return peor;
+    }
+
+    private static Linea config(Datos d) {
+        if (d.errorDeConfig() == null) return new Linea(Nivel.OK, "cmd.diagConfig", null, null);
+        return new Linea(Nivel.AVISO, "cmd.diagConfig", "cmd.diagConfigStale", null);
     }
 
     private static Linea licencia(Datos d) {

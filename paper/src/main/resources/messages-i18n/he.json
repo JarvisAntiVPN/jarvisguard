@@ -10,6 +10,7 @@
   "motivo.game_relay": "מאיץ משחקים",
   "motivo.mobile_hotspot": "נתונים סלולריים",
   "motivo.lockdown": "הגבלת שרת",
+  "motivo.home_country": "מדינה לא רגילה",
   "motivo.invalid_username": "שם לא תקין",
   "motivo.block": "חסום",
   "cmd.reloaded": "ההגדרות נטענו מחדש, המטמון נוקה והחסימות מסתנכרנות.",
@@ -56,6 +57,11 @@
   "cmd.whitelistOk": "השחקן אושר:",
   "cmd.unwhitelistOk": "ההיתר בוטל:",
   "cmd.whitelistBadTime": "לא הבנתי את הזמן הזה. השתמש ב-30m, 12h, 7d, 2w או \"perma\".",
+  "cmd.notSaved": "לא ניתן היה לשמור, נסה שוב:",
+  "cmd.notInList": "לא היה ברשימה:",
+  "cmd.alreadyInList": "כבר היה ברשימה:",
+  "cmd.expiresIn": "פג בעוד {t}",
+  "cmd.ipsLifted": "כתובות IP ששוחררו: {n}",
   "cmd.descDoctor": "בדוק שהכול עובד, ומה לתקן אם לא",
   "cmd.doctorTitle": "אבחון",
   "cmd.diagLicense": "רישיון",
@@ -68,5 +74,7 @@
   "cmd.diagIp": "כתובת IP של השחקנים",
   "cmd.diagIpPrivate": "אנחנו מקבלים {ip}, וזו לא הכתובת של השחקן; בדוק איך ה-IP האמיתי מגיע לשרת הזה",
   "cmd.diagBans": "חסימות שנטענו",
+  "cmd.diagConfig": "קובץ ההגדרות",
+  "cmd.diagConfigStale": "לא ניתן היה לקרוא: בשימוש ההגדרות הקודמות, לא אלו שבדיסק. בדוק את הקונסולה והרץ /antivpn reload",
   "cmd.diagAllOk": "הכול עובד. אין מה לעשות."
 }

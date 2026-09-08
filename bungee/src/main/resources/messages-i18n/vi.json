@@ -10,6 +10,7 @@
   "motivo.game_relay": "trình tăng tốc game",
   "motivo.mobile_hotspot": "dữ liệu di động",
   "motivo.lockdown": "hạn chế của máy chủ",
+  "motivo.home_country": "quốc gia khác thường",
   "motivo.invalid_username": "tên không hợp lệ",
   "motivo.block": "bị chặn",
   "cmd.reloaded": "Đã tải lại cấu hình, xóa bộ nhớ đệm và đang đồng bộ lại các lượt chặn.",
@@ -56,6 +57,11 @@
   "cmd.whitelistOk": "Da cho phep nguoi choi:",
   "cmd.unwhitelistOk": "Da thu hoi quyen:",
   "cmd.whitelistBadTime": "Khong hieu thoi gian do. Dung 30m, 12h, 7d, 2w hoac \"perma\".",
+  "cmd.notSaved": "Không lưu được, hãy thử lại:",
+  "cmd.notInList": "Không có trong danh sách:",
+  "cmd.alreadyInList": "Đã có trong danh sách:",
+  "cmd.expiresIn": "Hết hạn sau {t}",
+  "cmd.ipsLifted": "IP đã bỏ chặn: {n}",
   "cmd.descDoctor": "kiểm tra mọi thứ có hoạt động không, và cần sửa gì",
   "cmd.doctorTitle": "Chẩn đoán",
   "cmd.diagLicense": "Giấy phép",
@@ -68,5 +74,7 @@
   "cmd.diagIp": "IP người chơi",
   "cmd.diagIpPrivate": "chúng tôi nhận được {ip}, không phải của người chơi; hãy kiểm tra cách IP thật đến được máy chủ này",
   "cmd.diagBans": "Số chặn đã tải",
+  "cmd.diagConfig": "Tệp cấu hình",
+  "cmd.diagConfigStale": "không đọc được: đang dùng thiết lập trước đó, không phải trên đĩa. Xem console và chạy /antivpn reload",
   "cmd.diagAllOk": "Mọi thứ đang hoạt động. Không cần làm gì."
 }

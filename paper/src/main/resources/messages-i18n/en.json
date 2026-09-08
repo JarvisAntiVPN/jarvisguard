@@ -10,6 +10,7 @@
   "motivo.game_relay": "game accelerator",
   "motivo.mobile_hotspot": "mobile data",
   "motivo.lockdown": "server restriction",
+  "motivo.home_country": "unusual country",
   "motivo.invalid_username": "invalid name",
   "motivo.block": "blocked",
   "cmd.reloaded": "Config reloaded, cache cleared and blocks resyncing.",
@@ -56,6 +57,11 @@
   "cmd.whitelistOk": "Player allowed:",
   "cmd.unwhitelistOk": "Permission removed:",
   "cmd.whitelistBadTime": "I do not understand that time. Use 30m, 12h, 7d, 2w or \"perma\".",
+  "cmd.notSaved": "Could not be saved, try again:",
+  "cmd.notInList": "Not on the list:",
+  "cmd.alreadyInList": "Already on the list:",
+  "cmd.expiresIn": "Expires in {t}",
+  "cmd.ipsLifted": "IPs unbanned: {n}",
   "cmd.descDoctor": "check that everything is working, and what to fix if not",
   "cmd.doctorTitle": "Diagnosis",
   "cmd.diagLicense": "License",
@@ -68,5 +74,7 @@
   "cmd.diagIp": "Player IP",
   "cmd.diagIpPrivate": "we are receiving {ip}, which is not the player's; check how the real IP reaches this server",
   "cmd.diagBans": "Blocks loaded",
+  "cmd.diagConfig": "Configuration file",
+  "cmd.diagConfigStale": "loaded with errors: the settings in use are the previous ones, not the ones on disk. Check the console and run /antivpn reload",
   "cmd.diagAllOk": "Everything is working. Nothing to do."
 }

@@ -10,6 +10,7 @@
   "motivo.game_relay": "spelaccelerator",
   "motivo.mobile_hotspot": "mobildata",
   "motivo.lockdown": "serverbegränsning",
+  "motivo.home_country": "ovanligt land",
   "motivo.invalid_username": "ogiltigt namn",
   "motivo.block": "blockerad",
   "cmd.reloaded": "Konfigurationen omladdad, cachen rensad och blockeringar synkroniseras om.",
@@ -56,6 +57,11 @@
   "cmd.whitelistOk": "Spelare tillaten:",
   "cmd.unwhitelistOk": "Tillstand indraget:",
   "cmd.whitelistBadTime": "Jag forstar inte den tiden. Anvand 30m, 12h, 7d, 2w eller \"perma\".",
+  "cmd.notSaved": "Kunde inte sparas, försök igen:",
+  "cmd.notInList": "Fanns inte i listan:",
+  "cmd.alreadyInList": "Fanns redan i listan:",
+  "cmd.expiresIn": "Går ut om {t}",
+  "cmd.ipsLifted": "Avblockerade IP: {n}",
   "cmd.descDoctor": "kontrollera att allt fungerar, och vad som behöver fixas",
   "cmd.doctorTitle": "Diagnos",
   "cmd.diagLicense": "Licens",
@@ -68,5 +74,7 @@
   "cmd.diagIp": "Spelarnas IP",
   "cmd.diagIpPrivate": "vi tar emot {ip}, som inte är spelarens; kontrollera hur den riktiga IP-adressen når den här servern",
   "cmd.diagBans": "Laddade blockeringar",
+  "cmd.diagConfig": "Konfigurationsfil",
+  "cmd.diagConfigStale": "kunde inte läsas: de tidigare inställningarna används, inte de på disken. Kolla konsolen och kör /antivpn reload",
   "cmd.diagAllOk": "Allt fungerar. Inget att göra."
 }

@@ -10,6 +10,7 @@
   "motivo.game_relay": "게임 가속기",
   "motivo.mobile_hotspot": "모바일 데이터",
   "motivo.lockdown": "서버 제한",
+  "motivo.home_country": "평소와 다른 국가",
   "motivo.invalid_username": "잘못된 이름",
   "motivo.block": "차단됨",
   "cmd.reloaded": "설정이 다시 로드되었고, 캐시가 초기화되었으며, 차단 목록이 재동기화 중입니다.",
@@ -56,6 +57,11 @@
   "cmd.whitelistOk": "플레이어를 허용했습니다:",
   "cmd.unwhitelistOk": "허용을 해제했습니다:",
   "cmd.whitelistBadTime": "해당 기간을 알 수 없습니다. 30m, 12h, 7d, 2w 또는 \"perma\"를 사용하세요.",
+  "cmd.notSaved": "저장하지 못했습니다. 다시 시도하세요:",
+  "cmd.notInList": "목록에 없었습니다:",
+  "cmd.alreadyInList": "이미 목록에 있습니다:",
+  "cmd.expiresIn": "{t} 후 만료",
+  "cmd.ipsLifted": "차단 해제된 IP: {n}",
   "cmd.descDoctor": "모두 정상인지, 문제가 있으면 무엇을 고칠지 확인",
   "cmd.doctorTitle": "진단",
   "cmd.diagLicense": "라이선스",
@@ -68,5 +74,7 @@
   "cmd.diagIp": "플레이어 IP",
   "cmd.diagIpPrivate": "{ip} 를 받고 있는데 플레이어의 주소가 아닙니다. 실제 IP가 이 서버에 어떻게 도달하는지 확인하세요",
   "cmd.diagBans": "불러온 차단",
+  "cmd.diagConfig": "설정 파일",
+  "cmd.diagConfigStale": "읽지 못했습니다: 디스크가 아니라 이전 설정이 적용 중입니다. 콘솔을 확인하고 /antivpn reload 를 실행하세요",
   "cmd.diagAllOk": "모두 정상입니다. 할 일이 없습니다."
 }
