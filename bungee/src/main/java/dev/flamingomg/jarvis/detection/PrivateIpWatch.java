@@ -11,6 +11,7 @@ public final class PrivateIpWatch {
 
     private volatile String ultimaPrivada = null;
     private volatile long ultimaPrivadaMs = 0L;
+    private volatile boolean algunaVista = false;
 
     public PrivateIpWatch(String consejo) {
         this.consejo = consejo == null ? "" : consejo;
@@ -41,7 +42,6 @@ public final class PrivateIpWatch {
         if (o[0] == 192 && o[1] == 168) return true;
         if (o[0] == 172 && o[1] >= 16 && o[1] <= 31) return true;
         return o[0] == 169 && o[1] == 254;
-
     }
 
     private static int[] octetos(String s) {
@@ -73,8 +73,8 @@ public final class PrivateIpWatch {
     }
 
     public String[] lineas(String ip, long ahoraMs) {
+        algunaVista = true;
         if (!noEsDeInternet(ip)) return new String[0];
-
         ultimaPrivada = ip;
         ultimaPrivadaMs = ahoraMs;
         if (!reclamaTurno(ahoraMs)) return new String[0];
@@ -89,6 +89,8 @@ public final class PrivateIpWatch {
                 ""
         };
     }
+
+    public boolean algunaVista() { return algunaVista; }
 
     public String privadaReciente(long ahoraMs, long ventanaMs) {
         String ip = ultimaPrivada;

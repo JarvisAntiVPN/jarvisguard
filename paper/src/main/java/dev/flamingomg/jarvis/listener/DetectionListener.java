@@ -36,7 +36,6 @@ import java.util.concurrent.TimeUnit;
 public final class DetectionListener implements Listener, PluginMessageListener {
 
     private static final MiniMessage MM = MiniMessage.miniMessage();
-
     private static final LegacyComponentSerializer LEGACY =
             LegacyComponentSerializer.builder().character('§').hexColors()
                     .useUnusualXRepeatedCharacterHexFormat().build();
@@ -68,15 +67,10 @@ public final class DetectionListener implements Listener, PluginMessageListener 
     private final ConcurrentHashMap<String, Integer> connectedByIp = new ConcurrentHashMap<>();
 
     private final Cache<UUID, Long> sessionStart = Caffeine.newBuilder().maximumSize(20_000).build();
-
     private final Cache<UUID, String> sessionIp = Caffeine.newBuilder().maximumSize(20_000).build();
-
     private final Cache<String, Boolean> bypassNames = Caffeine.newBuilder().maximumSize(10_000)
-
             .expireAfterAccess(java.time.Duration.ofDays(7)).build();
-
     private final Cache<UUID, String> clientBrands = Caffeine.newBuilder().maximumSize(20_000).build();
-
     private final Cache<UUID, java.util.Set<String>> knownChannels = Caffeine.newBuilder().maximumSize(20_000).build();
     private static final int MAX_CHANNELS_PER_PLAYER = 64;
 
@@ -91,7 +85,6 @@ public final class DetectionListener implements Listener, PluginMessageListener 
         this.logger = logger;
         this.floodGuard = floodGuard;
         this.banCache = banCache;
-
         long recuerdoMin = Math.min(Math.max(0, config.getInt("bans.remember-kick-minutes", 1440)), 43_200);
         this.ultimoBloqueo = Caffeine.newBuilder()
                 .maximumSize(10_000)
@@ -107,12 +100,12 @@ public final class DetectionListener implements Listener, PluginMessageListener 
 
         String ip   = event.getAddress().getHostAddress();
         String name = event.getName();
-
         for (String l : privateIpWatch.lineas(ip, System.currentTimeMillis())) logger.warn(l);
+        final boolean ipDeInternet = !dev.flamingomg.jarvis.detection.PrivateIpWatch.noEsDeInternet(ip);
         UUID uuid   = event.getUniqueId();
 
-        boolean bedrock = (uuid != null && bedrockDetector.isBedrockPlayer(uuid))
-                || bedrockDetector.isBedrockUsername(name);
+        boolean bedrockApi = uuid != null && bedrockDetector.isBedrockPlayer(uuid);
+        boolean bedrock = bedrockApi || bedrockDetector.isBedrockUsername(name);
 
         if (isBypassed(name) || (name != null && bypassNames.getIfPresent(name.toLowerCase(java.util.Locale.ROOT)) != null)) return;
 
@@ -120,23 +113,20 @@ public final class DetectionListener implements Listener, PluginMessageListener 
 
         boolean reservedIp = false;
         if (!bedrockBypass) {
-            if (floodGuard.checkAndRecord(ip)) {
+            if (ipDeInternet && floodGuard.checkAndRecord(ip)) {
                 client.denials().record(dev.flamingomg.jarvis.client.LocalDenialReporter.FLOOD, ip, name);
                 denyLocal(event, config.getString("messages.flood", Messages.get(client.locale(), "flood")), name);
                 return;
             }
-
             if (banCache.isBannedFor(ip, name)) {
                 client.denials().record(dev.flamingomg.jarvis.client.LocalDenialReporter.LOCAL_BAN, ip, name);
-
                 String recordado = ultimoBloqueo.getIfPresent(claveBloqueo(ip, name));
                 if (recordado != null) deny(event, recordado);
                 else denyLocal(event, textoBloqueoLocal(ip), name);
                 return;
             }
             int maxPerIp = client.maxAccountsPerIp();
-            if (maxPerIp > 0) {
-
+            if (maxPerIp > 0 && ipDeInternet) {
                 int connecting = connectingByIp.merge(ip, 1, Integer::sum);
                 reservedIp = true;
                 if (superaAforo(connecting, connectedByIp.getOrDefault(ip, 0), maxPerIp)) {
@@ -153,10 +143,10 @@ public final class DetectionListener implements Listener, PluginMessageListener 
 
         try {
             VerdictResponse verdict;
-
             java.util.concurrent.CompletableFuture<VerdictResponse> verdictFuture;
             try {
-                verdictFuture = client.requestVerdictAsync(ip, name, bedrock, premium);
+                verdictFuture = client.requestVerdictAsync(ip, name, bedrock, premium,
+                        bedrockApi, uuid == null ? null : uuid.toString());
             } catch (Throwable t) {
                 logger.warn("Error starting the verdict for {} ({}): {}", name, ip, t.toString());
                 applyFallbackPolicy(event, name, ip);
@@ -181,13 +171,10 @@ public final class DetectionListener implements Listener, PluginMessageListener 
             if (type != VerdictType.ALLOW) logger.debug("[detection] {} ({}) -> {}", name, ip, type);
 
             if (type.denies()) {
-
                 if (!Boolean.FALSE.equals(verdict.cacheIp())) {
-
                     banCache.ban(ip, motivoParaRecordar(verdict.msgKey()));
                 }
                 if (verdict.message() != null) {
-
                     ultimoBloqueo.put(claveBloqueo(ip, name), verdict.message());
                     deny(event, verdict.message());
                 } else {
@@ -213,7 +200,6 @@ public final class DetectionListener implements Listener, PluginMessageListener 
     }
 
     private void applyFallbackPolicy(AsyncPlayerPreLoginEvent event, String name, String ip) {
-
     }
 
     @EventHandler
@@ -222,7 +208,6 @@ public final class DetectionListener implements Listener, PluginMessageListener 
         sessionStart.put(player.getUniqueId(), System.currentTimeMillis());
         recordConnected(player);
         String lname = player.getName().toLowerCase(java.util.Locale.ROOT);
-
         if (player.hasPermission("jarvis.bypass")) bypassNames.put(lname, Boolean.TRUE);
         else bypassNames.invalidate(lname);
         maybeRecordPlayerSeen(player);
@@ -259,6 +244,7 @@ public final class DetectionListener implements Listener, PluginMessageListener 
                                   String localeF, String hostF, Integer vdF, String nameF, int intento) {
         Schedulers.asyncRetrasada(plugin, () -> {
             String brand = clientBrands.getIfPresent(uuid);
+            if (brand == null) brand = marcaDeLaApi(player, GET_BRAND);
             boolean conectado = player.isOnline();
             int tope = MarcaDeCliente.intentos(
                     config.getInt("seen.brand-wait-attempts", MarcaDeCliente.INTENTOS_POR_DEFECTO));
@@ -266,7 +252,6 @@ public final class DetectionListener implements Listener, PluginMessageListener 
                     && reprogramar(player, uuid, ip, bedrock, premium, localeF, hostF, vdF, nameF, intento + 1)) {
                 return;
             }
-
             java.util.Set<String> ch = knownChannels.getIfPresent(uuid);
             java.util.List<String> channels = (ch == null || ch.isEmpty()) ? null : java.util.List.copyOf(ch);
             client.reportPlayerSeen(uuid.toString(), nameF, ip, bedrock,
@@ -304,6 +289,26 @@ public final class DetectionListener implements Listener, PluginMessageListener 
         if (!"minecraft:brand".equals(channel)) return;
         String brand = readBrand(message);
         if (brand != null && !brand.isBlank()) clientBrands.put(player.getUniqueId(), brand.trim());
+    }
+
+    static String marcaDeLaApi(Object player, java.lang.reflect.Method getBrand) {
+        if (player == null || getBrand == null) return null;
+        try {
+            Object v = getBrand.invoke(player);
+            return (v instanceof String s && !s.isBlank()) ? s.trim() : null;
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    static final java.lang.reflect.Method GET_BRAND = metodoDeMarca();
+
+    private static java.lang.reflect.Method metodoDeMarca() {
+        try {
+            return Player.class.getMethod("getClientBrandName");
+        } catch (Throwable t) {
+            return null;
+        }
     }
 
     private static String readBrand(byte[] data) {
@@ -354,7 +359,6 @@ public final class DetectionListener implements Listener, PluginMessageListener 
         Player player = event.getPlayer();
         clientBrands.invalidate(player.getUniqueId());
         knownChannels.invalidate(player.getUniqueId());
-
         String estIp = sessionIp.asMap().remove(player.getUniqueId());
         descontar(connectedByIp, estIp);
         Long start = sessionStart.asMap().remove(player.getUniqueId());
@@ -396,7 +400,6 @@ public final class DetectionListener implements Listener, PluginMessageListener 
     }
 
     private String renderBranded(String msg) {
-
         if (msg != null && msg.contains("jarvisguard.com")) return LEGACY.serialize(renderComponent(msg));
         return LEGACY.serialize(renderComponent(msg).append(brandingFor(client.locale())));
     }
@@ -404,7 +407,6 @@ public final class DetectionListener implements Listener, PluginMessageListener 
     private String textoBloqueoLocal(String ip) {
         String motivo = banCache.msgKeyDe(ip);
         String delPanel = client.offlineMessage(motivo);
-
         String propio = dev.flamingomg.jarvis.i18n.Messages.get(client.locale(), claveTextoLocal(motivo));
         return config.getString("messages.block", delPanel != null ? delPanel : propio);
     }
@@ -451,7 +453,6 @@ public final class DetectionListener implements Listener, PluginMessageListener 
     }
 
     public void init() {
-
         Schedulers.globalRepetida(plugin, this::reconcile, 0L, 300L);
     }
 
@@ -471,13 +472,11 @@ public final class DetectionListener implements Listener, PluginMessageListener 
     }
 
     private boolean isBypassed(String username) {
-
         return username != null && config.bypassUsernames().contains(username.toLowerCase(java.util.Locale.ROOT));
     }
 
     private static final java.util.Set<String> MOTIVOS = java.util.Set.of(
             "vpn_proxy", "mobile_hotspot", "lockdown", "invalid_username", "block", "game_relay",
-
             "home_country");
 
     static String claveTextoLocal(String motivo) {
@@ -532,16 +531,12 @@ public final class DetectionListener implements Listener, PluginMessageListener 
 
     private void notifyStaff(String name, String ip, String msgKey) {
         if (!client.notifyStaffEnabled()) return;
-
         String safeName = (name != null) ? name : "?";
         String safeIp   = (ip != null) ? ip : "?";
         String template = config.getString("messages.staff-notify", Messages.get(client.locale(), "staff"));
         String text = LEGACY.serialize(MM.deserialize(textoStaff(template, safeName, safeIp, motivoLegible(msgKey))));
-
         Schedulers.global(plugin, () -> {
-
             for (Player p : Bukkit.getOnlinePlayers())
-
                 Schedulers.deEntidad(plugin, p, () -> {
                     if (p.hasPermission(client.notifyPermission()) || p.hasPermission("jarvis.admin"))
                         p.sendMessage(text);

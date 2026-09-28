@@ -76,5 +76,8 @@
   "cmd.diagBans": "Pemblokiran dimuat",
   "cmd.diagConfig": "Berkas konfigurasi",
   "cmd.diagConfigStale": "gagal dibaca: yang dipakai adalah pengaturan sebelumnya, bukan yang di disk. Cek konsol dan jalankan /antivpn reload",
-  "cmd.diagAllOk": "Semuanya berjalan. Tidak ada yang perlu dilakukan."
+  "cmd.diagAllOk": "Semuanya berjalan. Tidak ada yang perlu dilakukan.",
+  "log.link.notLinked": "Jarvis belum tertaut, jadi BELUM melindungi Anda.",
+  "log.link.open": "Buka tautan ini dan masuk untuk menautkannya (satu klik, tanpa kunci):",
+  "log.link.manual": "(alternatif manual:  /antivpn key <lisensi> )"
 }

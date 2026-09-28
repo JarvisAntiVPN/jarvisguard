@@ -6,7 +6,7 @@
 
     <groupId>dev.flamingomg</groupId>
     <artifactId>jarvis-bungee</artifactId>
-    <version>0.5.25</version>
+    <version>0.5.26</version>
     <packaging>jar</packaging>
 
     <name>Jarvis</name>

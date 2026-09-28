@@ -61,20 +61,15 @@ public final class AntiVpnCommand implements CommandExecutor, TabCompleter {
             case "doctor" -> doctor(sender);
             case "reload" -> {
                 if (!sender.hasPermission("jarvis.admin")) { sender.sendMessage(PRE + "§c" + m("cmd.noperm")); return true; }
-
                 if (!config.reload()) { sender.sendMessage(PRE + "§c" + m("cmd.reloadFail")); return true; }
-
                 floodGuard.reconfigure();
                 banCache.reconfigure();
-
                 client.setIpCheckDisabled(config.getBoolean("server.behind-proxy", false));
                 client.cache().invalidateAll();
-
                 Schedulers.async(plugin, () -> {
                     client.ensureReady();
                     client.fetchAndSyncBans(banCache);
                     client.refreshConfig();
-
                     syncClient.reconnectIfKeyChanged();
                 });
                 sender.sendMessage(PRE + "§a" + m("cmd.reloaded"));
@@ -98,12 +93,10 @@ public final class AntiVpnCommand implements CommandExecutor, TabCompleter {
                 client.fetchAndSyncBans(banCache);
                 sender.sendMessage(PRE + "§a" + m("cmd.active"));
             } else if (client.keyRejected()) {
-
                 sender.sendMessage(PRE + "§c" + m("cmd.keyrejected"));
             } else {
                 sender.sendMessage(PRE + "§e" + m("cmd.validatefail"));
             }
-
             syncClient.reconnectIfKeyChanged();
         });
     }
@@ -113,13 +106,11 @@ public final class AntiVpnCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(PRE + "§b" + m("cmd.statsTitle"));
 
         var estado = client.protectionState();
-
         if (estado.isProtecting()) {
             sender.sendMessage(PRE + "§a" + m("cmd.protected"));
         } else {
             switch (estado) {
                 case DEGRADED -> {
-
                     sender.sendMessage(PRE + "§e" + m("cmd.degraded"));
                     sender.sendMessage(PRE + "§7" + m("cmd.degradedWhy"));
                 }
@@ -138,14 +129,12 @@ public final class AntiVpnCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(kv(m("cmd.ipcache"),       String.valueOf(client.cache().estimatedSize())));
         sender.sendMessage(kv(m("cmd.blockedips"),    String.valueOf(banCache.size())));
         sender.sendMessage(kv(m("cmd.online"),        String.valueOf(Bukkit.getOnlinePlayers().size())));
-
     }
 
     private void doctor(CommandSender sender) {
         if (!sender.hasPermission("jarvis.admin")) { sender.sendMessage(PRE + "\u00a7c" + m("cmd.noperm")); return; }
         long ahora = System.currentTimeMillis();
         var datos = new Diagnostico.Datos(
-
                 client.protectionState(),
                 client.keyRejected(),
                 client.signer() != null && client.signer().hasSecret(),
@@ -154,6 +143,7 @@ public final class AntiVpnCommand implements CommandExecutor, TabCompleter {
                 syncClient.streamVivo(),
                 syncClient.ultimoRechazo(),
                 listener.privateIpWatch().privadaReciente(ahora, VENTANA_IP_PRIVADA_MS),
+                listener.privateIpWatch().algunaVista(),
                 banCache.size(),
                 config.motivoCargaFallida());
 
@@ -174,7 +164,6 @@ public final class AntiVpnCommand implements CommandExecutor, TabCompleter {
             case AVISO  -> "\u00a7e";
             case FALLO  -> "\u00a7c";
         };
-
         String marca = switch (l.nivel()) {
             case OK     -> "\u2714";
             case NEUTRO -> "\u2013";
@@ -214,7 +203,6 @@ public final class AntiVpnCommand implements CommandExecutor, TabCompleter {
         if (sinFirma(sender)) return;
         sender.sendMessage(PRE + "§7" + m("cmd.blacklistSending"));
         client.blacklistAsync(target, reason, actor, remove).thenAccept(r -> {
-
             Schedulers.aRemitente(plugin, sender, () -> {
                 if (r.ok())
                     pintar(sender, resumirLista(r, remove, remove ? "cmd.unblacklistOk" : "cmd.blacklistOk",
@@ -251,10 +239,8 @@ public final class AntiVpnCommand implements CommandExecutor, TabCompleter {
     static ResumenLista resumirLista(dev.flamingomg.jarvis.client.JarvisClient.RespuestaLista r, boolean remove,
                                      String claveOk, String objetivo, String ecoTiempo,
                                      java.util.function.UnaryOperator<String> tr, long ahoraMs) {
-
         List<String> detalles = new java.util.ArrayList<>(2);
         if (Boolean.FALSE.equals(r.saved())) {
-
             return new ResumenLista(Tono.FALLO, tr.apply("cmd.notSaved") + " " + objetivo, detalles);
         }
         boolean nadaQueQuitar = remove && Boolean.FALSE.equals(r.found());
@@ -317,7 +303,6 @@ public final class AntiVpnCommand implements CommandExecutor, TabCompleter {
             return;
         }
         String target = args[1];
-
         if (target.length() > 32) { sender.sendMessage(PRE + "§c" + m("cmd.blacklistTooLong")); return; }
         String time = null;
         int iMotivo = 2;
@@ -329,7 +314,6 @@ public final class AntiVpnCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(PRE + "§7" + m("cmd.blacklistSending"));
         final String eco = time;
         client.whitelistAsync(target, time, reason, actor, remove).thenAccept(r -> {
-
             Schedulers.aRemitente(plugin, sender, () -> {
                 if (r.ok())
                     pintar(sender, resumirLista(r, remove, remove ? "cmd.unwhitelistOk" : "cmd.whitelistOk",
@@ -365,7 +349,6 @@ public final class AntiVpnCommand implements CommandExecutor, TabCompleter {
             String q = args[0].toLowerCase(Locale.ROOT);
             return SUB.stream().filter(s -> s.startsWith(q)).collect(Collectors.toList());
         }
-
         if (args.length == 2 && autocompletaJugador(args[0]) && puedeModerar(sender)) {
             return filtrarNombres(nombresConectados(), args[1]);
         }

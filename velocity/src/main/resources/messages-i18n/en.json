@@ -76,5 +76,8 @@
   "cmd.diagBans": "Blocks loaded",
   "cmd.diagConfig": "Configuration file",
   "cmd.diagConfigStale": "loaded with errors: the settings in use are the previous ones, not the ones on disk. Check the console and run /antivpn reload",
-  "cmd.diagAllOk": "Everything is working. Nothing to do."
+  "cmd.diagAllOk": "Everything is working. Nothing to do.",
+  "log.link.notLinked": "Jarvis isn't linked yet, so it is NOT protecting you.",
+  "log.link.open": "Open this link and sign in to bind it (one click, no key):",
+  "log.link.manual": "(manual alternative:  /antivpn key <license> )"
 }

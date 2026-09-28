@@ -56,7 +56,6 @@ public final class Schedulers {
             Class<?> entity = mEntityScheduler.getReturnType();
             mEntityRun = entity.getMethod("run", Plugin.class, consumer, Runnable.class);
         } catch (Throwable t) {
-
             mGlobalRun = null;
         }
     }
@@ -75,7 +74,6 @@ public final class Schedulers {
 
     public static void globalRepetida(Plugin plugin, Runnable tarea, long retardoTicks, long periodoTicks) {
         if (!FOLIA) { Bukkit.getScheduler().runTaskTimer(plugin, tarea, retardoTicks, periodoTicks); return; }
-
         long retardo = Math.max(1L, retardoTicks);
         long periodo = Math.max(1L, periodoTicks);
         try {
@@ -95,7 +93,6 @@ public final class Schedulers {
         if (!FOLIA) { Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, tarea, retardoTicks); return; }
         try {
             Object sched = mAsyncScheduler.invoke(null);
-
             mAsyncDelayed.invoke(sched, plugin, consumidor(tarea),
                     Math.max(1L, aMillis(retardoTicks)), TimeUnit.MILLISECONDS);
         } catch (IllegalAccessException | InvocationTargetException e) {
@@ -124,7 +121,6 @@ public final class Schedulers {
 
     public static void deEntidad(Plugin plugin, Entity entidad, Runnable tarea) {
         if (!FOLIA) {
-
             if (Bukkit.isPrimaryThread()) tarea.run();
             else Bukkit.getScheduler().runTask(plugin, tarea);
             return;

@@ -6,9 +6,7 @@ public record VerdictResponse(
         long timestamp,
         String sig,
         String msgSig,
-
         String msgKey,
-
         Boolean cacheIp
 ) {
     public VerdictType verdictType() {

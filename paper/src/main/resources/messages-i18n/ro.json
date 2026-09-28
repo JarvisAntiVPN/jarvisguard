@@ -76,5 +76,8 @@
   "cmd.diagBans": "Blocări încărcate",
   "cmd.diagConfig": "Fișierul de configurare",
   "cmd.diagConfigStale": "nu a putut fi citit: se folosesc setările anterioare, nu cele de pe disc. Verifică consola și rulează /antivpn reload",
-  "cmd.diagAllOk": "Totul funcționează. Nu e nimic de făcut."
+  "cmd.diagAllOk": "Totul funcționează. Nu e nimic de făcut.",
+  "log.link.notLinked": "Jarvis nu este încă asociat, deci NU te protejează.",
+  "log.link.open": "Deschide acest link și autentifică-te pentru a-l asocia (un clic, fără cheie):",
+  "log.link.manual": "(alternativă manuală:  /antivpn key <licență> )"
 }

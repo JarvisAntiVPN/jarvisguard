@@ -76,5 +76,8 @@
   "cmd.diagBans": "Bloqueos cargados",
   "cmd.diagConfig": "Fichero de configuración",
   "cmd.diagConfigStale": "no se pudo leer: se están usando los ajustes anteriores, no los del disco. Mira la consola y haz /antivpn reload",
-  "cmd.diagAllOk": "Todo funciona. No hay nada que hacer."
+  "cmd.diagAllOk": "Todo funciona. No hay nada que hacer.",
+  "log.link.notLinked": "Jarvis todavía no está vinculado, así que NO te está protegiendo.",
+  "log.link.open": "Abre este enlace e inicia sesión para vincularlo (un clic, sin clave):",
+  "log.link.manual": "(alternativa manual:  /antivpn key <licencia> )"
 }

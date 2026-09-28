@@ -76,5 +76,8 @@
   "cmd.diagBans": "불러온 차단",
   "cmd.diagConfig": "설정 파일",
   "cmd.diagConfigStale": "읽지 못했습니다: 디스크가 아니라 이전 설정이 적용 중입니다. 콘솔을 확인하고 /antivpn reload 를 실행하세요",
-  "cmd.diagAllOk": "모두 정상입니다. 할 일이 없습니다."
+  "cmd.diagAllOk": "모두 정상입니다. 할 일이 없습니다.",
+  "log.link.notLinked": "Jarvis가 아직 연결되지 않아 보호되지 않습니다.",
+  "log.link.open": "이 링크를 열고 로그인하면 연결됩니다 (클릭 한 번, 키 입력 없음):",
+  "log.link.manual": "(수동 방법:  /antivpn key <라이선스> )"
 }

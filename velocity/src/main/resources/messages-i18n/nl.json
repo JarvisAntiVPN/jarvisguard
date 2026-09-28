@@ -76,5 +76,8 @@
   "cmd.diagBans": "Geladen blokkades",
   "cmd.diagConfig": "Configuratiebestand",
   "cmd.diagConfigStale": "kon niet worden gelezen: de vorige instellingen zijn actief, niet die op schijf. Bekijk de console en doe /antivpn reload",
-  "cmd.diagAllOk": "Alles werkt. Niets te doen."
+  "cmd.diagAllOk": "Alles werkt. Niets te doen.",
+  "log.link.notLinked": "Jarvis is nog niet gekoppeld en beschermt je dus NIET.",
+  "log.link.open": "Open deze link en log in om te koppelen (één klik, geen sleutel):",
+  "log.link.manual": "(handmatig alternatief:  /antivpn key <licentie> )"
 }

@@ -32,6 +32,7 @@ public final class JarvisClient {
             new java.util.concurrent.atomic.AtomicReference<>(CbState.CLOSED);
     private final AtomicInteger cbFailures = new AtomicInteger(0);
     private volatile long       cbOpenedAt = 0L;
+    private volatile long       cbProbeStartedAt = 0L;
 
     private final ConfigManager config;
     private final Log           logger;
@@ -41,7 +42,6 @@ public final class JarvisClient {
     private volatile long lastSecretResetMs = 0L;
     private volatile boolean warnedNoKey = false;
     private volatile boolean warnedNoSecret = false;
-
     private volatile boolean warnedNoReach = false;
     private volatile boolean keyRejected = false;
     private volatile boolean warnedUnsignedBans = false;
@@ -49,9 +49,7 @@ public final class JarvisClient {
     private volatile String locale = "en";
     private volatile boolean notifyStaff = true;
     private volatile String notifyPermission = "jarvis.admin";
-
     private volatile java.util.Map<String, String> offlineMessages = java.util.Map.of();
-
     private volatile int    cbFailureThreshold = 5;
     private volatile long   cbOpenDurationMs   = 30_000L;
     private volatile int    backendTimeoutMs   = 500;
@@ -60,14 +58,12 @@ public final class JarvisClient {
     private volatile String licenseKey         = "";
     private final VerdictCache  cache;
     private final HttpClient    http;
-
     private final java.util.concurrent.ScheduledExecutorService keepAlive =
             java.util.concurrent.Executors.newSingleThreadScheduledExecutor(r -> {
                 Thread t = new Thread(r, "jarvis-keepalive");
                 t.setDaemon(true);
                 return t;
             });
-
     private final java.util.concurrent.ExecutorService httpExecutor =
             HttpExecutors.daemonHttpExecutor("jarvis-http");
 
@@ -90,7 +86,6 @@ public final class JarvisClient {
                 config.getInt("cache.max-entries", 10000),
                 config.getInt("cache.ttl-seconds", 300));
         int timeoutMs = Math.max(1, config.getInt("backend.timeout-ms", 500));
-
         int connectTimeoutMs = Math.max(timeoutMs, config.getInt("backend.connect-timeout-ms", 8000));
         this.http = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofMillis(connectTimeoutMs))
@@ -101,13 +96,11 @@ public final class JarvisClient {
         String cfgKey0 = config.getString("backend.license-key", "");
         String secret = config.getString("backend.shared-secret", "");
         this.secretFromConfig = !isBlank(secret);
-
         if (isBlank(secret)) {
             String cached = config.readCachedSecret(cfgKey0);
             if (!isBlank(cached)) secret = cached;
         }
         this.signer = new HmacSigner(isBlank(secret) ? "" : secret);
-
         if (!isBlank(secret)) this.secretForKey = config.getString("backend.license-key", "");
         snapshotConfig();
         startKeepAlive();
@@ -131,7 +124,6 @@ public final class JarvisClient {
             return null;
         }
         try {
-
             long cfgTimeoutMs = Math.max(5000L, config.getInt("backend.connect-timeout-ms", 8000) + 5000L);
             HttpRequest req = HttpRequest.newBuilder(URI.create(url + "/client/config"))
                     .timeout(Duration.ofMillis(cfgTimeoutMs))
@@ -154,7 +146,6 @@ public final class JarvisClient {
                     return _s;
                 }
             }
-
             boolean backendReject = resp.headers().firstValue("X-Jarvis-Reject").isPresent();
             this.keyRejected = licenciaRechazada(status, backendReject);
             if (!warnedNoSecret) {
@@ -176,7 +167,6 @@ public final class JarvisClient {
 
     public boolean ensureReady() {
         String configuredKey = config.getString("backend.license-key", "");
-
         if (signer != null && signer.hasSecret() && configuredKey.equals(secretForKey)) return true;
         String secret = fetchSharedSecret();
         if (secret != null) { this.signer = new HmacSigner(secret); this.secretForKey = configuredKey; snapshotConfig(); return true; }
@@ -203,7 +193,6 @@ public final class JarvisClient {
         String v = clave == null ? null : m.get(clave);
         return v != null ? v : m.get("block");
     }
-
     public String notifyPermission() { return notifyPermission; }
 
     private void applyPanelConfig(Map<?, ?> body) {
@@ -214,10 +203,8 @@ public final class JarvisClient {
         if (loc != null && !String.valueOf(loc).isBlank()) this.locale = dev.flamingomg.jarvis.i18n.Messages.normalize(String.valueOf(loc));
         Object ns = body.get("notifyStaff");
         if (ns instanceof Boolean b) this.notifyStaff = b;
-
         Object np = body.get("notifyPermission");
         if (np != null && !String.valueOf(np).isBlank()) this.notifyPermission = String.valueOf(np).trim();
-
         this.offlineMessages = offlineTrasConfig(body.get("offlineMessages"), this.offlineMessages);
     }
 
@@ -260,8 +247,23 @@ public final class JarvisClient {
     }
 
     private static final char CK_SEP = '\u001e';
-    private static String ck(String ip, String username) {
-        return canonIp(ip) + CK_SEP + (username == null ? "" : username.toLowerCase(java.util.Locale.ROOT));
+
+    private static char marcaProcedencia(Boolean bedrockApi) {
+        if (bedrockApi == null) return 'N';
+        return bedrockApi ? 'A' : 'P';
+    }
+
+    private VerdictResponse cacheadoDeCualquierProcedencia(String ip, String username) {
+        for (Boolean m : new Boolean[]{Boolean.TRUE, Boolean.FALSE, null}) {
+            VerdictResponse v = cache.getIfPresent(ck(ip, username, m));
+            if (v != null) return v;
+        }
+        return null;
+    }
+
+    private static String ck(String ip, String username, Boolean bedrockApi) {
+        return canonIp(ip) + CK_SEP + marcaProcedencia(bedrockApi) + CK_SEP
+                + (username == null ? "" : username.toLowerCase(java.util.Locale.ROOT));
     }
 
     private static String canonIp(String ip) {
@@ -278,25 +280,26 @@ public final class JarvisClient {
         this.cbOpenDurationMs   = Math.max(0L, (long) config.getInt("circuit-breaker.open-duration-ms", 30_000));
         this.backendTimeoutMs   = Math.max(1, config.getInt("backend.timeout-ms", 500));
         this.cbProbeTimeoutMs   = Math.max(1, config.getInt("circuit-breaker.probe-timeout-ms", 3000));
-
         this.maxResponseAgeMs   = Math.max(90_000L, config.getInt("backend.max-response-age-ms", 90_000));
         this.licenseKey         = config.getString("backend.license-key", "");
     }
 
-    public CompletableFuture<VerdictResponse> requestVerdictAsync(String ip, String username, boolean bedrock, boolean premium) {
-        VerdictResponse cached = cache.getIfPresent(ck(ip, username));
+    public CompletableFuture<VerdictResponse> requestVerdictAsync(String ip, String username, boolean bedrock,
+                                                                  boolean premium, Boolean bedrockApi, String uuid) {
+        VerdictResponse cached = cache.getIfPresent(ck(ip, username, bedrockApi));
         if (cached != null) return CompletableFuture.completedFuture(cached);
 
         if (signer == null || !signer.hasSecret()) return CompletableFuture.completedFuture(unknownVerdict());
 
         int  failThreshold  = cbFailureThreshold;
         long openDurationMs = cbOpenDurationMs;
-
         boolean probe = false;
         CbState state = cbState.get();
         if (state == CbState.OPEN) {
-            if (System.currentTimeMillis() - cbOpenedAt >= openDurationMs
-                    && cbState.compareAndSet(CbState.OPEN, CbState.HALF_OPEN)) {
+            long ahoraOpen = System.currentTimeMillis();
+            if (ahoraOpen - cbOpenedAt < openDurationMs) return CompletableFuture.completedFuture(unknownVerdict());
+            cbProbeStartedAt = ahoraOpen;
+            if (cbState.compareAndSet(CbState.OPEN, CbState.HALF_OPEN)) {
                 cbFailures.set(0);
                 probe = true;
                 logger.debug("Circuit breaker HALF-OPEN, reconnecting...");
@@ -304,8 +307,7 @@ public final class JarvisClient {
                 return CompletableFuture.completedFuture(unknownVerdict());
             }
         } else if (state == CbState.HALF_OPEN) {
-
-            if (sondaColgada(System.currentTimeMillis(), cbOpenedAt, openDurationMs, cbProbeTimeoutMs)
+            if (sondaColgada(System.currentTimeMillis(), cbProbeStartedAt, cbProbeTimeoutMs)
                     && cbState.compareAndSet(CbState.HALF_OPEN, CbState.OPEN)) {
                 cbOpenedAt = System.currentTimeMillis();
                 logger.warn("Circuit breaker: the reconnection probe never answered; reopening to retry.");
@@ -315,11 +317,10 @@ public final class JarvisClient {
 
         long   ts        = clock.now();
         long   offsetAlEnviar = clock.offsetMs();
-        String body      = GSON.toJson(new VerdictRequest(ip, username, bedrock, ts, premium));
+        String body      = GSON.toJson(new VerdictRequest(ip, username, bedrock, ts, premium, bedrockApi, uuid));
         String sig       = signer.sign(HmacSigner.requestPayload(ts, ip, username));
         String licKey    = licenseKey;
         String backendUrl= ConfigManager.DEFAULT_BACKEND_URL;
-
         int    timeoutMs = probe ? cbProbeTimeoutMs : backendTimeoutMs;
 
         HttpRequest req = HttpRequest.newBuilder(URI.create(backendUrl + "/api/v1/verdict"))
@@ -336,14 +337,12 @@ public final class JarvisClient {
             if (err == null && resp.statusCode() == 200) {
                 try {
                     VerdictResponse verdict = GSON.fromJson(resp.body(), VerdictResponse.class);
-
                     if (verdict == null || !dev.flamingomg.jarvis.security.VerdictVerifier.verifyV4(
                             verdict.timestamp(), verdict.verdict(), ip, username, verdict.sig())) {
                         logger.warn("Invalid signature for {}", ip);
                         return onFailure(ip, failThreshold);
                     }
                     if (!responseFresh(verdict.timestamp())) {
-
                         Long total = clock.aprender(verdict.timestamp(), ts, clock.now(), offsetAlEnviar);
                         if (total != null) {
                             logger.warn("This machine's clock is off by {} ms from the Jarvis backend; requests "
@@ -357,20 +356,18 @@ public final class JarvisClient {
                     if (cbState.compareAndSet(CbState.HALF_OPEN, CbState.CLOSED)) {
                         logger.debug("Circuit breaker CLOSED, backend recovered.");
                     }
-
                     if (verdict.message() != null && !dev.flamingomg.jarvis.security.VerdictVerifier.verifyMessage(
                             verdict.timestamp(), verdict.verdict(), verdict.message(), verdict.msgSig())) {
                         logger.warn("Kick message signature mismatch for {}; using local message", ip);
                         verdict = verdict.sinMensaje();
                     }
-                    if (verdict.verdictType() != VerdictType.CHALLENGE) cache.put(ck(ip, username), verdict);
+                    if (verdict.verdictType() != VerdictType.CHALLENGE) cache.put(ck(ip, username, bedrockApi), verdict);
                     return verdict;
                 } catch (Exception e) {
                     return onFailure(ip, failThreshold);
                 }
             }
             if (err == null && (resp.statusCode() == 401 || resp.statusCode() == 403)) maybeResetSecret(resp.statusCode());
-
             if (err == null && resp.statusCode() == 400) {
                 long serverTimeMs = ClockOffset.leerServerTimeMs(resp.body());
                 if (serverTimeMs > 0) {
@@ -385,7 +382,6 @@ public final class JarvisClient {
             else logger.debug("Error contacting backend for {}: {}", ip, err.getMessage());
             return onFailure(ip, failThreshold);
         })
-
         .completeOnTimeout(VENCIDO, timeoutMs + 4500L, java.util.concurrent.TimeUnit.MILLISECONDS)
         .thenApply(v -> {
             if (v != VENCIDO) return v;
@@ -417,10 +413,8 @@ public final class JarvisClient {
         if (s == null || !s.hasSecret()) return;
         long now = System.currentTimeMillis();
         if (now - lastSecretResetMs < SECRET_RESET_MIN_INTERVAL_MS) return;
-
         if (!secretResetInFlight.compareAndSet(false, true)) return;
         lastSecretResetMs = now;
-
         Thread t = new Thread(() -> {
             try {
                 String fresh = fetchSharedSecret();
@@ -428,12 +422,10 @@ public final class JarvisClient {
                     this.signer = new HmacSigner(fresh);
                     this.secretForKey = config.getString("backend.license-key", "");
                 } else if (keyRejected) {
-
                     this.signer = new HmacSigner("");
                     this.secretForKey = "";
                     try { config.clearCachedSecret(); } catch (Exception ignore) {}
                 }
-
             } catch (Exception ignore) {}
             finally { secretResetInFlight.set(false); }
         }, "jarvis-secret-refetch");
@@ -451,12 +443,11 @@ public final class JarvisClient {
         return vieneDelBackend && (status == 401 || status == 403 || status == 404);
     }
 
-    static boolean sondaColgada(long ahoraMs, long cbOpenedAtMs, long openDurationMs, long probeTimeoutMs) {
-        return ahoraMs - cbOpenedAtMs > openDurationMs + probeTimeoutMs + 4_500L + 5_000L;
+    static boolean sondaColgada(long ahoraMs, long sondaSalioMs, long probeTimeoutMs) {
+        return ahoraMs - sondaSalioMs > probeTimeoutMs + 4_500L + 5_000L;
     }
 
     private void backendRespondio() {
-
         if (cbState.get() == CbState.CLOSED) return;
         cbFailures.set(0);
         if (cbState.compareAndSet(CbState.OPEN, CbState.CLOSED)
@@ -477,7 +468,6 @@ public final class JarvisClient {
     private VerdictResponse onFailure(String ip, int failThreshold) {
         ultimoVeredictoFalloMs = System.currentTimeMillis();
         int failures = cbFailures.incrementAndGet();
-
         if (cbState.compareAndSet(CbState.HALF_OPEN, CbState.OPEN)) {
             cbOpenedAt = System.currentTimeMillis();
             logger.warn("Circuit breaker OPEN (probe failed). Degraded mode active.");
@@ -523,7 +513,7 @@ public final class JarvisClient {
                                  java.util.List<String> channels, boolean premium,
                                  Integer protocolVersion, String loginIntent) {
 
-        VerdictResponse cached = cache.getIfPresent(ck(ip, username));
+        VerdictResponse cached = cacheadoDeCualquierProcedencia(ip, username);
         String verdictStr = cached != null ? cached.verdict() : "UNKNOWN";
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("uuid", uuid);
@@ -542,7 +532,6 @@ public final class JarvisClient {
         if (channels != null && !channels.isEmpty()) payload.put("channels", channels);
         if (protocolVersion != null) payload.put("protocolVersion", protocolVersion);
         if (loginIntent != null && !loginIntent.isBlank()) payload.put("loginIntent", loginIntent);
-
         reportConIdentidad("/api/v1/player/seen", ip, username, uuid, premium, payload,
                 "Error reporting player seen " + username);
     }
@@ -556,7 +545,6 @@ public final class JarvisClient {
         payload.put("username", username);
         payload.put("ip", ip);
         payload.put("durationMs", durationMs);
-
         payload.put("end", apagando ? "SHUTDOWN" : "QUIT");
         report("/api/v1/session/end", ip, username, payload,
                 "Error reporting session end for " + username);
@@ -565,7 +553,6 @@ public final class JarvisClient {
     private final java.util.concurrent.atomic.AtomicInteger localDenials404 =
             new java.util.concurrent.atomic.AtomicInteger();
     private static final int LOCAL_DENIALS_404_GIVE_UP = 3;
-
     private static final int LOCAL_DENIALS_TIMEOUT_MS = 5_000;
 
     public void reportLocalDenials(java.util.List<LocalDenialReporter.Entry> lote) {
@@ -595,7 +582,6 @@ public final class JarvisClient {
                 .header("X-Signature",   sig)
                 .POST(HttpRequest.BodyPublishers.ofString(GSON.toJson(payload), StandardCharsets.UTF_8))
                 .build();
-
         http.sendAsync(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8))
                 .thenAccept(resp -> {
                     if (resp.statusCode() == 404) {
@@ -638,14 +624,6 @@ public final class JarvisClient {
             if (x != null && x.isJsonPrimitive() && out.size() < 1_000) out.add(x.getAsString());
         }
         return out;
-    }
-
-    public void reportChallengeComplete(String username, String ip) {
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("username", username);
-        payload.put("ip", ip);
-        report("/api/v1/challenge/complete", ip, username, payload,
-                "Error reporting challenge complete");
     }
 
     private volatile boolean serverIconSent = false;
@@ -696,7 +674,6 @@ public final class JarvisClient {
         if (signer == null || !signer.hasSecret()) return;
         long   ts        = clock.now();
         long   offsetAlEnviar = clock.offsetMs();
-
         long   tsLocal   = ts - offsetAlEnviar;
         String licKey    = licenseKey;
         String backendUrl= ConfigManager.DEFAULT_BACKEND_URL;
@@ -712,7 +689,6 @@ public final class JarvisClient {
         http.sendAsync(req, HttpResponse.BodyHandlers.ofString())
                 .thenAccept(resp -> {
                     if (resp.statusCode() == 400) {
-
                         long serverTimeMs = ClockOffset.leerServerTimeMs(resp.body());
                         if (serverTimeMs > 0) {
                             Long total = clock.aprender(serverTimeMs, ts, clock.now(), offsetAlEnviar);
@@ -723,20 +699,17 @@ public final class JarvisClient {
                         }
                     }
                     if (resp.statusCode() != 200) return;
-
                     boolean listaCompletaVerificada = false;
                     String bansSig = resp.headers().firstValue("X-Bans-Sig").orElse(null);
                     if (bansSig != null) {
                         long bansTs = 0L;
                         try { bansTs = Long.parseLong(resp.headers().firstValue("X-Bans-Ts").orElse("0").trim()); }
                         catch (NumberFormatException ignored) {  }
-
                         if (Math.abs(clock.now() - bansTs) > 120_000L
                                 || !dev.flamingomg.jarvis.security.VerdictVerifier.verifyBans(bansTs, resp.body(), bansSig)) {
                             logger.warn("Bans list signature invalid or stale; skipping this sync cycle.");
                             return;
                         }
-
                         String sig2 = resp.headers().firstValue("X-Bans-Sig-V2").orElse(null);
                         if (sig2 != null) {
                             boolean dice = !"false".equalsIgnoreCase(
@@ -754,11 +727,9 @@ public final class JarvisClient {
                             warnedUnsignedBans = true;
                             logger.warn("Backend bans response is unsigned; applying without verification.");
                         }
-
                         if (dev.flamingomg.jarvis.security.VerdictVerifier.keyLoaded()) return;
                     }
                     try {
-
                         long now = clock.now();
                         @SuppressWarnings("unchecked")
                         List<Map<String, Object>> bans = GSON.fromJson(resp.body(), List.class);
@@ -774,21 +745,18 @@ public final class JarvisClient {
                                 if (expObj == null) {
                                     ttlSec = 0;
                                 } else if (expObj instanceof Number num) {
-
                                     long ttlLong = Math.max(0L, (num.longValue() - now) / 1000);
                                     ttlSec = (int) Math.min(ttlLong, Integer.MAX_VALUE);
                                     if (ttlSec == 0) continue;
                                 } else {
                                     continue;
                                 }
-
                                 Object mk = ban.get("msgKey");
                                 banCache.ban(banIp, ttlSec, mk instanceof String s2 && !s2.isBlank() ? s2 : null);
                                 snapshotIps.add(banIp);
                                 count++;
                             } catch (RuntimeException ignored) {  }
                         }
-
                         banCache.listaAplicada(snapshotIps, listaCompletaVerificada);
                         if (listaCompletaVerificada) {
                             banCache.reconciliar(snapshotIps, tsLocal);
@@ -815,7 +783,6 @@ public final class JarvisClient {
     public dev.flamingomg.jarvis.model.ProtectionState protectionState() {
         HmacSigner s = signer;
         boolean canSign = s != null && s.hasSecret() && !keyRejected;
-
         boolean sano = backendHealthy() && !veredictosFallando(
                 System.currentTimeMillis(), ultimoVeredictoOkMs, ultimoVeredictoFalloMs, VENTANA_FALLO_MS);
         return dev.flamingomg.jarvis.model.ProtectionState.of(canSign, sano, ipCheckDisabled);
@@ -828,7 +795,6 @@ public final class JarvisClient {
     public VerdictCache cache() { return cache; }
 
     private void startKeepAlive() {
-
         long periodMs = Math.max(5_000L, config.getInt("backend.keepalive-ms", 15_000) <= 0
                 ? 15_000L : config.getInt("backend.keepalive-ms", 15_000));
         keepAlive.scheduleWithFixedDelay(this::pingBackend, periodMs, periodMs,
@@ -839,12 +805,10 @@ public final class JarvisClient {
 
     private void pingBackend() {
         try {
-
             if (!isBlank(licenseKey)) {
                 for (String l : protectionWatch.lineas(protectionState(), System.currentTimeMillis())) logger.warn(l);
             }
             if (isBlank(licenseKey)) return;
-
             HmacSigner sg = signer;
             if ((sg == null || !sg.hasSecret()) && !keyRejected
                     && secretResetInFlight.compareAndSet(false, true)) {
@@ -870,7 +834,6 @@ public final class JarvisClient {
     }
 
     public void shutdown() {
-
         HttpExecutors.shutdownQuietly(keepAlive);
         denials.stop();
         HttpExecutors.closeQuietly(http);
@@ -879,7 +842,6 @@ public final class JarvisClient {
 
     private boolean responseFresh(long responseTs) {
         long windowMs = maxResponseAgeMs;
-
         return isFresh(clock.now(), responseTs, windowMs);
     }
 
@@ -891,14 +853,12 @@ public final class JarvisClient {
     public record RespuestaLista(int code, Boolean found, Boolean saved, Boolean already,
                                  Integer ipUnbanned, Long expiresAt) {
         public boolean ok() { return code >= 200 && code < 300; }
-
         static RespuestaLista sinRed() { return new RespuestaLista(0, null, null, null, null, null); }
     }
 
     static RespuestaLista leerRespuestaLista(int code, String body) {
         if (body == null || body.isEmpty()) return new RespuestaLista(code, null, null, null, null, null);
         try {
-
             com.google.gson.JsonObject o = GSON.fromJson(body, com.google.gson.JsonObject.class);
             if (o == null) return new RespuestaLista(code, null, null, null, null, null);
             return new RespuestaLista(code, booleano(o, "found"), booleano(o, "saved"),
@@ -1019,7 +979,6 @@ public final class JarvisClient {
     }
 
     private void sendAsync(String url, String licKey, long ts, String sig, String canon, String body, Runnable onError) {
-
         long timeoutMs = Math.max(5000L, config.getInt("backend.connect-timeout-ms", 8000) + 5000L);
         HttpRequest.Builder b = HttpRequest.newBuilder(URI.create(url))
                 .timeout(Duration.ofMillis(timeoutMs))
@@ -1027,7 +986,6 @@ public final class JarvisClient {
                 .header("X-License-Key", licKey)
                 .header("X-Timestamp",   String.valueOf(ts))
                 .header("X-Signature",   sig);
-
         if (canon != null) b.header("X-Sig-Canon", canon);
         HttpRequest req = b.POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8)).build();
         http.sendAsync(req, HttpResponse.BodyHandlers.discarding())

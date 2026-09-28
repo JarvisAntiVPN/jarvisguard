@@ -63,7 +63,6 @@ public final class SyncWatch {
     }
 
     private static String[] texto(long minutos, int ultimoRechazo) {
-
         boolean auth = ultimoRechazo == 401 || ultimoRechazo == 403;
         String causa = auth
                 ? "  the Jarvis backend rejected this server's credentials (HTTP " + ultimoRechazo + "),"

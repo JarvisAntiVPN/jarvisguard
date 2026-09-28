@@ -20,7 +20,6 @@ public final class Log {
     public void error(String pattern, Object... args) { log(Level.SEVERE, pattern, args); }
 
     private void log(Level level, String pattern, Object... args) {
-
         if (!jul.isLoggable(level)) return;
 
         Throwable throwable = null;

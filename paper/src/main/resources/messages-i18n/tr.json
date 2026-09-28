@@ -76,5 +76,8 @@
   "cmd.diagBans": "Yüklü engeller",
   "cmd.diagConfig": "Yapılandırma dosyası",
   "cmd.diagConfigStale": "okunamadı: diskteki değil, önceki ayarlar kullanılıyor. Konsola bak ve /antivpn reload çalıştır",
-  "cmd.diagAllOk": "Her şey çalışıyor. Yapılacak bir şey yok."
+  "cmd.diagAllOk": "Her şey çalışıyor. Yapılacak bir şey yok.",
+  "log.link.notLinked": "Jarvis henüz bağlanmadı, bu yüzden sizi KORUMUYOR.",
+  "log.link.open": "Bağlamak için bu bağlantıyı açıp giriş yapın (tek tıklama, anahtar yok):",
+  "log.link.manual": "(elle alternatif:  /antivpn key <lisans> )"
 }

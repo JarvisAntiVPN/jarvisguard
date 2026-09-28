@@ -76,5 +76,8 @@
   "cmd.diagBans": "Betöltött tiltások",
   "cmd.diagConfig": "Konfigurációs fájl",
   "cmd.diagConfigStale": "nem sikerült beolvasni: a korábbi beállítások vannak érvényben, nem a lemezen lévők. Nézd meg a konzolt és futtasd: /antivpn reload",
-  "cmd.diagAllOk": "Minden működik. Nincs teendő."
+  "cmd.diagAllOk": "Minden működik. Nincs teendő.",
+  "log.link.notLinked": "A Jarvis még nincs összekapcsolva, ezért NEM véd.",
+  "log.link.open": "Nyisd meg ezt a linket és jelentkezz be az összekapcsoláshoz (egy kattintás, kulcs nélkül):",
+  "log.link.manual": "(kézi megoldás:  /antivpn key <licenc> )"
 }

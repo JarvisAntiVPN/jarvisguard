@@ -76,5 +76,8 @@
   "cmd.diagBans": "読み込み済みのブロック",
   "cmd.diagConfig": "設定ファイル",
   "cmd.diagConfigStale": "読み込めませんでした: ディスク上ではなく以前の設定が使われています。コンソールを確認して /antivpn reload を実行してください",
-  "cmd.diagAllOk": "すべて正常です。対応は不要です。"
+  "cmd.diagAllOk": "すべて正常です。対応は不要です。",
+  "log.link.notLinked": "Jarvis はまだ連携されていないため、保護されていません。",
+  "log.link.open": "このリンクを開いてログインすると連携できます（クリック1回、キー入力なし）:",
+  "log.link.manual": "（手動の場合:  /antivpn key <ライセンス> ）"
 }

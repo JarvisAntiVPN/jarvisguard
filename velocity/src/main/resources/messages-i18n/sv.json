@@ -76,5 +76,8 @@
   "cmd.diagBans": "Laddade blockeringar",
   "cmd.diagConfig": "Konfigurationsfil",
   "cmd.diagConfigStale": "kunde inte läsas: de tidigare inställningarna används, inte de på disken. Kolla konsolen och kör /antivpn reload",
-  "cmd.diagAllOk": "Allt fungerar. Inget att göra."
+  "cmd.diagAllOk": "Allt fungerar. Inget att göra.",
+  "log.link.notLinked": "Jarvis är inte länkad ännu och skyddar dig därför INTE.",
+  "log.link.open": "Öppna den här länken och logga in för att länka (ett klick, ingen nyckel):",
+  "log.link.manual": "(manuellt alternativ:  /antivpn key <licens> )"
 }

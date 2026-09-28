@@ -16,9 +16,7 @@ public final class BanCache {
 
     private final Cache<String, Entry> banned;
     private final ConfigManager config;
-
     private volatile BanSnapshot snapshot;
-
     private volatile int defaultTtlSeconds;
 
     private final Cache<String, Boolean> exentos = Caffeine.newBuilder()
@@ -56,7 +54,6 @@ public final class BanCache {
     }
 
     public void ban(String ip) {
-
         ban(ip, "vpn_proxy");
     }
 
@@ -83,7 +80,6 @@ public final class BanCache {
     public boolean isBanned(String ip) {
         String k = key(ip);
         if (banned.getIfPresent(k) != null) return true;
-
         BanSnapshot s = snapshot;
         return s != null && s.cubre(k, licenciaActual());
     }
@@ -109,7 +105,6 @@ public final class BanCache {
     public void unban(String ip) {
         String k = key(ip);
         banned.invalidate(k);
-
         BanSnapshot s = snapshot;
         if (s != null) s.olvidar(k);
     }
@@ -135,7 +130,6 @@ public final class BanCache {
                 banned.invalidate(k);
             }
         });
-
     }
 
     private String licenciaActual() {
@@ -160,20 +154,16 @@ public final class BanCache {
         if (s == null) return;
         java.util.Set<String> keep = new java.util.HashSet<>();
         for (String ip : ipsDeLaLista) keep.add(key(ip));
-
         java.util.Map<String, Long> conCaducidad = new java.util.HashMap<>();
         banned.asMap().forEach((k, e) -> { if (keep.contains(k)) conCaducidad.put(k, e.expiryMs()); });
-
         if (!conCaducidad.isEmpty() || listaCertificada) {
             s.guardar(licenciaActual(), conCaducidad, System.currentTimeMillis());
         }
-
         s.descartar();
     }
 
     public void clear() {
         banned.invalidateAll();
-
         BanSnapshot s = snapshot;
         if (s != null) s.descartar();
     }

@@ -20,7 +20,6 @@ public final class ConfigManager {
     private final Path dataDirectory;
     private final Log logger;
     private volatile Map<String, Object> root = Collections.emptyMap();
-
     private volatile java.util.Set<String> bypassSet = Collections.emptySet();
 
     public ConfigManager(Path dataDirectory, Log logger) {
@@ -51,7 +50,6 @@ public final class ConfigManager {
         try {
             Files.createDirectories(dataDirectory);
             Path f = dataDirectory.resolve(SECRET_CACHE_FILE);
-
             if (java.nio.file.FileSystems.getDefault().supportedFileAttributeViews().contains("posix")) {
                 java.nio.file.attribute.FileAttribute<?> attr = java.nio.file.attribute.PosixFilePermissions
                         .asFileAttribute(java.util.EnumSet.of(
@@ -59,7 +57,6 @@ public final class ConfigManager {
                                 java.nio.file.attribute.PosixFilePermission.OWNER_WRITE));
                 byte[] data = (licenseKey + System.lineSeparator() + secret + System.lineSeparator())
                         .getBytes(java.nio.charset.StandardCharsets.UTF_8);
-
                 Files.deleteIfExists(f);
                 try (java.nio.channels.SeekableByteChannel ch = Files.newByteChannel(f,
                         java.util.EnumSet.of(java.nio.file.StandardOpenOption.CREATE_NEW,
@@ -67,7 +64,6 @@ public final class ConfigManager {
                     ch.write(java.nio.ByteBuffer.wrap(data));
                 }
             } else {
-
                 Files.write(f, java.util.List.of(licenseKey, secret));
                 try { java.io.File jf = f.toFile(); jf.setReadable(false, false); jf.setReadable(true, true); } catch (Exception ignore) {}
             }
@@ -79,7 +75,6 @@ public final class ConfigManager {
     }
 
     private boolean warnedLegacyKeys = false;
-
     private void warnLegacyKeysOnce() {
         if (warnedLegacyKeys) return;
         if (resolve("fallback.policy") != null || resolve("unknown.policy") != null) {
@@ -106,9 +101,7 @@ public final class ConfigManager {
             warnLegacyKeysOnce();
             logger.debug("Jarvis client configuration loaded.");
         } catch (IOException | RuntimeException e) {
-
             logger.error("Couldn't load {}; keeping the settings currently in memory.", FILE_NAME, e);
-
             this.motivoCargaFallida = existia
                     ? "config.yml exists but couldn't be read: " + e
                     : "config.yml couldn't be created or read: " + e;
@@ -235,7 +228,6 @@ public final class ConfigManager {
             for (int i = 0; i < lines.size(); i++) {
                 String raw = lines.get(i);
                 String t = raw.trim();
-
                 if (t.isEmpty() || t.startsWith("#")) continue;
                 boolean nivelCero = !Character.isWhitespace(raw.charAt(0));
                 if (nivelCero) enBackend = t.startsWith("backend:");
@@ -249,7 +241,6 @@ public final class ConfigManager {
                 }
             }
             if (!replaced) lines.add(keyLine);
-
             Files.write(tmp, lines);
             try {
                 Files.move(tmp, file, java.nio.file.StandardCopyOption.ATOMIC_MOVE,
@@ -258,7 +249,6 @@ public final class ConfigManager {
                 Files.move(tmp, file, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
             }
             load();
-
             if (!clean.equals(getString("backend.license-key", ""))) {
                 logger.warn("The license key was written but it is not the one in use; check {} for a duplicate.",
                         FILE_NAME);

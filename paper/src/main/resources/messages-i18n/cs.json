@@ -76,5 +76,8 @@
   "cmd.diagBans": "Načtené bloky",
   "cmd.diagConfig": "Konfigurační soubor",
   "cmd.diagConfigStale": "nešel načíst: platí předchozí nastavení, ne to na disku. Zkontroluj konzoli a spusť /antivpn reload",
-  "cmd.diagAllOk": "Vše funguje. Není co řešit."
+  "cmd.diagAllOk": "Vše funguje. Není co řešit.",
+  "log.link.notLinked": "Jarvis zatím není propojen, takže vás NECHRÁNÍ.",
+  "log.link.open": "Otevřete tento odkaz a přihlaste se pro propojení (jedno kliknutí, bez klíče):",
+  "log.link.manual": "(ruční alternativa:  /antivpn key <licence> )"
 }

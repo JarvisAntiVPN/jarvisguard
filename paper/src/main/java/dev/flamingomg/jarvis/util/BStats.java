@@ -50,7 +50,6 @@ public final class BStats {
                 "bukkit", uuidServidor, serviceId, activo,
                 this::datosDePlataforma,
                 this::datosDelPlugin,
-
                 tarea -> Schedulers.global(plugin, tarea),
                 plugin::isEnabled,
                 (mensaje, error) -> plugin.getLogger().log(Level.WARNING, mensaje, error),

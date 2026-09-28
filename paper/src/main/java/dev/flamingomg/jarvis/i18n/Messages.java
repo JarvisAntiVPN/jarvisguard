@@ -32,7 +32,6 @@ public final class Messages {
                 if (o != null) for (Map.Entry<String, com.google.gson.JsonElement> e : o.entrySet()) m.put(e.getKey(), e.getValue().getAsString());
             }
         } catch (Exception ignored) {
-
         }
         return m;
     }
@@ -40,13 +39,20 @@ public final class Messages {
     public static String normalize(String locale) {
         if (locale == null) return DEFAULT;
         String l = locale.trim().toLowerCase(Locale.ROOT);
-
         if (l.startsWith("zh")) {
             return (l.contains("hant") || l.contains("-tw") || l.contains("-hk") || l.contains("-mo")) ? "zh-hant" : "zh";
         }
         int dash = l.indexOf('-');
         if (dash > 0) l = l.substring(0, dash);
         return SUPPORTED.contains(l) ? l : DEFAULT;
+    }
+
+    public static String localeDeLaMaquina() {
+        try {
+            return normalize(Locale.getDefault().toLanguageTag());
+        } catch (Throwable t) {
+            return DEFAULT;
+        }
     }
 
     public static String get(String locale, String key) {

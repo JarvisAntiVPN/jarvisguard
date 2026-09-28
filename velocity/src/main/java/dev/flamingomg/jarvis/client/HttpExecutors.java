@@ -28,7 +28,6 @@ public final class HttpExecutors {
         ThreadPoolExecutor pool = new ThreadPoolExecutor(HTTP_MAX_THREADS, HTTP_MAX_THREADS,
                 60L, TimeUnit.SECONDS, new LinkedBlockingQueue<>(HTTP_QUEUE_CAPACITY), factory,
                 new ThreadPoolExecutor.CallerRunsPolicy());
-
         pool.allowCoreThreadTimeOut(true);
         return pool;
     }
@@ -37,14 +36,12 @@ public final class HttpExecutors {
 
     public static void closeQuietly(HttpClient http) {
         if (http == null) return;
-
         java.lang.reflect.Method shutdown, shutdownNow, awaitTermination;
         try {
             shutdown = HttpClient.class.getMethod("shutdown");
             shutdownNow = HttpClient.class.getMethod("shutdownNow");
             awaitTermination = HttpClient.class.getMethod("awaitTermination", java.time.Duration.class);
         } catch (NoSuchMethodException javaAnteriorA21) {
-
             return;
         }
         boolean interrumpido = false;
@@ -56,12 +53,10 @@ public final class HttpExecutors {
                 awaitTermination.invoke(http, java.time.Duration.ofMillis(200L));
             }
         } catch (Exception e) {
-
             Throwable causa = e.getCause();
             if (causa instanceof InterruptedException) interrumpido = true;
             try { shutdownNow.invoke(http); } catch (Exception ignored) { }
         } finally {
-
             if (interrumpido) Thread.currentThread().interrupt();
         }
     }

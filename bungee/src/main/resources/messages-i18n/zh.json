@@ -76,5 +76,8 @@
   "cmd.diagBans": "已加载的封锁",
   "cmd.diagConfig": "配置文件",
   "cmd.diagConfigStale": "读取失败：当前使用的是之前的设置，而不是磁盘上的。请查看控制台并执行 /antivpn reload",
-  "cmd.diagAllOk": "一切正常，无需处理。"
+  "cmd.diagAllOk": "一切正常，无需处理。",
+  "log.link.notLinked": "Jarvis 尚未关联，因此并未为你提供保护。",
+  "log.link.open": "打开此链接并登录即可关联（一次点击，无需密钥）：",
+  "log.link.manual": "（手动方式：  /antivpn key <许可证> ）"
 }

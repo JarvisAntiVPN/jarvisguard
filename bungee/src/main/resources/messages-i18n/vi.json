@@ -76,5 +76,8 @@
   "cmd.diagBans": "Số chặn đã tải",
   "cmd.diagConfig": "Tệp cấu hình",
   "cmd.diagConfigStale": "không đọc được: đang dùng thiết lập trước đó, không phải trên đĩa. Xem console và chạy /antivpn reload",
-  "cmd.diagAllOk": "Mọi thứ đang hoạt động. Không cần làm gì."
+  "cmd.diagAllOk": "Mọi thứ đang hoạt động. Không cần làm gì.",
+  "log.link.notLinked": "Jarvis chưa được liên kết nên CHƯA bảo vệ bạn.",
+  "log.link.open": "Mở liên kết này và đăng nhập để liên kết (một cú nhấp, không cần khóa):",
+  "log.link.manual": "(cách thủ công:  /antivpn key <giấy phép> )"
 }

@@ -17,7 +17,6 @@ public final class MarcaDeCliente {
 
     public static Paso paso(String marca, boolean sigueConectado, int intento, int maxIntentos) {
         if (marca != null && !marca.isBlank()) return Paso.MANDAR;
-
         if (!sigueConectado) return Paso.MANDAR;
         return intento >= maxIntentos ? Paso.MANDAR : Paso.ESPERAR;
     }

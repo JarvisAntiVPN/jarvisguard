@@ -25,7 +25,6 @@ public final class ProtectionWatch {
         if (estado == null || estado.isProtecting() || estado == ProtectionState.BEHIND_PROXY) {
             if (inicioEpisodio == 0L) return new String[0];
             if (sanoDesde == 0L) sanoDesde = ahoraMs;
-
             if (ahoraMs - sanoDesde >= RECUPERACION_MS) olvida();
             return new String[0];
         }

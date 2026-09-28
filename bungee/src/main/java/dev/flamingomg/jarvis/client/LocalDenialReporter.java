@@ -25,9 +25,7 @@ public final class LocalDenialReporter {
     public static final String MAX_PER_IP = "MAX_PER_IP";
 
     static final int MAX_KEYS = 2_000;
-
     static final int MAX_BATCH = 200;
-
     static final long FLUSH_INTERVAL_MS = 60_000L;
 
     private static final char SEP = (char) 0x1F;
@@ -65,12 +63,10 @@ public final class LocalDenialReporter {
             String key = reason + SEP + ip + SEP + name;
             AtomicInteger c = counters.get(key);
             if (c != null) { c.incrementAndGet(); return; }
-
             if (counters.size() >= MAX_KEYS) { descartadas.incrementAndGet(); return; }
             AtomicInteger previo = counters.putIfAbsent(key, new AtomicInteger(1));
             if (previo != null) previo.incrementAndGet();
         } catch (Throwable ignored) {
-
         }
     }
 
@@ -100,7 +96,6 @@ public final class LocalDenialReporter {
             List<Entry> lote = drain();
             if (!lote.isEmpty() && sender != null) sender.send(lote);
         } catch (Throwable ignored) {
-
         }
     }
 }

@@ -76,5 +76,8 @@
   "cmd.diagBans": "Įkelti blokavimai",
   "cmd.diagConfig": "Konfigūracijos failas",
   "cmd.diagConfigStale": "nepavyko perskaityti: galioja ankstesni nustatymai, ne tie, kurie diske. Patikrink konsolę ir paleisk /antivpn reload",
-  "cmd.diagAllOk": "Viskas veikia. Nieko daryti nereikia."
+  "cmd.diagAllOk": "Viskas veikia. Nieko daryti nereikia.",
+  "log.link.notLinked": "Jarvis dar nesusietas, todėl jūsų NEAPSAUGO.",
+  "log.link.open": "Atidarykite šią nuorodą ir prisijunkite, kad susietumėte (vienas paspaudimas, be rakto):",
+  "log.link.manual": "(rankinis būdas:  /antivpn key <licencija> )"
 }

@@ -76,5 +76,8 @@
   "cmd.diagBans": "Blocchi caricati",
   "cmd.diagConfig": "File di configurazione",
   "cmd.diagConfigStale": "non leggibile: sono attive le impostazioni precedenti, non quelle su disco. Controlla la console ed esegui /antivpn reload",
-  "cmd.diagAllOk": "Funziona tutto. Non c'è niente da fare."
+  "cmd.diagAllOk": "Funziona tutto. Non c'è niente da fare.",
+  "log.link.notLinked": "Jarvis non è ancora collegato, quindi NON ti sta proteggendo.",
+  "log.link.open": "Apri questo link e accedi per collegarlo (un clic, senza chiave):",
+  "log.link.manual": "(alternativa manuale:  /antivpn key <licenza> )"
 }

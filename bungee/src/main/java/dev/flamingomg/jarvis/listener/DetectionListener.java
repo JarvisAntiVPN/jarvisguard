@@ -82,7 +82,6 @@ public final class DetectionListener implements Listener {
             String clave = IntencionDeConexion.clave(a);
             if (clave != null) intencionPorConexion.put(clave, valor);
         } catch (Throwable ignored) {
-
         }
     }
 
@@ -90,7 +89,6 @@ public final class DetectionListener implements Listener {
             Caffeine.newBuilder().maximumSize(20_000).build();
 
     private final Cache<String, Boolean> bypassNames =
-
             Caffeine.newBuilder().maximumSize(10_000).expireAfterAccess(java.time.Duration.ofDays(7)).build();
 
     private final Cache<String, String> ultimoBloqueo;
@@ -106,7 +104,6 @@ public final class DetectionListener implements Listener {
         this.logger = logger;
         this.floodGuard = floodGuard;
         this.banCache = banCache;
-
         long recuerdoMin = Math.min(Math.max(0, config.getInt("bans.remember-kick-minutes", 1440)), 43_200);
         this.ultimoBloqueo = Caffeine.newBuilder()
                 .maximumSize(10_000)
@@ -123,12 +120,12 @@ public final class DetectionListener implements Listener {
 
         String ip   = addr.getAddress().getHostAddress();
         String name = conn.getName();
-
         for (String l : privateIpWatch.lineas(ip, System.currentTimeMillis())) logger.warn(l);
+        final boolean ipDeInternet = !dev.flamingomg.jarvis.detection.PrivateIpWatch.noEsDeInternet(ip);
         UUID uuid   = conn.getUniqueId();
 
-        boolean bedrock = (uuid != null && bedrockDetector.isBedrockPlayer(uuid))
-                || bedrockDetector.isBedrockUsername(name);
+        boolean bedrockApi = uuid != null && bedrockDetector.isBedrockPlayer(uuid);
+        boolean bedrock = bedrockApi || bedrockDetector.isBedrockUsername(name);
 
         if (isBypassed(name) || (name != null && bypassNames.getIfPresent(name.toLowerCase(java.util.Locale.ROOT)) != null)) return;
 
@@ -136,7 +133,7 @@ public final class DetectionListener implements Listener {
 
         boolean reservedIp = false;
         if (!bedrockBypass) {
-            if (floodGuard.checkAndRecord(ip)) {
+            if (ipDeInternet && floodGuard.checkAndRecord(ip)) {
                 client.denials().record(dev.flamingomg.jarvis.client.LocalDenialReporter.FLOOD, ip, name);
                 String msg = config.getString("messages.flood",
                         dev.flamingomg.jarvis.i18n.Messages.get(client.locale(), "flood"));
@@ -144,11 +141,9 @@ public final class DetectionListener implements Listener {
                 event.setCancelReason(serialize(renderBrandedLocal(msg, name)));
                 return;
             }
-
             if (banCache.isBannedFor(ip, name)) {
                 client.denials().record(dev.flamingomg.jarvis.client.LocalDenialReporter.LOCAL_BAN, ip, name);
                 event.setCancelled(true);
-
                 String recordado = ultimoBloqueo.getIfPresent(claveBloqueo(ip, name));
                 if (recordado != null) {
                     event.setCancelReason(serialize(renderBranded(recordado)));
@@ -160,8 +155,7 @@ public final class DetectionListener implements Listener {
             }
 
             int maxPerIp = client.maxAccountsPerIp();
-            if (maxPerIp > 0) {
-
+            if (maxPerIp > 0 && ipDeInternet) {
                 int connecting = connectingByIp.merge(ip, 1, Integer::sum);
                 reservedIp = true;
                 if (superaAforo(connecting, connectedByIp.getOrDefault(ip, 0), maxPerIp)) {
@@ -180,12 +174,14 @@ public final class DetectionListener implements Listener {
 
         boolean premium = conn.isOnlineMode();
         final boolean bedrockFinal = bedrock;
+        final Boolean bedrockApiFinal = bedrockApi;
+        final String  uuidFinal = uuid == null ? null : uuid.toString();
 
         event.registerIntent(plugin);
 
         final java.util.concurrent.CompletableFuture<dev.flamingomg.jarvis.model.VerdictResponse> verdictFuture;
         try {
-            verdictFuture = client.requestVerdictAsync(ip, name, bedrockFinal, premium);
+            verdictFuture = client.requestVerdictAsync(ip, name, bedrockFinal, premium, bedrockApiFinal, uuidFinal);
         } catch (Throwable t) {
             if (reserved) releaseConnecting(ip);
             logger.warn("Error starting the verdict for {} ({}): {}", name, ip, t.getMessage());
@@ -198,7 +194,7 @@ public final class DetectionListener implements Listener {
                 if (err != null || verdict == null) {
 
                     logger.debug("Error getting the verdict for {} ({}): {}",
-                            name, ip, (err != null ? err.getMessage() : "respuesta nula"));
+                            name, ip, (err != null ? err.getMessage() : "null response"));
                     applyFallbackPolicy(event, name, ip);
                     return;
                 }
@@ -218,14 +214,11 @@ public final class DetectionListener implements Listener {
                 }
 
                 if (type.denies()) {
-
                     if (!Boolean.FALSE.equals(verdict.cacheIp())) {
-
                         banCache.ban(ip, motivoParaRecordar(verdict.msgKey()));
                     }
                     event.setCancelled(true);
                     if (verdict.message() != null) {
-
                         ultimoBloqueo.put(claveBloqueo(ip, name), verdict.message());
                         event.setCancelReason(serialize(renderBranded(verdict.message())));
                     } else {
@@ -238,7 +231,6 @@ public final class DetectionListener implements Listener {
             } catch (Exception e) {
 
                 logger.warn("Exception applying the verdict for {} ({}): {}", name, ip, e.getMessage());
-
                 applyFallbackPolicy(event, name, ip);
             } finally {
                 if (reserved) releaseConnecting(ip);
@@ -248,7 +240,6 @@ public final class DetectionListener implements Listener {
     }
 
     private void applyFallbackPolicy(LoginEvent event, String name, String ip) {
-
     }
 
     @EventHandler
@@ -261,7 +252,6 @@ public final class DetectionListener implements Listener {
 
         String lname = player.getName().toLowerCase(java.util.Locale.ROOT);
         if (player.hasPermission("jarvis.bypass")) bypassNames.put(lname, Boolean.TRUE);
-
         else bypassNames.invalidate(lname);
     }
 
@@ -358,7 +348,6 @@ public final class DetectionListener implements Listener {
             }
 
             String locale = player.getLocale() != null ? player.getLocale().toLanguageTag() : null;
-
             Integer viewDistance = null;
             String chatMode = null;
             try { viewDistance = (int) player.getViewDistance(); } catch (Throwable ignored) {}
@@ -418,7 +407,6 @@ public final class DetectionListener implements Listener {
     }
 
     private Component renderBranded(String msg) {
-
         if (msg != null && msg.contains("jarvisguard.com")) return render(msg);
         return render(msg).append(brandingFor(client.locale()));
     }
@@ -426,7 +414,6 @@ public final class DetectionListener implements Listener {
     private String textoBloqueoLocal(String ip) {
         String motivo = banCache.msgKeyDe(ip);
         String delPanel = client.offlineMessage(motivo);
-
         String propio = dev.flamingomg.jarvis.i18n.Messages.get(client.locale(), claveTextoLocal(motivo));
         return config.getString("messages.block", delPanel != null ? delPanel : propio);
     }
@@ -477,7 +464,6 @@ public final class DetectionListener implements Listener {
     }
 
     public void init() {
-
         proxy.getScheduler().schedule(plugin, this::reconcile, 0, 15, TimeUnit.SECONDS);
     }
 
@@ -497,13 +483,11 @@ public final class DetectionListener implements Listener {
     }
 
     private boolean isBypassed(String username) {
-
         return username != null && config.bypassUsernames().contains(username.toLowerCase(java.util.Locale.ROOT));
     }
 
     private static final java.util.Set<String> MOTIVOS = java.util.Set.of(
             "vpn_proxy", "mobile_hotspot", "lockdown", "invalid_username", "block", "game_relay",
-
             "home_country");
 
     static String claveTextoLocal(String motivo) {
@@ -558,7 +542,6 @@ public final class DetectionListener implements Listener {
 
     private void notifyStaff(String name, String ip, String msgKey) {
         if (!client.notifyStaffEnabled()) return;
-
         String safeName = (name != null) ? name : "?";
         String safeIp   = (ip != null) ? ip : "?";
         String template = config.getString("messages.staff-notify",
@@ -568,7 +551,6 @@ public final class DetectionListener implements Listener {
                 textoStaff(template, safeName, safeIp, motivoLegible(msgKey)));
         BaseComponent[] serialized = serialize(notification);
         proxy.getPlayers().stream()
-
                 .filter(p -> p.hasPermission(client.notifyPermission()) || p.hasPermission("jarvis.admin"))
                 .forEach(p -> p.sendMessage(serialized));
     }
@@ -594,6 +576,17 @@ public final class DetectionListener implements Listener {
         String ip   = addr.getAddress().getHostAddress();
         String name = player.getName();
 
+        if (proxyApagandose(proxy)) client.marcarApagando();
         proxy.getScheduler().runAsync(plugin, () -> client.reportSessionEnd(name, ip, durationMs));
+    }
+
+    static boolean proxyApagandose(Object proxy) {
+        if (proxy == null) return false;
+        try {
+            java.lang.reflect.Field f = proxy.getClass().getField("isRunning");
+            return !f.getBoolean(proxy);
+        } catch (Throwable t) {
+            return false;
+        }
     }
 }

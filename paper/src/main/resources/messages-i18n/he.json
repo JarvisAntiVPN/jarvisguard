@@ -76,5 +76,8 @@
   "cmd.diagBans": "חסימות שנטענו",
   "cmd.diagConfig": "קובץ ההגדרות",
   "cmd.diagConfigStale": "לא ניתן היה לקרוא: בשימוש ההגדרות הקודמות, לא אלו שבדיסק. בדוק את הקונסולה והרץ /antivpn reload",
-  "cmd.diagAllOk": "הכול עובד. אין מה לעשות."
+  "cmd.diagAllOk": "הכול עובד. אין מה לעשות.",
+  "log.link.notLinked": "Jarvis עדיין לא מקושר, ולכן הוא לא מגן עליך.",
+  "log.link.open": "פתח את הקישור הזה והתחבר כדי לקשר (לחיצה אחת, בלי מפתח):",
+  "log.link.manual": "(דרך ידנית:  /antivpn key <רישיון> )"
 }

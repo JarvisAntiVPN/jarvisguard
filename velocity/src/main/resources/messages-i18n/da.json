@@ -76,5 +76,8 @@
   "cmd.diagBans": "Indlæste blokeringer",
   "cmd.diagConfig": "Konfigurationsfil",
   "cmd.diagConfigStale": "kunne ikke læses: de tidligere indstillinger bruges, ikke dem på disken. Se konsollen og kør /antivpn reload",
-  "cmd.diagAllOk": "Alt virker. Der er intet at gøre."
+  "cmd.diagAllOk": "Alt virker. Der er intet at gøre.",
+  "log.link.notLinked": "Jarvis er endnu ikke tilknyttet og beskytter dig derfor IKKE.",
+  "log.link.open": "Åbn dette link og log ind for at tilknytte (ét klik, ingen nøgle):",
+  "log.link.manual": "(manuel mulighed:  /antivpn key <licens> )"
 }

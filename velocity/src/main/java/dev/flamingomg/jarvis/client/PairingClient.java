@@ -18,7 +18,6 @@ public final class PairingClient {
 
     private final ConfigManager config;
     private final Log logger;
-
     private final java.util.concurrent.ExecutorService httpExecutor =
             HttpExecutors.daemonHttpExecutor("jarvis-pair");
     private final HttpClient http = HttpClient.newBuilder()
@@ -94,11 +93,13 @@ public final class PairingClient {
                             .timeout(Duration.ofSeconds(8)).header("Content-Type", "application/json")
                             .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8)).build(),
                     HttpResponse.BodyHandlers.ofString());
-            if (r.statusCode() != 200) return new String[]{"error", null};
+            if (r.statusCode() != 200) return new String[]{"error", null, null};
             Map<?, ?> m = GSON.fromJson(r.body(), Map.class);
-            return new String[]{m == null ? "error" : str(m.get("status")), m == null ? null : str(m.get("licenseKey"))};
+            return new String[]{m == null ? "error" : str(m.get("status")),
+                                m == null ? null : str(m.get("licenseKey")),
+                                m == null ? null : str(m.get("locale"))};
         } catch (Exception e) {
-            return new String[]{"error", null};
+            return new String[]{"error", null, null};
         }
     }
 

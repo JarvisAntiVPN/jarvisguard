@@ -76,5 +76,8 @@
   "cmd.diagBans": "Geladene Sperren",
   "cmd.diagConfig": "Konfigurationsdatei",
   "cmd.diagConfigStale": "konnte nicht gelesen werden: es gelten die vorherigen Einstellungen, nicht die auf der Festplatte. Prüfe die Konsole und führe /antivpn reload aus",
-  "cmd.diagAllOk": "Alles funktioniert. Nichts zu tun."
+  "cmd.diagAllOk": "Alles funktioniert. Nichts zu tun.",
+  "log.link.notLinked": "Jarvis ist noch nicht verknüpft und schützt dich daher NICHT.",
+  "log.link.open": "Öffne diesen Link und melde dich an, um ihn zu verknüpfen (ein Klick, kein Schlüssel):",
+  "log.link.manual": "(manuelle Alternative:  /antivpn key <Lizenz> )"
 }

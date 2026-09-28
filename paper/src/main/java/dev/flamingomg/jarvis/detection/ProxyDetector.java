@@ -14,7 +14,6 @@ public final class ProxyDetector {
     public static boolean behindProxy(Log logger) {
         return boolAt(logger, "spigot.yml",               "settings", "bungeecord")
             || boolAt(logger, "config/paper-global.yml",  "proxies", "velocity", "enabled")
-
             || boolAt(logger, "paper.yml",                "settings", "velocity-support", "enabled");
     }
 

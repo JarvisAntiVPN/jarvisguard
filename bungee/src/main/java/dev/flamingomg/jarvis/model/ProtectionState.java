@@ -11,9 +11,7 @@ public enum ProtectionState {
     ACTIVE;
 
     public static ProtectionState of(boolean canSign, boolean backendHealthy, boolean ipCheckDisabled) {
-
         if (!canSign) return NO_KEY;
-
         if (ipCheckDisabled) return BEHIND_PROXY;
         return backendHealthy ? ACTIVE : DEGRADED;
     }

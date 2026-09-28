@@ -66,21 +66,17 @@ public final class AntiVpnCommand implements SimpleCommand {
             case "reload"    -> {
 
                 if (!src.hasPermission("jarvis.admin")) { noPermission(src); return; }
-
                 if (!config.reload()) {
                     src.sendMessage(pre().append(Component.text(m("cmd.reloadFail"), NamedTextColor.RED)));
                     return;
                 }
-
                 floodGuard.reconfigure();
                 banCache.reconfigure();
                 client.cache().invalidateAll();
-
                 proxy.getScheduler().buildTask(plugin, () -> {
                     client.ensureReady();
                     client.fetchAndSyncBans(banCache);
                     client.refreshConfig();
-
                     syncClient.reconnectIfKeyChanged();
                 }).schedule();
                 src.sendMessage(pre().append(Component.text(m("cmd.reloaded"), NamedTextColor.GREEN)));
@@ -112,12 +108,10 @@ public final class AntiVpnCommand implements SimpleCommand {
                 client.fetchAndSyncBans(banCache);
                 src.sendMessage(pre().append(Component.text(m("cmd.active"), NamedTextColor.GREEN)));
             } else if (client.keyRejected()) {
-
                 src.sendMessage(pre().append(Component.text(m("cmd.keyrejected"), NamedTextColor.RED)));
             } else {
                 src.sendMessage(pre().append(Component.text(m("cmd.validatefail"), NamedTextColor.YELLOW)));
             }
-
             syncClient.reconnectIfKeyChanged();
         }).schedule();
     }
@@ -127,13 +121,11 @@ public final class AntiVpnCommand implements SimpleCommand {
         src.sendMessage(pre().append(Component.text(m("cmd.statsTitle"), NamedTextColor.AQUA)));
 
         var estado = client.protectionState();
-
         if (estado.isProtecting()) {
             src.sendMessage(pre().append(Component.text(m("cmd.protected"), NamedTextColor.GREEN)));
         } else {
             switch (estado) {
                 case DEGRADED -> {
-
                     src.sendMessage(pre().append(Component.text(m("cmd.degraded"), NamedTextColor.YELLOW)));
                     src.sendMessage(pre().append(Component.text(m("cmd.degradedWhy"), NamedTextColor.GRAY)));
                 }
@@ -152,7 +144,6 @@ public final class AntiVpnCommand implements SimpleCommand {
         src.sendMessage(kv(m("cmd.ipcache"), String.valueOf(client.cache().estimatedSize())));
         src.sendMessage(kv(m("cmd.blockedips"), String.valueOf(banCache.size())));
         src.sendMessage(kv(m("cmd.online"), String.valueOf(proxy.getPlayerCount())));
-
     }
 
     private void doctor(CommandSource src) {
@@ -167,6 +158,7 @@ public final class AntiVpnCommand implements SimpleCommand {
                 syncClient.streamVivo(),
                 syncClient.ultimoRechazo(),
                 listener.privateIpWatch().privadaReciente(ahora, VENTANA_IP_PRIVADA_MS),
+                listener.privateIpWatch().algunaVista(),
                 banCache.size(),
                 config.motivoCargaFallida());
 
@@ -187,7 +179,6 @@ public final class AntiVpnCommand implements SimpleCommand {
             case AVISO  -> NamedTextColor.YELLOW;
             case FALLO  -> NamedTextColor.RED;
         };
-
         String marca = switch (l.nivel()) {
             case OK     -> "✔";
             case NEUTRO -> "–";
@@ -230,10 +221,8 @@ public final class AntiVpnCommand implements SimpleCommand {
     static ResumenLista resumirLista(dev.flamingomg.jarvis.client.JarvisClient.RespuestaLista r, boolean remove,
                                      String claveOk, String objetivo, String ecoTiempo,
                                      java.util.function.UnaryOperator<String> tr, long ahoraMs) {
-
         List<String> detalles = new java.util.ArrayList<>(2);
         if (Boolean.FALSE.equals(r.saved())) {
-
             return new ResumenLista(Tono.FALLO, tr.apply("cmd.notSaved") + " " + objetivo, detalles);
         }
         boolean nadaQueQuitar = remove && Boolean.FALSE.equals(r.found());
@@ -297,7 +286,6 @@ public final class AntiVpnCommand implements SimpleCommand {
             return;
         }
         String target = args[1];
-
         if (target.length() > 32) {
             src.sendMessage(pre().append(Component.text(m("cmd.blacklistTooLong"), NamedTextColor.RED)));
             return;
@@ -331,7 +319,6 @@ public final class AntiVpnCommand implements SimpleCommand {
             return;
         }
         String target = args[1];
-
         if (target.length() > 32) {
             src.sendMessage(pre().append(Component.text(m("cmd.blacklistTooLong"), NamedTextColor.RED)));
             return;
@@ -370,7 +357,6 @@ public final class AntiVpnCommand implements SimpleCommand {
             String q = args.length == 0 ? "" : args[0].toLowerCase(Locale.ROOT);
             return SUB.stream().filter(s -> s.startsWith(q)).collect(Collectors.toList());
         }
-
         if (args.length == 2 && autocompletaJugador(args[0]) && puedeModerar(inv.source())) {
             return filtrarNombres(proxy.getAllPlayers().stream()
                     .map(Player::getUsername).collect(Collectors.toList()), args[1]);

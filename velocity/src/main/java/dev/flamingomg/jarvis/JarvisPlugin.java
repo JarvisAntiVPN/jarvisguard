@@ -34,7 +34,7 @@ import java.nio.file.Path;
 )
 public final class JarvisPlugin {
 
-    public static final String VERSION = "0.5.25";
+    public static final String VERSION = "0.5.26";
 
     private static final int BSTATS_PLUGIN_ID = 31671;
 
@@ -52,10 +52,13 @@ public final class JarvisPlugin {
     private com.velocitypowered.api.scheduler.ScheduledTask pairTask;
     private volatile String pairDeviceCode;
     private volatile long pairExpiresAt;
-    private boolean pairBannerShown = false;
-
+    private String pairVerificationUri;
+    private long pairBannerNextAt = 0L;
+    private String pairLocale;
+    private final dev.flamingomg.jarvis.client.AvisoSinVincular avisoSinVincular =
+            new dev.flamingomg.jarvis.client.AvisoSinVincular();
+    private static final long PAIR_BANNER_REPEAT_MS = 600_000L;
     private long pairNextStartAt = 0L;
-
     private long pairNextPollAt = System.nanoTime();
     private long pairPollIntervalNanos = dev.flamingomg.jarvis.client.PairingClient.intervaloPollNanos(0);
     private int  pairStartFails = 0;
@@ -80,9 +83,7 @@ public final class JarvisPlugin {
         BedrockDetector bedrockDetector = new BedrockDetector(proxy, config, logger);
         FloodGuard floodGuard = new FloodGuard(config);
         this.banCache = new BanCache(config, logger);
-
         jarvisClient.setBanCacheParaExentos(this.banCache);
-
         this.syncClient = new SyncClient(config, logger, jarvisClient, banCache, proxy);
 
         DetectionListener detectionListener = new DetectionListener(proxy, this, jarvisClient, bedrockDetector,
@@ -103,7 +104,6 @@ public final class JarvisPlugin {
             try {
                 metricsFactory.make(this, BSTATS_PLUGIN_ID);
                 logger.debug("bStats metrics enabled.");
-
             } catch (Throwable t) {
                 logger.warn("Couldn't start bStats metrics: {}", t.toString());
             }
@@ -139,11 +139,8 @@ public final class JarvisPlugin {
     }
 
     private void startPairingFlow() {
-        requestAndPrintPairing();
-
         this.pairTask = proxy.getScheduler().buildTask(this, this::pairTick)
                 .repeat(5, java.util.concurrent.TimeUnit.SECONDS)
-                .delay(5, java.util.concurrent.TimeUnit.SECONDS)
                 .schedule();
     }
 
@@ -152,7 +149,6 @@ public final class JarvisPlugin {
         dev.flamingomg.jarvis.client.PairingClient.Start s = pairing.start(null, server, VERSION);
         if (s == null || s.verificationUri() == null) {
             pairDeviceCode = null;
-
             pairStartFails = Math.min(pairStartFails + 1, 6);
             pairNextStartAt = System.currentTimeMillis() + Math.min(300_000L, 5_000L * (1L << pairStartFails));
             if (!pairWarned) {
@@ -170,20 +166,77 @@ public final class JarvisPlugin {
         pairExpiresAt = dev.flamingomg.jarvis.client.PairingClient.caducidadMs(ahoraPar, s.expiresIn());
         pairPollIntervalNanos = dev.flamingomg.jarvis.client.PairingClient.intervaloPollNanos(s.interval());
         pairNextPollAt = System.nanoTime();
-        if (!pairBannerShown) {
-            pairBannerShown = true;
-            logger.warn("");
-            logger.warn("==================== JARVIS · LINK PROXY ====================");
-            logger.warn("  This proxy isn't linked yet. Open this link and sign in");
-            logger.warn("  to bind it to your server (one click, no key to paste):");
-            logger.warn("");
-            logger.warn("    {}", s.verificationUri());
-            logger.warn("");
-            logger.warn("  (manual alternative:  /antivpn key <license> )");
-            logger.warn("============================================================");
-        } else {
-            logger.warn("Linking link renewed (the previous one expired): {}", s.verificationUri());
+        pairVerificationUri = s.verificationUri();
+        printPairingBanner();
+        avisarSinVincularATodos();
+    }
+
+    @Subscribe
+    public void onPostLogin(com.velocitypowered.api.event.connection.PostLoginEvent event) {
+        com.velocitypowered.api.proxy.Player p = event.getPlayer();
+        if (pairDeviceCode == null) return;
+        proxy.getScheduler().buildTask(this, () -> { if (p.isActive()) avisarSinVincular(p); })
+                .delay(5, java.util.concurrent.TimeUnit.SECONDS).schedule();
+    }
+
+    private void avisarSinVincular(com.velocitypowered.api.proxy.Player p) {
+        String enlace = pairVerificationUri;
+        long ahora = System.currentTimeMillis();
+        if (pairDeviceCode == null
+                || !dev.flamingomg.jarvis.client.AvisoSinVincular.enlaceUtil(enlace, pairExpiresAt, ahora)) return;
+        if (!p.hasPermission("jarvis.admin")) return;
+        dev.flamingomg.jarvis.client.AvisoSinVincular.Contenido que =
+                dev.flamingomg.jarvis.client.AvisoSinVincular.queEnsenar(p.isOnlineMode(), false);
+        if (que == dev.flamingomg.jarvis.client.AvisoSinVincular.Contenido.NADA) return;
+        if (!avisoSinVincular.tocaAvisar(p.getUniqueId(), ahora)) return;
+        java.util.Locale idioma = p.getEffectiveLocale();
+        java.util.List<String> l = dev.flamingomg.jarvis.client.AvisoSinVincular.lineas(
+                idioma != null ? idioma.toLanguageTag() : pairLocale);
+        net.kyori.adventure.text.Component pre = net.kyori.adventure.text.Component.text("[Jarvis] ",
+                net.kyori.adventure.text.format.NamedTextColor.AQUA, net.kyori.adventure.text.format.TextDecoration.BOLD);
+        p.sendMessage(net.kyori.adventure.text.Component.empty().append(pre).append(net.kyori.adventure.text.Component
+                .text(l.get(0), net.kyori.adventure.text.format.NamedTextColor.RED)));
+        if (que == dev.flamingomg.jarvis.client.AvisoSinVincular.Contenido.CON_ENLACE) {
+            p.sendMessage(net.kyori.adventure.text.Component.empty().append(pre)
+                    .append(net.kyori.adventure.text.Component.text(l.get(1) + " ",
+                            net.kyori.adventure.text.format.NamedTextColor.YELLOW))
+                    .append(net.kyori.adventure.text.Component.text(enlace, net.kyori.adventure.text.format.NamedTextColor.AQUA)
+                            .decorate(net.kyori.adventure.text.format.TextDecoration.UNDERLINED)
+                            .clickEvent(net.kyori.adventure.text.event.ClickEvent.openUrl(enlace))));
         }
+        p.sendMessage(net.kyori.adventure.text.Component.empty().append(pre).append(net.kyori.adventure.text.Component
+                .text(l.get(2), net.kyori.adventure.text.format.NamedTextColor.GRAY)));
+    }
+
+    private void avisarSinVincularATodos() {
+        for (com.velocitypowered.api.proxy.Player p : proxy.getAllPlayers()) avisarSinVincular(p);
+    }
+
+    private void printPairingBanner() {
+        pairBannerNextAt = System.currentTimeMillis() + PAIR_BANNER_REPEAT_MS;
+        String loc = pairLocale != null ? pairLocale : dev.flamingomg.jarvis.i18n.Messages.localeDeLaMaquina();
+        logger.warn("");
+        logger.warn("==================== JARVIS · LINK PROXY ====================");
+        logger.warn("  {}", dev.flamingomg.jarvis.i18n.Messages.get(loc, "log.link.notLinked"));
+        logger.warn("  {}", dev.flamingomg.jarvis.i18n.Messages.get(loc, "log.link.open"));
+        logger.warn("");
+        logger.warn("    {}", pairVerificationUri);
+        logger.warn("");
+        logger.warn("  {}", dev.flamingomg.jarvis.i18n.Messages.get(loc, "log.link.manual"));
+        logger.warn("============================================================");
+    }
+
+    private void anotarLocaleDelDueno(String loc) {
+        if (loc == null || loc.isBlank()) return;
+        if (loc.equals(pairLocale)) return;
+        pairLocale = loc;
+        pairBannerNextAt = 0L;
+    }
+
+    private void recordarVinculacionSiToca() {
+        if (pairVerificationUri == null) return;
+        if (System.currentTimeMillis() < pairBannerNextAt) return;
+        printPairingBanner();
     }
 
     private final java.util.concurrent.atomic.AtomicBoolean pairTickEnCurso =
@@ -207,14 +260,15 @@ public final class JarvisPlugin {
             requestAndPrintPairing();
             return;
         }
+        recordarVinculacionSiToca();
 
         long ahoraPoll = System.nanoTime();
         if (!dev.flamingomg.jarvis.client.PairingClient.tocaSondear(ahoraPoll, pairNextPollAt)) return;
         pairNextPollAt = ahoraPoll + pairPollIntervalNanos;
         String[] res = pairing.poll(pairDeviceCode);
+        if (res.length > 2) anotarLocaleDelDueno(res[2]);
         switch (res[0] == null ? "error" : res[0]) {
             case "approved" -> {
-
                 if (res[1] != null && !res[1].isBlank() && applyPairedKey(res[1])) stopPairing();
             }
             case "denied", "expired" -> pairDeviceCode = null;
@@ -226,7 +280,6 @@ public final class JarvisPlugin {
         if (!config.setKey(key)) { logger.warn("Couldn't save the linked key."); return false; }
         proxy.getScheduler().buildTask(this, () -> {
             boolean ok = jarvisClient.ensureReady();
-
             if (ok) {
                 jarvisClient.fetchAndSyncBans(banCache);
                 logger.info("================================================================");
@@ -242,6 +295,9 @@ public final class JarvisPlugin {
     private void stopPairing() {
         if (pairTask != null) { pairTask.cancel(); pairTask = null; }
         pairDeviceCode = null;
+        pairVerificationUri = null;
+        pairLocale = null;
+        avisoSinVincular.olvidarTodo();
     }
 
     private static boolean isBlank(String s) {
@@ -261,23 +317,19 @@ public final class JarvisPlugin {
                 entry.put("uuid", p.getUniqueId().toString());
                 entry.put("server", p.getCurrentServer()
                         .map(s -> s.getServerInfo().getName()).orElse(""));
-
                 long ping = p.getPing();
                 if (pingMedido(ping)) entry.put("ping", ping);
                 players.add(entry);
             }
             jarvisClient.reportPresence(players.size(), players);
         } catch (Exception e) {
-
             logger.debug("reportPresence failed: {}", e.getMessage());
         }
     }
 
     @Subscribe
     public void onProxyShutdown(ProxyShutdownEvent event) {
-
         if (jarvisClient != null) jarvisClient.marcarApagando();
-
         stopPairing();
         if (syncClient != null) syncClient.stop();
         if (jarvisClient != null) jarvisClient.shutdown();

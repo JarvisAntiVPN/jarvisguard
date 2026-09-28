@@ -22,15 +22,10 @@ public final class BanSnapshot {
     private final Log logger;
 
     private volatile String sal = null;
-
     private volatile String deLaLicencia = "";
-
     private volatile java.util.Map<String, Long> enFrio = java.util.Map.of();
-
     private volatile boolean vigente = false;
-
     private volatile boolean avisado = false;
-
     private volatile long cargadoEnMs = 0L;
 
     private volatile long selloFicheroMs = 0L;
@@ -48,13 +43,11 @@ public final class BanSnapshot {
             String deQuien = lineas.get(1).trim();
             String salLeida = lineas.get(2).trim();
             long escrito = Long.parseLong(lineas.get(3).trim());
-
             if (salLeida.isEmpty() || Math.abs(ahoraMs - escrito) > CADUCIDAD_MS
                     || !deQuien.equals(licenciaDe(licencia))) {
                 Files.deleteIfExists(fichero);
                 return;
             }
-
             java.util.Map<String, Long> h = new java.util.HashMap<>();
             int vencidos = 0;
             for (int i = 4; i < lineas.size(); i++) {
@@ -76,7 +69,6 @@ public final class BanSnapshot {
             this.cargadoEnMs = ahoraMs;
             this.selloFicheroMs = escrito;
             this.vigente = !h.isEmpty();
-
             logger.debug("[bans] {} blocks loaded from the last sync.", h.size());
         } catch (Exception e) {
             logger.debug("[bans] snapshot unreadable: {}", e.toString());
@@ -89,14 +81,11 @@ public final class BanSnapshot {
 
     boolean cubre(String claveIp, String licencia, long ahoraMs) {
         if (!vigente || claveIp == null) return false;
-
         if (cargadoEnMs != 0L && Math.abs(ahoraMs - cargadoEnMs) > VIDA_MAX_MS) return false;
         String s = sal;
         if (s == null || !licenciaDe(licencia).equals(deLaLicencia)) return false;
         Long expira = enFrio.get(hash(s, claveIp));
-
         if (expira == null || expira <= ahoraMs) return false;
-
         if (!avisado) {
             avisado = true;
             logger.warn("Jarvis: the backend has not answered yet, so blocks from the last sync are being "
@@ -130,7 +119,6 @@ public final class BanSnapshot {
     }
 
     int vigentes(String licencia, long ahora) {
-
         if (!vigente || sal == null || !licenciaDe(licencia).equals(deLaLicencia)) return 0;
         if (cargadoEnMs != 0L && Math.abs(ahora - cargadoEnMs) > VIDA_MAX_MS) return 0;
         int n = 0;
@@ -152,7 +140,6 @@ public final class BanSnapshot {
         try {
             escribir0600(sb.toString().getBytes(StandardCharsets.UTF_8));
         } catch (Exception ex) {
-
             logger.debug("[bans] could not rewrite the snapshot after an unban: {}", ex.toString());
         }
     }
@@ -161,7 +148,6 @@ public final class BanSnapshot {
         vigente = false;
         avisado = false;
         cargadoEnMs = 0L;
-
     }
 
     public synchronized void guardar(String licencia, java.util.Map<String, Long> porClave, long ahoraMs) {
@@ -191,10 +177,8 @@ public final class BanSnapshot {
                         n, elegibles);
             }
             escribir0600(sb.toString().getBytes(StandardCharsets.UTF_8));
-
             enFrio = java.util.Map.copyOf(escritos);
             selloFicheroMs = ahoraMs;
-
             deLaLicencia = duenyo;
         } catch (Exception e) {
             logger.debug("[bans] could not write snapshot: {}", e.toString());
@@ -220,7 +204,6 @@ public final class BanSnapshot {
             try { java.io.File jf = tmp.toFile(); jf.setReadable(false, false); jf.setReadable(true, true); }
             catch (Exception ignore) {  }
         }
-
         try {
             Files.move(tmp, fichero, java.nio.file.StandardCopyOption.ATOMIC_MOVE,
                     java.nio.file.StandardCopyOption.REPLACE_EXISTING);

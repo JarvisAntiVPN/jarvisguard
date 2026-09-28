@@ -24,8 +24,7 @@ import java.util.Map;
 
 public final class JarvisPaperPlugin extends JavaPlugin {
 
-    public static final String VERSION = "0.5.25";
-
+    public static final String VERSION = "0.5.26";
     private static final int BSTATS_PLUGIN_ID = 31883;
 
     private Log logger;
@@ -36,14 +35,17 @@ public final class JarvisPaperPlugin extends JavaPlugin {
 
     private dev.flamingomg.jarvis.util.BStats metrics;
     private PairingClient pairing;
-
     private Runnable pairTask;
     private volatile String pairDeviceCode;
     private volatile long pairExpiresAt;
-    private boolean pairBannerShown = false;
-
+    private String pairVerificationUri;
+    private long pairBannerNextAt = 0L;
+    private static final long PAIR_BANNER_REPEAT_MS = 600_000L;
+    private String pairLocale;
+    private final dev.flamingomg.jarvis.client.AvisoSinVincular avisoSinVincular =
+            new dev.flamingomg.jarvis.client.AvisoSinVincular();
+    private volatile boolean proxyDetectado;
     private long pairNextStartAt = 0L;
-
     private long pairNextPollAt = System.nanoTime();
     private long pairPollIntervalNanos = dev.flamingomg.jarvis.client.PairingClient.intervaloPollNanos(0);
     private int  pairStartFails = 0;
@@ -71,6 +73,7 @@ public final class JarvisPaperPlugin extends JavaPlugin {
 
         boolean proxyForced = config.getBoolean("server.behind-proxy", false);
         boolean proxyDetected = ProxyDetector.behindProxy(logger);
+        proxyDetectado = proxyDetected;
         if (avisarDeProxy(config.isSet("server.behind-proxy"), proxyForced, proxyDetected)) {
             logger.warn("");
             logger.warn("==================== JARVIS · PROXY WARNING ====================");
@@ -93,15 +96,13 @@ public final class JarvisPaperPlugin extends JavaPlugin {
         BedrockDetector bedrockDetector = new BedrockDetector(config, logger);
         FloodGuard floodGuard = new FloodGuard(config);
         this.banCache = new BanCache(config, logger);
-
         jarvisClient.setBanCacheParaExentos(this.banCache);
-
         this.syncClient = new SyncClient(config, logger, jarvisClient, banCache, this);
 
         DetectionListener listener = new DetectionListener(this, jarvisClient, bedrockDetector, config,
                 logger, floodGuard, banCache);
         getServer().getPluginManager().registerEvents(listener, this);
-
+        getServer().getPluginManager().registerEvents(new AvisoAlEntrar(this), this);
         getServer().getMessenger().registerIncomingPluginChannel(this, "minecraft:brand", listener);
         listener.init();
 
@@ -114,7 +115,6 @@ public final class JarvisPaperPlugin extends JavaPlugin {
 
         if (BSTATS_PLUGIN_ID > 0) {
             try { this.metrics = new dev.flamingomg.jarvis.util.BStats(this, BSTATS_PLUGIN_ID); logger.debug("bStats metrics enabled."); }
-
             catch (Throwable t) { logger.warn("Couldn't start bStats metrics: {}", t.toString()); }
         }
 
@@ -132,14 +132,11 @@ public final class JarvisPaperPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
-
         if (jarvisClient != null) jarvisClient.marcarApagando();
-
         stopPairing();
         if (syncClient != null) syncClient.stop();
         if (jarvisClient != null) jarvisClient.shutdown();
         if (pairing != null) pairing.shutdown();
-
         if (metrics != null) metrics.shutdown();
         logger.info("Jarvis stopped.");
     }
@@ -150,22 +147,18 @@ public final class JarvisPaperPlugin extends JavaPlugin {
 
     private void reportPresence() {
         try {
-
             List<Map<String, Object>> players = new ArrayList<>();
             for (Player p : Bukkit.getOnlinePlayers()) {
                 Map<String, Object> entry = new LinkedHashMap<>();
                 entry.put("name", p.getName());
                 entry.put("uuid", p.getUniqueId().toString());
                 entry.put("server", "");
-
                 int ping = p.getPing();
                 if (pingMedido(ping)) entry.put("ping", ping);
                 players.add(entry);
             }
-
             Schedulers.async(this, () -> jarvisClient.reportPresence(players.size(), players));
         } catch (Exception e) {
-
             logger.debug("reportPresence failed: {}", e.getMessage());
         }
     }
@@ -185,8 +178,7 @@ public final class JarvisPaperPlugin extends JavaPlugin {
     }
 
     private void startPairingFlow() {
-        requestAndPrintPairing();
-        pairTask = Schedulers.asyncRepetida(this, this::pairTick, 100L, 100L);
+        pairTask = Schedulers.asyncRepetida(this, this::pairTick, 1L, 100L);
     }
 
     private void requestAndPrintPairing() {
@@ -194,7 +186,6 @@ public final class JarvisPaperPlugin extends JavaPlugin {
         PairingClient.Start s = pairing.start(null, server, VERSION);
         if (s == null || s.verificationUri() == null) {
             pairDeviceCode = null;
-
             pairStartFails = Math.min(pairStartFails + 1, 6);
             pairNextStartAt = System.currentTimeMillis() + Math.min(300_000L, 5_000L * (1L << pairStartFails));
             if (!pairWarned) {
@@ -212,20 +203,78 @@ public final class JarvisPaperPlugin extends JavaPlugin {
         pairExpiresAt = dev.flamingomg.jarvis.client.PairingClient.caducidadMs(ahoraPar, s.expiresIn());
         pairPollIntervalNanos = dev.flamingomg.jarvis.client.PairingClient.intervaloPollNanos(s.interval());
         pairNextPollAt = System.nanoTime();
-        if (!pairBannerShown) {
-            pairBannerShown = true;
-            logger.warn("");
-            logger.warn("==================== JARVIS · LINK SERVER ====================");
-            logger.warn("  This server isn't linked yet. Open this link and sign in");
-            logger.warn("  to bind it to your account (one click, no key to paste):");
-            logger.warn("");
-            logger.warn("    {}", s.verificationUri());
-            logger.warn("");
-            logger.warn("  (manual alternative:  /antivpn key <license> )");
-            logger.warn("=============================================================");
-        } else {
-            logger.warn("Linking link renewed (the previous one expired): {}", s.verificationUri());
+        pairVerificationUri = s.verificationUri();
+        printPairingBanner();
+        avisarSinVincularATodos();
+    }
+
+    private void avisarSinVincular(Player p) {
+        String enlace = pairVerificationUri;
+        long ahora = System.currentTimeMillis();
+        if (pairDeviceCode == null
+                || !dev.flamingomg.jarvis.client.AvisoSinVincular.enlaceUtil(enlace, pairExpiresAt, ahora)) return;
+        if (!p.hasPermission("jarvis.admin")) return;
+        dev.flamingomg.jarvis.client.AvisoSinVincular.Contenido que = dev.flamingomg.jarvis.client.AvisoSinVincular
+                .queEnsenar(getServer().getOnlineMode(), detrasDeProxy(config, proxyDetectado));
+        if (que == dev.flamingomg.jarvis.client.AvisoSinVincular.Contenido.NADA) return;
+        if (!avisoSinVincular.tocaAvisar(p.getUniqueId(), ahora)) return;
+        String idioma = null;
+        try { idioma = p.getLocale(); } catch (Throwable ignored) {}
+        List<String> l = dev.flamingomg.jarvis.client.AvisoSinVincular.lineas(idioma);
+        String pre = "\u00a7b\u00a7l[Jarvis]\u00a7r ";
+        p.sendMessage(pre + "\u00a7c" + l.get(0));
+        if (que == dev.flamingomg.jarvis.client.AvisoSinVincular.Contenido.CON_ENLACE) {
+            net.md_5.bungee.api.chat.TextComponent clic = new net.md_5.bungee.api.chat.TextComponent(enlace);
+            clic.setColor(net.md_5.bungee.api.ChatColor.AQUA);
+            clic.setUnderlined(true);
+            clic.setClickEvent(new net.md_5.bungee.api.chat.ClickEvent(
+                    net.md_5.bungee.api.chat.ClickEvent.Action.OPEN_URL, enlace));
+            List<net.md_5.bungee.api.chat.BaseComponent> linea = new ArrayList<>(List.of(
+                    net.md_5.bungee.api.chat.TextComponent.fromLegacyText(pre + "\u00a7e" + l.get(1) + " ")));
+            linea.add(clic);
+            p.spigot().sendMessage(linea.toArray(new net.md_5.bungee.api.chat.BaseComponent[0]));
         }
+        p.sendMessage(pre + "\u00a77" + l.get(2));
+    }
+
+    public static final class AvisoAlEntrar implements org.bukkit.event.Listener {
+        private final JarvisPaperPlugin plugin;
+        AvisoAlEntrar(JarvisPaperPlugin plugin) { this.plugin = plugin; }
+        @org.bukkit.event.EventHandler(priority = org.bukkit.event.EventPriority.MONITOR)
+        public void alEntrar(org.bukkit.event.player.PlayerJoinEvent e) { plugin.avisarSinVincular(e.getPlayer()); }
+    }
+
+    private void avisarSinVincularATodos() {
+        Schedulers.global(this, () -> {
+            for (Player p : Bukkit.getOnlinePlayers()) Schedulers.deEntidad(this, p, () -> avisarSinVincular(p));
+        });
+    }
+
+    private void printPairingBanner() {
+        pairBannerNextAt = System.currentTimeMillis() + PAIR_BANNER_REPEAT_MS;
+        String loc = pairLocale != null ? pairLocale : dev.flamingomg.jarvis.i18n.Messages.localeDeLaMaquina();
+        logger.warn("");
+        logger.warn("==================== JARVIS · LINK SERVER ====================");
+        logger.warn("  {}", dev.flamingomg.jarvis.i18n.Messages.get(loc, "log.link.notLinked"));
+        logger.warn("  {}", dev.flamingomg.jarvis.i18n.Messages.get(loc, "log.link.open"));
+        logger.warn("");
+        logger.warn("    {}", pairVerificationUri);
+        logger.warn("");
+        logger.warn("  {}", dev.flamingomg.jarvis.i18n.Messages.get(loc, "log.link.manual"));
+        logger.warn("=============================================================");
+    }
+
+    private void recordarVinculacionSiToca() {
+        if (pairVerificationUri == null) return;
+        if (System.currentTimeMillis() < pairBannerNextAt) return;
+        printPairingBanner();
+    }
+
+    private void anotarLocaleDelDueno(String loc) {
+        if (loc == null || loc.isBlank()) return;
+        if (loc.equals(pairLocale)) return;
+        pairLocale = loc;
+        pairBannerNextAt = 0L;
     }
 
     private final java.util.concurrent.atomic.AtomicBoolean pairTickEnCurso =
@@ -247,13 +296,14 @@ public final class JarvisPaperPlugin extends JavaPlugin {
             requestAndPrintPairing();
             return;
         }
+        recordarVinculacionSiToca();
 
         long ahoraPoll = System.nanoTime();
         if (!dev.flamingomg.jarvis.client.PairingClient.tocaSondear(ahoraPoll, pairNextPollAt)) return;
         pairNextPollAt = ahoraPoll + pairPollIntervalNanos;
         String[] res = pairing.poll(pairDeviceCode);
+        if (res.length > 2) anotarLocaleDelDueno(res[2]);
         switch (res[0] == null ? "error" : res[0]) {
-
             case "approved" -> { if (res[1] != null && !res[1].isBlank() && applyPairedKey(res[1])) stopPairing(); }
             case "denied", "expired" -> pairDeviceCode = null;
             default -> { }
@@ -264,7 +314,6 @@ public final class JarvisPaperPlugin extends JavaPlugin {
         if (!config.setKey(key)) { logger.warn("Couldn't save the linked key."); return false; }
         Schedulers.async(this, () -> {
             boolean ok = jarvisClient.ensureReady();
-
             if (ok) {
                 jarvisClient.fetchAndSyncBans(banCache);
                 logger.info("================================================================");
@@ -280,6 +329,9 @@ public final class JarvisPaperPlugin extends JavaPlugin {
     private void stopPairing() {
         if (pairTask != null) { pairTask.run(); pairTask = null; }
         pairDeviceCode = null;
+        pairVerificationUri = null;
+        pairLocale = null;
+        avisoSinVincular.olvidarTodo();
     }
 
     private static boolean isBlank(String s) {
@@ -290,5 +342,10 @@ public final class JarvisPaperPlugin extends JavaPlugin {
         if (forzado) return true;
         if (puesto)  return false;
         return detectado;
+    }
+
+    static boolean detrasDeProxy(ConfigManager config, boolean detectado) {
+        return avisarDeProxy(config.isSet("server.behind-proxy"),
+                config.getBoolean("server.behind-proxy", false), detectado);
     }
 }
