@@ -67,9 +67,9 @@ public final class DetectionListener implements Listener, PluginMessageListener 
     private final ConcurrentHashMap<String, Integer> connectedByIp = new ConcurrentHashMap<>();
 
     private final Cache<UUID, Long> sessionStart = Caffeine.newBuilder().maximumSize(20_000).build();
+    private final java.util.Set<UUID> sesionesSembradas = ConcurrentHashMap.newKeySet();
     private final Cache<UUID, String> sessionIp = Caffeine.newBuilder().maximumSize(20_000).build();
-    private final Cache<String, Boolean> bypassNames = Caffeine.newBuilder().maximumSize(10_000)
-            .expireAfterAccess(java.time.Duration.ofDays(7)).build();
+    private final dev.flamingomg.jarvis.detection.RecuerdoBypass bypassNames;
     private final Cache<UUID, String> clientBrands = Caffeine.newBuilder().maximumSize(20_000).build();
     private final Cache<UUID, java.util.Set<String>> knownChannels = Caffeine.newBuilder().maximumSize(20_000).build();
     private static final int MAX_CHANNELS_PER_PLAYER = 64;
@@ -85,6 +85,7 @@ public final class DetectionListener implements Listener, PluginMessageListener 
         this.logger = logger;
         this.floodGuard = floodGuard;
         this.banCache = banCache;
+        this.bypassNames = new dev.flamingomg.jarvis.detection.RecuerdoBypass(config.dataDirectory(), logger);
         long recuerdoMin = Math.min(Math.max(0, config.getInt("bans.remember-kick-minutes", 1440)), 43_200);
         this.ultimoBloqueo = Caffeine.newBuilder()
                 .maximumSize(10_000)
@@ -107,9 +108,10 @@ public final class DetectionListener implements Listener, PluginMessageListener 
         boolean bedrockApi = uuid != null && bedrockDetector.isBedrockPlayer(uuid);
         boolean bedrock = bedrockApi || bedrockDetector.isBedrockUsername(name);
 
-        if (isBypassed(name) || (name != null && bypassNames.getIfPresent(name.toLowerCase(java.util.Locale.ROOT)) != null)) return;
+        if (isBypassed(name) || bypassNames.alEntrar(name, null)) return;
 
-        boolean bedrockBypass = bedrock && config.getBoolean("floodgate.bypass-bedrock", false);
+        final boolean bedrockParaBypass = JarvisClient.marcaParaBypass(bedrock, bedrockApi, client.bedrockSoloApi());
+        boolean bedrockBypass = bedrockParaBypass && config.getBoolean("floodgate.bypass-bedrock", false);
 
         boolean reservedIp = false;
         if (!bedrockBypass) {
@@ -164,7 +166,7 @@ public final class DetectionListener implements Listener, PluginMessageListener 
             if (verdict == null) { applyFallbackPolicy(event, name, ip); return; }
             VerdictType type = verdict.verdictType();
 
-            if (bedrock && type.denies() && config.getBoolean("floodgate.bypass-bedrock", false)) {
+            if (bedrockParaBypass && type.denies() && config.getBoolean("floodgate.bypass-bedrock", false)) {
                 type = VerdictType.FLAG;
             }
             if (type.isUnknown()) { applyFallbackPolicy(event, name, ip); return; }
@@ -206,10 +208,11 @@ public final class DetectionListener implements Listener, PluginMessageListener 
     public void onJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
         sessionStart.put(player.getUniqueId(), System.currentTimeMillis());
+        sesionesSembradas.remove(player.getUniqueId());
         recordConnected(player);
         String lname = player.getName().toLowerCase(java.util.Locale.ROOT);
-        if (player.hasPermission("jarvis.bypass")) bypassNames.put(lname, Boolean.TRUE);
-        else bypassNames.invalidate(lname);
+        if (player.hasPermission("jarvis.bypass")) bypassNames.recordar(lname);
+        else bypassNames.olvidar(lname);
         maybeRecordPlayerSeen(player);
     }
 
@@ -220,20 +223,18 @@ public final class DetectionListener implements Listener, PluginMessageListener 
         UUID uuid = player.getUniqueId();
         boolean bedrock = bedrockDetector.isBedrockPlayer(uuid) || bedrockDetector.isBedrockUsername(player.getName());
         boolean premium = Bukkit.getOnlineMode();
-        String locale = null;
-        try { locale = player.getLocale(); } catch (Throwable ignored) {}
         String host = virtualHost(player);
         Integer vd = null;
         try { vd = player.getClientViewDistance(); } catch (Throwable ignored) {}
-        final String localeF = locale, hostF = host, nameF = player.getName();
+        final String hostF = host, nameF = player.getName();
         final Integer vdF = vd;
-        programarInforme(player, uuid, ip, bedrock, premium, localeF, hostF, vdF, nameF, 1);
+        programarInforme(player, uuid, ip, bedrock, premium, hostF, vdF, nameF, 1);
     }
 
     private boolean reprogramar(Player player, UUID uuid, String ip, boolean bedrock, boolean premium,
-                                String localeF, String hostF, Integer vdF, String nameF, int intento) {
+                                String hostF, Integer vdF, String nameF, int intento) {
         try {
-            programarInforme(player, uuid, ip, bedrock, premium, localeF, hostF, vdF, nameF, intento);
+            programarInforme(player, uuid, ip, bedrock, premium, hostF, vdF, nameF, intento);
             return true;
         } catch (Throwable apagando) {
             return false;
@@ -241,7 +242,7 @@ public final class DetectionListener implements Listener, PluginMessageListener 
     }
 
     private void programarInforme(Player player, UUID uuid, String ip, boolean bedrock, boolean premium,
-                                  String localeF, String hostF, Integer vdF, String nameF, int intento) {
+                                  String hostF, Integer vdF, String nameF, int intento) {
         Schedulers.asyncRetrasada(plugin, () -> {
             String brand = clientBrands.getIfPresent(uuid);
             if (brand == null) brand = marcaDeLaApi(player, GET_BRAND);
@@ -249,13 +250,14 @@ public final class DetectionListener implements Listener, PluginMessageListener 
             int tope = MarcaDeCliente.intentos(
                     config.getInt("seen.brand-wait-attempts", MarcaDeCliente.INTENTOS_POR_DEFECTO));
             if (MarcaDeCliente.paso(brand, conectado, intento, tope) == MarcaDeCliente.Paso.ESPERAR
-                    && reprogramar(player, uuid, ip, bedrock, premium, localeF, hostF, vdF, nameF, intento + 1)) {
+                    && reprogramar(player, uuid, ip, bedrock, premium, hostF, vdF, nameF, intento + 1)) {
                 return;
             }
             java.util.Set<String> ch = knownChannels.getIfPresent(uuid);
             java.util.List<String> channels = (ch == null || ch.isEmpty()) ? null : java.util.List.copyOf(ch);
+            String locale = conectado ? dev.flamingomg.jarvis.util.IdiomaJugador.de(player) : null;
             client.reportPlayerSeen(uuid.toString(), nameF, ip, bedrock,
-                    null, brand, hostF, localeF, vdF, null, channels, premium, protocoloDelCliente());
+                    null, brand, hostF, locale, vdF, null, channels, premium, protocoloDelCliente());
         }, 40L);
     }
 
@@ -362,13 +364,55 @@ public final class DetectionListener implements Listener, PluginMessageListener 
         String estIp = sessionIp.asMap().remove(player.getUniqueId());
         descontar(connectedByIp, estIp);
         Long start = sessionStart.asMap().remove(player.getUniqueId());
+        boolean sembrada = sesionesSembradas.remove(player.getUniqueId());
         if (start == null) return;
+        if (sembrada && !client.sesionesAlApagar()) return;
         long durationMs = System.currentTimeMillis() - start;
         InetSocketAddress addr = player.getAddress();
         if (addr == null || addr.getAddress() == null) return;
         String ip = addr.getAddress().getHostAddress();
         String name = player.getName();
         Schedulers.async(plugin, () -> client.reportSessionEnd(name, ip, durationMs));
+    }
+
+    public void guardarBypass() {
+        bypassNames.cerrar();
+    }
+
+    public java.util.List<JarvisClient.FinPendiente> finesAlApagar(long ahora) {
+        java.util.List<JarvisClient.FinPendiente> fines = new java.util.ArrayList<>();
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            try {
+                JarvisClient.FinPendiente f = finPendiente(sessionStart.asMap(), sesionesSembradas,
+                        p.getUniqueId(), p.getName(), p.getAddress(), ahora);
+                if (f != null) fines.add(f);
+            } catch (Throwable t) {
+                logger.debug("session end on shutdown skipped: {}", t.toString());
+            }
+        }
+        return fines;
+    }
+
+    static JarvisClient.FinPendiente finPendiente(java.util.Map<UUID, Long> inicios, java.util.Set<UUID> sembradas,
+                                                  UUID uuid, String name, InetSocketAddress addr, long ahora) {
+        if (uuid == null) return null;
+        Long start = inicios.remove(uuid);
+        sembradas.remove(uuid);
+        if (start == null) return null;
+        if (addr == null || addr.getAddress() == null) return null;
+        return new JarvisClient.FinPendiente(name, addr.getAddress().getHostAddress(), ahora - start);
+    }
+
+    static int sembrarConectados(java.util.Map<UUID, Long> inicios, java.util.Set<UUID> sembradas,
+                                 Iterable<UUID> conectados, long ahora) {
+        int n = 0;
+        for (UUID u : conectados) {
+            if (u != null && inicios.putIfAbsent(u, ahora) == null) {
+                sembradas.add(u);
+                n++;
+            }
+        }
+        return n;
     }
 
     private static Component renderComponent(String msg) {
@@ -453,6 +497,13 @@ public final class DetectionListener implements Listener, PluginMessageListener 
     }
 
     public void init() {
+        try {
+            java.util.List<UUID> dentro = new java.util.ArrayList<>();
+            for (Player p : Bukkit.getOnlinePlayers()) dentro.add(p.getUniqueId());
+            sembrarConectados(sessionStart.asMap(), sesionesSembradas, dentro, System.currentTimeMillis());
+        } catch (Throwable t) {
+            logger.debug("couldn't reopen the sessions after a reload: {}", t.toString());
+        }
         Schedulers.globalRepetida(plugin, this::reconcile, 0L, 300L);
     }
 

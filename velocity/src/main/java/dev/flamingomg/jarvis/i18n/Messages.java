@@ -16,7 +16,8 @@ public final class Messages {
 
     public static final String DEFAULT = "en";
     private static final Set<String> SUPPORTED = Set.of("en", "es", "de", "fr", "pl", "ru", "tr", "pt", "it", "cs", "id", "vi", "th", "ro", "ja", "zh", "zh-hant",
-            "nl", "ko", "ar", "hu", "sv", "da", "sk", "he", "uk", "lt");
+            "nl", "ko", "ar", "hu", "sv", "da", "sk", "he", "uk", "lt", "lo",
+            "hi", "sr", "ur", "fa", "bn", "tl", "km", "lv");
     private static final Map<String, Map<String, String>> CAT = new HashMap<>();
     private static final Gson GSON = new Gson();
 

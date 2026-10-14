@@ -88,8 +88,7 @@ public final class DetectionListener implements Listener {
     private final Cache<UUID, String> clientBrands =
             Caffeine.newBuilder().maximumSize(20_000).build();
 
-    private final Cache<String, Boolean> bypassNames =
-            Caffeine.newBuilder().maximumSize(10_000).expireAfterAccess(java.time.Duration.ofDays(7)).build();
+    private final dev.flamingomg.jarvis.detection.RecuerdoBypass bypassNames;
 
     private final Cache<String, String> ultimoBloqueo;
 
@@ -104,6 +103,7 @@ public final class DetectionListener implements Listener {
         this.logger = logger;
         this.floodGuard = floodGuard;
         this.banCache = banCache;
+        this.bypassNames = new dev.flamingomg.jarvis.detection.RecuerdoBypass(config.dataDirectory(), logger);
         long recuerdoMin = Math.min(Math.max(0, config.getInt("bans.remember-kick-minutes", 1440)), 43_200);
         this.ultimoBloqueo = Caffeine.newBuilder()
                 .maximumSize(10_000)
@@ -127,9 +127,10 @@ public final class DetectionListener implements Listener {
         boolean bedrockApi = uuid != null && bedrockDetector.isBedrockPlayer(uuid);
         boolean bedrock = bedrockApi || bedrockDetector.isBedrockUsername(name);
 
-        if (isBypassed(name) || (name != null && bypassNames.getIfPresent(name.toLowerCase(java.util.Locale.ROOT)) != null)) return;
+        if (isBypassed(name) || bypassNames.alEntrar(name, null)) return;
 
-        boolean bedrockBypass = bedrock && config.getBoolean("floodgate.bypass-bedrock", false);
+        final boolean bedrockParaBypass = JarvisClient.marcaParaBypass(bedrock, bedrockApi, client.bedrockSoloApi());
+        boolean bedrockBypass = bedrockParaBypass && config.getBoolean("floodgate.bypass-bedrock", false);
 
         boolean reservedIp = false;
         if (!bedrockBypass) {
@@ -174,7 +175,7 @@ public final class DetectionListener implements Listener {
 
         boolean premium = conn.isOnlineMode();
         final boolean bedrockFinal = bedrock;
-        final Boolean bedrockApiFinal = bedrockApi;
+        final boolean bedrockApiFinal = bedrockApi;
         final String  uuidFinal = uuid == null ? null : uuid.toString();
 
         event.registerIntent(plugin);
@@ -200,7 +201,7 @@ public final class DetectionListener implements Listener {
                 }
                 VerdictType type = verdict.verdictType();
 
-                if (bedrockFinal && type.denies() && config.getBoolean("floodgate.bypass-bedrock", false)) {
+                if (bedrockParaBypass && type.denies() && config.getBoolean("floodgate.bypass-bedrock", false)) {
                     type = VerdictType.FLAG;
                 }
 
@@ -251,8 +252,12 @@ public final class DetectionListener implements Listener {
         maybeRecordPlayerSeen(player);
 
         String lname = player.getName().toLowerCase(java.util.Locale.ROOT);
-        if (player.hasPermission("jarvis.bypass")) bypassNames.put(lname, Boolean.TRUE);
-        else bypassNames.invalidate(lname);
+        if (player.hasPermission("jarvis.bypass")) bypassNames.recordar(lname);
+        else bypassNames.olvidar(lname);
+    }
+
+    public void guardarBypass() {
+        bypassNames.cerrar();
     }
 
     @EventHandler

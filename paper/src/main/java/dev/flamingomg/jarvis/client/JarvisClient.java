@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import dev.flamingomg.jarvis.config.ConfigManager;
 import dev.flamingomg.jarvis.detection.BanCache;
+import dev.flamingomg.jarvis.model.ProtectionState.Causa;
 import dev.flamingomg.jarvis.model.VerdictRequest;
 import dev.flamingomg.jarvis.model.VerdictResponse;
 import dev.flamingomg.jarvis.model.VerdictType;
@@ -49,6 +50,8 @@ public final class JarvisClient {
     private volatile String locale = "en";
     private volatile boolean notifyStaff = true;
     private volatile String notifyPermission = "jarvis.admin";
+    private volatile boolean bedrockSoloApi = false;
+    private volatile boolean sesionesAlApagar = false;
     private volatile java.util.Map<String, String> offlineMessages = java.util.Map.of();
     private volatile int    cbFailureThreshold = 5;
     private volatile long   cbOpenDurationMs   = 30_000L;
@@ -94,12 +97,14 @@ public final class JarvisClient {
                 .build();
 
         String cfgKey0 = config.getString("backend.license-key", "");
+        this.anuncio = new java.util.concurrent.atomic.AtomicReference<>(new Anuncio(cfgKey0, null));
         String secret = config.getString("backend.shared-secret", "");
         this.secretFromConfig = !isBlank(secret);
         if (isBlank(secret)) {
             String cached = config.readCachedSecret(cfgKey0);
             if (!isBlank(cached)) secret = cached;
         }
+        if (isBlank(cfgKey0)) secret = "";
         this.signer = new HmacSigner(isBlank(secret) ? "" : secret);
         if (!isBlank(secret)) this.secretForKey = config.getString("backend.license-key", "");
         snapshotConfig();
@@ -111,6 +116,45 @@ public final class JarvisClient {
         return s == null || s.isBlank() || s.equalsIgnoreCase("CHANGE_ME");
     }
 
+    private record Anuncio(String clave, Boolean dicho) {
+        @Override public String toString() { return "Anuncio[dicho=" + dicho + "]"; }
+    }
+    private final java.util.concurrent.atomic.AtomicReference<Anuncio> anuncio;
+
+    String anunciarClave(String clave, boolean aceptada, int status) {
+        Anuncio antes = apuntarResultado(clave, aceptada);
+        if (antes == null) return null;
+        String k = lineaDeClave(antes.dicho(), aceptada, ipCheckDisabled);
+        if (k == null) return null;
+        if (aceptada) logger.info("{}", dev.flamingomg.jarvis.i18n.Messages.get(locale, k));
+        else logger.warn("{} (HTTP {})", dev.flamingomg.jarvis.i18n.Messages.get(
+                dev.flamingomg.jarvis.i18n.Messages.localeDeLaMaquina(), k), status);
+        return k;
+    }
+
+    private Anuncio apuntarResultado(String clave, boolean aceptada) {
+        if (isBlank(clave)) return null;
+        while (true) {
+            Anuncio a = anuncio.get();
+            if (!clave.equals(a.clave())) return null;
+            if (anuncio.compareAndSet(a, new Anuncio(clave, aceptada))) return a;
+        }
+    }
+
+    public void claveRecargada(String claveAntes) {
+        soltarFreno();
+        causaFallo = Causa.RED;
+        String ahora = config.getString("backend.license-key", "");
+        if (ahora.equals(claveAntes)) return;
+        anuncio.set(new Anuncio(ahora, null));
+    }
+
+    static String lineaDeClave(Boolean yaDicho, boolean aceptada, boolean sinComprobarPorIp) {
+        if (yaDicho != null && yaDicho == aceptada) return null;
+        if (!aceptada) return "cmd.keyrejected";
+        return sinComprobarPorIp ? "cmd.behindProxy" : "cmd.protected";
+    }
+
     private String fetchSharedSecret() {
         String url = ConfigManager.DEFAULT_BACKEND_URL;
         String key = config.getString("backend.license-key", "");
@@ -118,8 +162,7 @@ public final class JarvisClient {
 
             if (!warnedNoKey) {
                 warnedNoKey = true;
-                logger.warn("You haven't set your license key yet. "
-                        + "Type  /antivpn key <yourkey>  in the console to enable protection.");
+                logger.debug("No license key set yet; nothing to fetch.");
             }
             return null;
         }
@@ -130,28 +173,8 @@ public final class JarvisClient {
                     .header("Authorization", "Bearer " + key)
                     .GET().build();
             HttpResponse<String> resp = this.http.send(req, HttpResponse.BodyHandlers.ofString());
-            int status = resp.statusCode();
-            if (status == 200) {
-                Map<?, ?> body = GSON.fromJson(resp.body(), Map.class);
-                applyPanelConfig(body);
-                Object ss = body != null ? body.get("sharedSecret") : null;
-                if (ss != null && !String.valueOf(ss).isBlank()) {
-                    logger.debug("Connected to backend; configuration fetched automatically.");
-                    String _s = String.valueOf(ss);
-                    config.writeCachedSecret(key, _s);
-                    this.secretFromConfig = false;
-                    this.keyRejected = false;
-                    this.warnedNoSecret = false;
-                    this.warnedNoReach = false;
-                    return _s;
-                }
-            }
-            boolean backendReject = resp.headers().firstValue("X-Jarvis-Reject").isPresent();
-            this.keyRejected = licenciaRechazada(status, backendReject);
-            if (!warnedNoSecret) {
-                warnedNoSecret = true;
-                logger.warn("No connector secret from backend (HTTP {}). Check your license key; if it's correct and your license has team members, set backend.shared-secret in config.yml (copy it from your panel).", status);
-            }
+            return trasPedirConfig(key, resp.statusCode(),
+                    resp.headers().firstValue("X-Jarvis-Reject").isPresent(), resp.body());
         } catch (Exception e) {
             this.keyRejected = false;
             if (!warnedNoReach) {
@@ -165,12 +188,129 @@ public final class JarvisClient {
         return null;
     }
 
+    String trasPedirConfig(String key, int status, boolean marcaDelBackend, String cuerpo) {
+        if (status == 200) {
+            soltarFreno();
+            Map<?, ?> body = GSON.fromJson(cuerpo, Map.class);
+            applyPanelConfig(body);
+            Object ss = body != null ? body.get("sharedSecret") : null;
+            if (ss != null && !String.valueOf(ss).isBlank()) {
+                anunciarClave(key, true, status);
+                String _s = String.valueOf(ss);
+                config.writeCachedSecret(key, _s);
+                this.secretFromConfig = false;
+                this.keyRejected = false;
+                this.warnedNoSecret = false;
+                this.warnedNoReach = false;
+                return _s;
+            }
+        }
+        this.keyRejected = licenciaRechazada(status, marcaDelBackend);
+        if (this.keyRejected) {
+            anunciarClave(key, false, status);
+            frenarClave(key);
+        } else if (!warnedNoSecret) {
+            warnedNoSecret = true;
+            logger.warn("Couldn't get the configuration from the backend yet (HTTP {}); retrying in the "
+                    + "background.", status);
+        }
+        return null;
+    }
+
     public boolean ensureReady() {
         String configuredKey = config.getString("backend.license-key", "");
+        if (isBlank(configuredKey)) {
+            soltarSecreto();
+            return false;
+        }
         if (signer != null && signer.hasSecret() && configuredKey.equals(secretForKey)) return true;
+        soltarSecretoDeOtraClave(configuredKey);
         String secret = fetchSharedSecret();
-        if (secret != null) { this.signer = new HmacSigner(secret); this.secretForKey = configuredKey; snapshotConfig(); return true; }
+        if (secret != null) {
+            HmacSigner antes = this.signer;
+            this.signer = new HmacSigner(secret); this.secretForKey = configuredKey; snapshotConfig();
+            if (!mismoSecreto(antes, this.signer)) olvidarRechazoDeLicencia();
+            return true;
+        }
         return false;
+    }
+
+    void soltarSecretoDeOtraClave(String clave) {
+        HmacSigner s = signer;
+        if (s == null || !s.hasSecret() || clave.equals(secretForKey)) return;
+        this.signer = new HmacSigner("");
+        this.secretForKey = "";
+    }
+
+    private void soltarSecreto() {
+        if (!isBlank(config.getString("backend.license-key", ""))) return;
+        this.signer = new HmacSigner("");
+        this.secretForKey = "";
+        this.keyRejected = false;
+        snapshotConfig();
+    }
+
+    static final long FRENO_PRIMERO_MS = 60_000L;
+    static final long FRENO_TECHO_MS = 600_000L;
+    static final long FRENO_MARGEN_MS = 2_000L;
+
+    private record Freno(String clave, long esperaMs, long desdeNanos, long rechazoNanos) {
+        @Override public String toString() { return "Freno[esperaMs=" + esperaMs + "]"; }
+    }
+
+    private final java.util.concurrent.atomic.AtomicReference<Freno> freno =
+            new java.util.concurrent.atomic.AtomicReference<>(null);
+
+    static long siguienteEspera(long esperaMs) {
+        if (esperaMs <= 0) return FRENO_PRIMERO_MS;
+        return Math.min(esperaMs * 2, FRENO_TECHO_MS);
+    }
+
+    private void frenarClave(String clave) { frenarClave(clave, System.nanoTime()); }
+
+    void frenarClave(String clave, long ahoraNanos) {
+        Freno f = freno.updateAndGet(previo -> {
+            if (previo == null || !previo.clave().equals(clave)) {
+                return new Freno(clave, siguienteEspera(0L), ahoraNanos, ahoraNanos);
+            }
+            long espera = pasada(previo.rechazoNanos(), previo.esperaMs(), ahoraNanos)
+                    ? siguienteEspera(previo.esperaMs()) : previo.esperaMs();
+            return new Freno(clave, espera, ahoraNanos, ahoraNanos);
+        });
+        logger.debug("License key rejected; next background check in {} s.", f.esperaMs() / 1000L);
+    }
+
+    private void soltarFreno() { freno.set(null); }
+
+    private Freno frenoVigente() {
+        Freno f = freno.get();
+        if (f == null || !keyRejected) return null;
+        return f.clave().equals(config.getString("backend.license-key", "")) ? f : null;
+    }
+
+    private static boolean vencido(Freno f, long ahoraNanos) {
+        return pasada(f.desdeNanos(), f.esperaMs(), ahoraNanos);
+    }
+
+    private static boolean pasada(long desdeNanos, long esperaMs, long ahoraNanos) {
+        return ahoraNanos - desdeNanos
+                >= java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(esperaMs - FRENO_MARGEN_MS);
+    }
+
+    public boolean tocaReintentarClave() { return tomarTurnoDeClave(System.nanoTime()); }
+
+    boolean tocaReintentarClave(long ahoraNanos) {
+        Freno f = frenoVigente();
+        return f == null || vencido(f, ahoraNanos);
+    }
+
+    boolean tomarTurnoDeClave(long ahoraNanos) {
+        while (true) {
+            Freno f = frenoVigente();
+            if (f == null) return true;
+            if (!vencido(f, ahoraNanos)) return false;
+            if (freno.compareAndSet(f, new Freno(f.clave(), f.esperaMs(), ahoraNanos, f.rechazoNanos()))) return true;
+        }
     }
 
     public HmacSigner signer() { return signer; }
@@ -195,6 +335,12 @@ public final class JarvisClient {
     }
     public String notifyPermission() { return notifyPermission; }
 
+    public boolean bedrockSoloApi() { return bedrockSoloApi; }
+
+    public static boolean marcaParaBypass(boolean bedrock, boolean bedrockApi, boolean soloApi) {
+        return soloApi ? bedrockApi : bedrock;
+    }
+
     private void applyPanelConfig(Map<?, ?> body) {
         if (body == null) return;
         Object mp = body.get("maxAccountsPerIp");
@@ -206,6 +352,12 @@ public final class JarvisClient {
         Object np = body.get("notifyPermission");
         if (np != null && !String.valueOf(np).isBlank()) this.notifyPermission = String.valueOf(np).trim();
         this.offlineMessages = offlineTrasConfig(body.get("offlineMessages"), this.offlineMessages);
+        this.bedrockSoloApi = soloApiTrasConfig(body.get("bedrockRequiresApi"), this.bedrockSoloApi);
+        this.sesionesAlApagar = soloApiTrasConfig(body.get("shutdownSessions"), this.sesionesAlApagar);
+    }
+
+    static boolean soloApiTrasConfig(Object delBackend, boolean actual) {
+        return (delBackend instanceof Boolean b) ? b : actual;
     }
 
     static java.util.Map<String, String> offlineTrasConfig(Object delPanel, java.util.Map<String, String> actual) {
@@ -220,6 +372,10 @@ public final class JarvisClient {
     }
 
     public void refreshConfig() {
+        consultarConfig(true);
+    }
+
+    private void consultarConfig(boolean decirAceptada) {
         snapshotConfig();
         String key = config.getString("backend.license-key", "");
         if (isBlank(key)) return;
@@ -230,12 +386,30 @@ public final class JarvisClient {
                     .header("Authorization", "Bearer " + key)
                     .GET().build();
             http.sendAsync(req, HttpResponse.BodyHandlers.ofString())
-                    .thenAccept(resp -> { if (resp.statusCode() == 200) {
-                        try { applyPanelConfig(GSON.fromJson(resp.body(), Map.class)); } catch (Exception ignore) {}
-                    }})
+                    .thenAccept(resp -> trasRefrescarConfig(key, resp.statusCode(),
+                            resp.headers().firstValue("X-Jarvis-Reject").isPresent(), resp.body(), decirAceptada))
                     .exceptionally(e -> { logger.debug("refreshConfig failed: {}", e.getMessage()); return null; });
         } catch (Exception e) {
             logger.debug("refreshConfig error: {}", e.getMessage());
+        }
+    }
+
+    void trasRefrescarConfig(String key, int status, boolean marcaDelBackend, String cuerpo, boolean decirAceptada) {
+        boolean deLaClaveActual = key.equals(config.getString("backend.license-key", ""));
+        if (status == 200) {
+            try { applyPanelConfig(GSON.fromJson(cuerpo, Map.class)); } catch (Exception ignore) {}
+            if (deLaClaveActual) {
+                if (this.keyRejected) olvidarRechazoDeLicencia();
+                this.keyRejected = false;
+                soltarFreno();
+            }
+            if (decirAceptada) anunciarClave(key, true, 200);
+        } else if (licenciaRechazada(status, marcaDelBackend)) {
+            if (deLaClaveActual) {
+                this.keyRejected = true;
+                frenarClave(key);
+            }
+            anunciarClave(key, false, status);
         }
     }
 
@@ -248,20 +422,19 @@ public final class JarvisClient {
 
     private static final char CK_SEP = '\u001e';
 
-    private static char marcaProcedencia(Boolean bedrockApi) {
-        if (bedrockApi == null) return 'N';
+    private static char marcaProcedencia(boolean bedrockApi) {
         return bedrockApi ? 'A' : 'P';
     }
 
     private VerdictResponse cacheadoDeCualquierProcedencia(String ip, String username) {
-        for (Boolean m : new Boolean[]{Boolean.TRUE, Boolean.FALSE, null}) {
+        for (boolean m : new boolean[]{true, false}) {
             VerdictResponse v = cache.getIfPresent(ck(ip, username, m));
             if (v != null) return v;
         }
         return null;
     }
 
-    private static String ck(String ip, String username, Boolean bedrockApi) {
+    private static String ck(String ip, String username, boolean bedrockApi) {
         return canonIp(ip) + CK_SEP + marcaProcedencia(bedrockApi) + CK_SEP
                 + (username == null ? "" : username.toLowerCase(java.util.Locale.ROOT));
     }
@@ -285,7 +458,7 @@ public final class JarvisClient {
     }
 
     public CompletableFuture<VerdictResponse> requestVerdictAsync(String ip, String username, boolean bedrock,
-                                                                  boolean premium, Boolean bedrockApi, String uuid) {
+                                                                  boolean premium, boolean bedrockApi, String uuid) {
         VerdictResponse cached = cache.getIfPresent(ck(ip, username, bedrockApi));
         if (cached != null) return CompletableFuture.completedFuture(cached);
 
@@ -310,7 +483,7 @@ public final class JarvisClient {
             if (sondaColgada(System.currentTimeMillis(), cbProbeStartedAt, cbProbeTimeoutMs)
                     && cbState.compareAndSet(CbState.HALF_OPEN, CbState.OPEN)) {
                 cbOpenedAt = System.currentTimeMillis();
-                logger.warn("Circuit breaker: the reconnection probe never answered; reopening to retry.");
+                avisarFallo("sonda", "Circuit breaker: the reconnection probe never answered; reopening to retry.");
             }
             return CompletableFuture.completedFuture(unknownVerdict());
         }
@@ -339,8 +512,8 @@ public final class JarvisClient {
                     VerdictResponse verdict = GSON.fromJson(resp.body(), VerdictResponse.class);
                     if (verdict == null || !dev.flamingomg.jarvis.security.VerdictVerifier.verifyV4(
                             verdict.timestamp(), verdict.verdict(), ip, username, verdict.sig())) {
-                        logger.warn("Invalid signature for {}", ip);
-                        return onFailure(ip, failThreshold);
+                        avisarFallo("firma", "Invalid signature for {}", ip);
+                        return onFailure(ip, failThreshold, Causa.FIRMA);
                     }
                     if (!responseFresh(verdict.timestamp())) {
                         Long total = clock.aprender(verdict.timestamp(), ts, clock.now(), offsetAlEnviar);
@@ -348,14 +521,13 @@ public final class JarvisClient {
                             logger.warn("This machine's clock is off by {} ms from the Jarvis backend; requests "
                                     + "are now corrected. Fix NTP on this server.", total);
                         }
-                        logger.warn("Stale/replay response for {} (ts={})", ip, verdict.timestamp());
-                        return onFailure(ip, failThreshold);
+                        avisarFallo("rancia", "Stale/replay response for {} (ts={})", ip, verdict.timestamp());
+                        return onFailure(ip, failThreshold, Causa.RED);
                     }
                     cbFailures.set(0);
                     ultimoVeredictoOkMs = System.currentTimeMillis();
-                    if (cbState.compareAndSet(CbState.HALF_OPEN, CbState.CLOSED)) {
-                        logger.debug("Circuit breaker CLOSED, backend recovered.");
-                    }
+                    falloAvisado = null;
+                    cerrarTrasSonda();
                     if (verdict.message() != null && !dev.flamingomg.jarvis.security.VerdictVerifier.verifyMessage(
                             verdict.timestamp(), verdict.verdict(), verdict.message(), verdict.msgSig())) {
                         logger.warn("Kick message signature mismatch for {}; using local message", ip);
@@ -364,7 +536,8 @@ public final class JarvisClient {
                     if (verdict.verdictType() != VerdictType.CHALLENGE) cache.put(ck(ip, username, bedrockApi), verdict);
                     return verdict;
                 } catch (Exception e) {
-                    return onFailure(ip, failThreshold);
+                    falloAvisado = "red";
+                    return onFailure(ip, failThreshold, Causa.RED);
                 }
             }
             if (err == null && (resp.statusCode() == 401 || resp.statusCode() == 403)) maybeResetSecret(resp.statusCode());
@@ -378,9 +551,13 @@ public final class JarvisClient {
                     }
                 }
             }
-            if (err == null) logger.warn("Backend HTTP {} for {}", resp.statusCode(), ip);
-            else logger.debug("Error contacting backend for {}: {}", ip, err.getMessage());
-            return onFailure(ip, failThreshold);
+            if (err == null) avisarFallo("HTTP " + resp.statusCode(), "Backend HTTP {} for {}", resp.statusCode(), ip);
+            else {
+                falloAvisado = "red";
+                logger.debug("Error contacting backend for {}: {}", ip, err.getMessage());
+            }
+            return onFailure(ip, failThreshold, err != null ? Causa.RED
+                    : causaHttp(resp.statusCode(), resp.headers().firstValue("X-Jarvis-Reject").isPresent()));
         })
         .completeOnTimeout(VENCIDO, timeoutMs + 4500L, java.util.concurrent.TimeUnit.MILLISECONDS)
         .thenApply(v -> {
@@ -390,6 +567,17 @@ public final class JarvisClient {
         });
     }
 
+    private volatile String falloAvisado = null;
+
+    private void avisarFallo(String tipo, String patron, Object... args) {
+        if (!tipo.equals(falloAvisado)) {
+            falloAvisado = tipo;
+            logger.warn(patron, args);
+        } else {
+            logger.debug(patron, args);
+        }
+    }
+
     private static final VerdictResponse VENCIDO = new VerdictResponse("UNKNOWN", null, 0L, "", null, null, null);
 
     private final java.util.concurrent.atomic.AtomicLong ultimoAvisoVencimiento =
@@ -397,6 +585,7 @@ public final class JarvisClient {
 
     private void avisarVencimiento(String ip) {
         ultimoVeredictoFalloMs = System.currentTimeMillis();
+        anotarCausa(Causa.RED, ultimoVeredictoFalloMs);
         long ahora = System.currentTimeMillis();
         long previo = ultimoAvisoVencimiento.get();
         if (previo != 0L && ahora >= previo && ahora - previo < 60_000L) return;
@@ -407,8 +596,13 @@ public final class JarvisClient {
 
     private static final long SECRET_RESET_MIN_INTERVAL_MS = 60_000L;
     private final java.util.concurrent.atomic.AtomicBoolean secretResetInFlight = new java.util.concurrent.atomic.AtomicBoolean(false);
+    private final java.util.concurrent.atomic.AtomicBoolean claveConsultadaConSecretoManual =
+            new java.util.concurrent.atomic.AtomicBoolean(false);
     private void maybeResetSecret(int status) {
-        if (secretFromConfig) return;
+        if (secretFromConfig) {
+            if (claveConsultadaConSecretoManual.compareAndSet(false, true)) consultarConfig(false);
+            return;
+        }
         HmacSigner s = signer;
         if (s == null || !s.hasSecret()) return;
         long now = System.currentTimeMillis();
@@ -419,8 +613,10 @@ public final class JarvisClient {
             try {
                 String fresh = fetchSharedSecret();
                 if (fresh != null && !fresh.isBlank()) {
+                    HmacSigner antes = this.signer;
                     this.signer = new HmacSigner(fresh);
                     this.secretForKey = config.getString("backend.license-key", "");
+                    if (!mismoSecreto(antes, this.signer)) olvidarRechazoDeLicencia();
                 } else if (keyRejected) {
                     this.signer = new HmacSigner("");
                     this.secretForKey = "";
@@ -447,13 +643,68 @@ public final class JarvisClient {
         return ahoraMs - sondaSalioMs > probeTimeoutMs + 4_500L + 5_000L;
     }
 
-    private void backendRespondio() {
+    void backendRespondio() {
         if (cbState.get() == CbState.CLOSED) return;
+        if (!pingPuedeCerrar(causaFallo, causaFalloMs, System.currentTimeMillis())) return;
         cbFailures.set(0);
         if (cbState.compareAndSet(CbState.OPEN, CbState.CLOSED)
                 || cbState.compareAndSet(CbState.HALF_OPEN, CbState.CLOSED)) {
             logger.info("Jarvis backend reachable again; protection is back to normal.");
         }
+    }
+
+    void cerrarTrasSonda() {
+        if (cbState.compareAndSet(CbState.HALF_OPEN, CbState.CLOSED)) {
+            logger.info("Jarvis backend reachable again; protection is back to normal.");
+        }
+    }
+
+    static final long OLVIDO_LIMITE_MS = 120_000L;
+
+    static boolean pingPuedeCerrar(Causa causa, long falloMs, long ahoraMs) {
+        if (causa == null || causa == Causa.RED) return true;
+        if (causa == Causa.LIMITE) {
+            long edad = ahoraMs - falloMs;
+            return edad >= OLVIDO_LIMITE_MS || edad < 0;
+        }
+        return false;
+    }
+
+    static Causa causaHttp(int status, boolean marcaDelBackend) {
+        if (status == 429) return Causa.LIMITE;
+        if (licenciaRechazada(status, marcaDelBackend)) return Causa.LICENCIA;
+        return Causa.RED;
+    }
+
+    private volatile Causa causaFallo = Causa.RED;
+    private volatile long causaFalloMs = 0L;
+    private volatile Causa causaAvisada = null;
+
+    void anotarCausa(Causa causa, long ahoraMs) {
+        this.causaFallo = causa == null ? Causa.RED : causa;
+        this.causaFalloMs = ahoraMs;
+    }
+
+    void olvidarRechazoDeLicencia() {
+        if (causaFallo == Causa.LICENCIA) causaFallo = Causa.RED;
+    }
+
+    static boolean mismoSecreto(HmacSigner a, HmacSigner b) {
+        if (a == null || b == null || !a.hasSecret() || !b.hasSecret()) return false;
+        String prueba = "jarvis-mismo-secreto";
+        return a.sign(prueba).equals(b.sign(prueba));
+    }
+
+    public Causa causaDegradado() { return causaFallo; }
+
+    static String enConsola(Causa causa) {
+        if (causa == null) return "";
+        return switch (causa) {
+            case LICENCIA -> ": requests rejected";
+            case LIMITE   -> ": too many requests";
+            case FIRMA    -> ": invalid response signature";
+            default       -> "";
+        };
     }
 
     private volatile long ultimoVeredictoOkMs = 0L;
@@ -465,15 +716,23 @@ public final class JarvisClient {
         return falloMs > okMs && ahoraMs - falloMs <= ventanaMs;
     }
 
-    private VerdictResponse onFailure(String ip, int failThreshold) {
+    VerdictResponse onFailure(String ip, int failThreshold, Causa causa) {
         ultimoVeredictoFalloMs = System.currentTimeMillis();
+        Causa c = causa == null ? Causa.RED : causa;
+        anotarCausa(c, ultimoVeredictoFalloMs);
         int failures = cbFailures.incrementAndGet();
         if (cbState.compareAndSet(CbState.HALF_OPEN, CbState.OPEN)) {
             cbOpenedAt = System.currentTimeMillis();
-            logger.warn("Circuit breaker OPEN (probe failed). Degraded mode active.");
+            if (c != causaAvisada) {
+                causaAvisada = c;
+                logger.warn("Circuit breaker OPEN (probe failed{}). Degraded mode active.", enConsola(c));
+            } else {
+                logger.debug("Circuit breaker still OPEN (probe failed{}).", enConsola(c));
+            }
         } else if (failures >= failThreshold && cbState.compareAndSet(CbState.CLOSED, CbState.OPEN)) {
             cbOpenedAt = System.currentTimeMillis();
-            logger.warn("Circuit breaker OPEN ({} failures). Degraded mode active.", failures);
+            causaAvisada = c;
+            logger.warn("Circuit breaker OPEN ({} failures{}). Degraded mode active.", failures, enConsola(c));
         }
         return unknownVerdict();
     }
@@ -541,13 +800,56 @@ public final class JarvisClient {
     public void marcarApagando() { this.apagando = true; }
 
     public void reportSessionEnd(String username, String ip, long durationMs) {
+        finDeSesion(username, ip, durationMs, apagando ? "SHUTDOWN" : "QUIT");
+    }
+
+    private java.util.concurrent.CompletableFuture<?> finDeSesion(String username, String ip, long durationMs,
+                                                                  String fin) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("username", username);
         payload.put("ip", ip);
         payload.put("durationMs", durationMs);
-        payload.put("end", apagando ? "SHUTDOWN" : "QUIT");
-        report("/api/v1/session/end", ip, username, payload,
+        payload.put("end", fin);
+        return report("/api/v1/session/end", ip, username, payload,
                 "Error reporting session end for " + username);
+    }
+
+    public boolean sesionesAlApagar() { return sesionesAlApagar; }
+
+    public record FinPendiente(String username, String ip, long durationMs) {}
+
+    public int reportSessionEndsAlApagar(java.util.List<FinPendiente> fines, long techoMs) {
+        if (fines == null || fines.isEmpty()) return 0;
+        long hasta = System.nanoTime() + java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(Math.max(0L, techoMs));
+        java.util.List<java.util.concurrent.CompletableFuture<?>> enVuelo = new java.util.ArrayList<>(fines.size());
+        for (FinPendiente f : fines) {
+            try {
+                java.util.concurrent.CompletableFuture<?> c = finDeSesion(f.username(), f.ip(), f.durationMs(), "SHUTDOWN");
+                if (c != null) enVuelo.add(c);
+            } catch (RuntimeException e) {
+                logger.debug("Error reporting session end for {}: {}", f.username(), e.toString());
+            }
+        }
+        long resta = java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(hasta - System.nanoTime());
+        return esperarConTecho(enVuelo, resta);
+    }
+
+    static int esperarConTecho(java.util.List<? extends java.util.concurrent.CompletableFuture<?>> enVuelo,
+                               long techoMs) {
+        if (enVuelo == null || enVuelo.isEmpty()) return 0;
+        try {
+            java.util.concurrent.CompletableFuture.allOf(enVuelo.toArray(new java.util.concurrent.CompletableFuture<?>[0]))
+                    .get(Math.max(0L, techoMs), java.util.concurrent.TimeUnit.MILLISECONDS);
+        } catch (java.util.concurrent.TimeoutException | java.util.concurrent.ExecutionException rendirse) {
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        int terminados = 0;
+        for (java.util.concurrent.CompletableFuture<?> c : enVuelo) {
+            if (c.isDone()) terminados++;
+            else c.cancel(true);
+        }
+        return terminados;
     }
 
     private final java.util.concurrent.atomic.AtomicInteger localDenials404 =
@@ -782,7 +1084,8 @@ public final class JarvisClient {
 
     public dev.flamingomg.jarvis.model.ProtectionState protectionState() {
         HmacSigner s = signer;
-        boolean canSign = s != null && s.hasSecret() && !keyRejected;
+        boolean canSign = s != null && s.hasSecret() && !keyRejected
+                && !isBlank(config.getString("backend.license-key", ""));
         boolean sano = backendHealthy() && !veredictosFallando(
                 System.currentTimeMillis(), ultimoVeredictoOkMs, ultimoVeredictoFalloMs, VENTANA_FALLO_MS);
         return dev.flamingomg.jarvis.model.ProtectionState.of(canSign, sano, ipCheckDisabled);
@@ -803,23 +1106,40 @@ public final class JarvisClient {
 
     private boolean pingDesactivado() { return config.getInt("backend.keepalive-ms", 15_000) <= 0; }
 
+    enum Rescate { NADA, SECRETO, CONSULTA }
+
+    Rescate rescateDelLatido(long ahoraNanos) {
+        HmacSigner sg = signer;
+        boolean sinSecreto = sg == null || !sg.hasSecret();
+        if (!keyRejected) return sinSecreto ? Rescate.SECRETO : Rescate.NADA;
+        if (!sinSecreto && secretFromConfig) return Rescate.NADA;
+        if (!tomarTurnoDeClave(ahoraNanos)) return Rescate.NADA;
+        return sinSecreto ? Rescate.SECRETO : Rescate.CONSULTA;
+    }
+
     private void pingBackend() {
         try {
             if (!isBlank(licenseKey)) {
-                for (String l : protectionWatch.lineas(protectionState(), System.currentTimeMillis())) logger.warn(l);
+                for (String l : protectionWatch.lineas(protectionState(), causaFallo, System.currentTimeMillis())) {
+                    logger.warn(l);
+                }
             }
             if (isBlank(licenseKey)) return;
-            HmacSigner sg = signer;
-            if ((sg == null || !sg.hasSecret()) && !keyRejected
-                    && secretResetInFlight.compareAndSet(false, true)) {
-                Thread bt = new Thread(() -> {
-                    try { ensureReady(); } catch (Exception ignore) {}
-                    finally { secretResetInFlight.set(false); }
-                }, "jarvis-secret-bootstrap");
-                bt.setDaemon(true);
-                bt.start();
+            switch (rescateDelLatido(System.nanoTime())) {
+                case SECRETO -> {
+                    if (secretResetInFlight.compareAndSet(false, true)) {
+                        Thread bt = new Thread(() -> {
+                            try { ensureReady(); } catch (Exception ignore) {}
+                            finally { secretResetInFlight.set(false); }
+                        }, "jarvis-secret-bootstrap");
+                        bt.setDaemon(true);
+                        bt.start();
+                    }
+                }
+                case CONSULTA -> consultarConfig(true);
+                default -> { }
             }
-            if (pingDesactivado()) return;
+            if (pingDesactivado() || keyRejected) return;
             String url = ConfigManager.DEFAULT_BACKEND_URL;
             int connectMs = Math.max(1, config.getInt("backend.connect-timeout-ms", 8000));
             HttpRequest req = HttpRequest.newBuilder(URI.create(url + "/ready"))
@@ -851,7 +1171,11 @@ public final class JarvisClient {
     }
 
     public record RespuestaLista(int code, Boolean found, Boolean saved, Boolean already,
-                                 Integer ipUnbanned, Long expiresAt) {
+                                 Integer ipUnbanned, Long expiresAt, Boolean global) {
+        public RespuestaLista(int code, Boolean found, Boolean saved, Boolean already,
+                              Integer ipUnbanned, Long expiresAt) {
+            this(code, found, saved, already, ipUnbanned, expiresAt, null);
+        }
         public boolean ok() { return code >= 200 && code < 300; }
         static RespuestaLista sinRed() { return new RespuestaLista(0, null, null, null, null, null); }
     }
@@ -862,7 +1186,7 @@ public final class JarvisClient {
             com.google.gson.JsonObject o = GSON.fromJson(body, com.google.gson.JsonObject.class);
             if (o == null) return new RespuestaLista(code, null, null, null, null, null);
             return new RespuestaLista(code, booleano(o, "found"), booleano(o, "saved"),
-                    booleano(o, "already"), entero(o, "ipUnbanned"), largo(o, "expiresAt"));
+                    booleano(o, "already"), entero(o, "ipUnbanned"), largo(o, "expiresAt"), booleano(o, "global"));
         } catch (RuntimeException e) {
             return new RespuestaLista(code, null, null, null, null, null);
         }
@@ -953,15 +1277,15 @@ public final class JarvisClient {
                 });
     }
 
-    private void report(String endpoint, String ipForSig, String userForSig,
+    private java.util.concurrent.CompletableFuture<?> report(String endpoint, String ipForSig, String userForSig,
                         Map<String, Object> payload, String errorMsg) {
-        if (signer == null || !signer.hasSecret()) return;
+        if (signer == null || !signer.hasSecret()) return null;
         long   ts         = clock.now();
         String licKey     = licenseKey;
         String backendUrl = ConfigManager.DEFAULT_BACKEND_URL;
         String sig        = signer.sign(HmacSigner.requestPayload(ts, ipForSig, userForSig));
         payload.put("timestamp", ts);
-        sendAsync(backendUrl + endpoint, licKey, ts, sig, null, GSON.toJson(payload),
+        return sendAsync(backendUrl + endpoint, licKey, ts, sig, null, GSON.toJson(payload),
                 () -> logger.debug("{}", errorMsg));
     }
 
@@ -978,7 +1302,9 @@ public final class JarvisClient {
                 () -> logger.debug("{}", errorMsg));
     }
 
-    private void sendAsync(String url, String licKey, long ts, String sig, String canon, String body, Runnable onError) {
+    private java.util.concurrent.CompletableFuture<HttpResponse<Void>> sendAsync(String url, String licKey, long ts,
+                                                                                String sig, String canon, String body,
+                                                                                Runnable onError) {
         long timeoutMs = Math.max(5000L, config.getInt("backend.connect-timeout-ms", 8000) + 5000L);
         HttpRequest.Builder b = HttpRequest.newBuilder(URI.create(url))
                 .timeout(Duration.ofMillis(timeoutMs))
@@ -988,7 +1314,9 @@ public final class JarvisClient {
                 .header("X-Signature",   sig);
         if (canon != null) b.header("X-Sig-Canon", canon);
         HttpRequest req = b.POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8)).build();
-        http.sendAsync(req, HttpResponse.BodyHandlers.discarding())
-                .exceptionally(e -> { onError.run(); return null; });
+        java.util.concurrent.CompletableFuture<HttpResponse<Void>> enVuelo =
+                http.sendAsync(req, HttpResponse.BodyHandlers.discarding());
+        enVuelo.exceptionally(e -> { onError.run(); return null; });
+        return enVuelo;
     }
 }

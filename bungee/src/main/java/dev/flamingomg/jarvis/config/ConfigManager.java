@@ -84,6 +84,10 @@ public final class ConfigManager {
     }
 
     public boolean load() {
+        return cargar(true);
+    }
+
+    private boolean cargar(boolean avisar) {
         boolean existia = false;
         try {
             Files.createDirectories(dataDirectory);
@@ -93,18 +97,27 @@ public final class ConfigManager {
                 copyDefault(file);
                 logger.info("config.yml created at {}", file);
             }
+            List<String> avisosConPunto;
             try (InputStream in = Files.newInputStream(file)) {
                 Map<String, Object> loaded = new Yaml().load(in);
-                this.root = normalize(loaded != null ? loaded : new java.util.LinkedHashMap<>());
+                if (loaded == null) loaded = new java.util.LinkedHashMap<>();
+                avisosConPunto = avisosClavesConPunto(loaded);
+                this.root = normalize(loaded);
             }
             rebuildBypassSet();
             warnLegacyKeysOnce();
+            if (avisar) for (String linea : avisosConPunto) logger.warn("{}", linea);
             logger.debug("Jarvis client configuration loaded.");
         } catch (IOException | RuntimeException e) {
-            logger.error("Couldn't load {}; keeping the settings currently in memory.", FILE_NAME, e);
+            String causa = causaSinContenido(e);
+            if (e instanceof org.yaml.snakeyaml.error.MarkedYAMLException) {
+                logger.error("Couldn't load {} ({}); keeping the settings currently in memory.", FILE_NAME, causa);
+            } else {
+                logger.error("Couldn't load {}; keeping the settings currently in memory.", FILE_NAME, e);
+            }
             this.motivoCargaFallida = existia
-                    ? "config.yml exists but couldn't be read: " + e
-                    : "config.yml couldn't be created or read: " + e;
+                    ? "config.yml exists but couldn't be read: " + causa
+                    : "config.yml couldn't be created or read: " + causa;
             return false;
         }
         this.motivoCargaFallida = null;
@@ -115,6 +128,15 @@ public final class ConfigManager {
 
     public String motivoCargaFallida() { return motivoCargaFallida; }
 
+    static String causaSinContenido(Exception e) {
+        if (e instanceof org.yaml.snakeyaml.error.MarkedYAMLException y) {
+            org.yaml.snakeyaml.error.Mark m = y.getProblemMark();
+            String donde = m == null ? "" : " (line " + (m.getLine() + 1) + ", column " + (m.getColumn() + 1) + ")";
+            return "invalid YAML: " + (y.getProblem() != null ? y.getProblem() : "syntax error") + donde;
+        }
+        return String.valueOf(e);
+    }
+
     public enum Arranque {
          PROTEGER,
          VINCULAR,
@@ -124,6 +146,25 @@ public final class ConfigManager {
     public static Arranque arranque(boolean cargaOk, boolean claveEnBlanco) {
         if (!cargaOk) return Arranque.CONFIG_ILEGIBLE;
         return claveEnBlanco ? Arranque.VINCULAR : Arranque.PROTEGER;
+    }
+
+    private static final java.util.regex.Pattern NOMBRE_CON_PUNTO =
+            java.util.regex.Pattern.compile("[A-Za-z0-9_-]+(\\.[A-Za-z0-9_-]+)+");
+
+    static List<String> avisosClavesConPunto(Map<?, ?> raiz) {
+        List<String> lineas = new java.util.ArrayList<>();
+        for (Object k : raiz.keySet()) {
+            if (!(k instanceof String nombre) || !NOMBRE_CON_PUNTO.matcher(nombre).matches()) continue;
+            String[] partes = nombre.split("\\.");
+            lineas.add("config.yml: \"" + nombre + "\" is ignored: Jarvis only reads a dotted setting written nested, "
+                    + (raiz.containsKey(partes[0])
+                        ? "inside the \"" + partes[0] + ":\" block you already have:"
+                        : "like this:"));
+            for (int i = 0; i < partes.length; i++) {
+                lineas.add("    " + "  ".repeat(i) + partes[i] + ":" + (i == partes.length - 1 ? " <value>" : ""));
+            }
+        }
+        return lineas;
     }
 
     private void rebuildBypassSet() {
@@ -151,6 +192,12 @@ public final class ConfigManager {
         Object key = r.getOrDefault("key", r.get("license-key"));
         if (key != null && blankOrDefault(backend.get("license-key"))) backend.put("license-key", key);
 
+        Object efectiva = backend.get("license-key");
+        EstadoClave estado = estadoClave(efectiva == null ? null : String.valueOf(efectiva));
+        if (estado == EstadoClave.VALIDA) backend.put("license-key", normalizarClave(String.valueOf(efectiva)));
+        else if (estado == EstadoClave.MAL_FORMADA) backend.put("license-key", "");
+        this.estadoClave = estado;
+
         backend.put("url", DEFAULT_BACKEND_URL);
         return r;
     }
@@ -159,6 +206,49 @@ public final class ConfigManager {
         if (v == null) return true;
         String s = String.valueOf(v).trim();
         return s.isEmpty() || s.equalsIgnoreCase("CHANGE_ME");
+    }
+
+    private static final java.util.regex.Pattern CLAVE_32_HEX = java.util.regex.Pattern.compile("[0-9A-Fa-f]{32}");
+
+    public enum EstadoClave {
+         VACIA,
+         VALIDA,
+         MAL_FORMADA
+    }
+
+    private volatile EstadoClave estadoClave = EstadoClave.VACIA;
+
+    public EstadoClave estadoClave() { return estadoClave; }
+
+    public static String normalizarClave(String pegado) {
+        if (pegado == null) return null;
+        String encontrada = null;
+        for (String token : limpiarPegado(pegado).trim().split(SEPARADOR)) {
+            if (!CLAVE_32_HEX.matcher(token).matches()) continue;
+            if (encontrada != null) return null;
+            encontrada = token;
+        }
+        return encontrada == null ? null : encontrada.toUpperCase(java.util.Locale.ROOT);
+    }
+
+    public static String claveDeLosArgumentos(String[] args) {
+        if (args == null || args.length < 2) return null;
+        return normalizarClave(String.join(" ", java.util.Arrays.copyOfRange(args, 1, args.length)));
+    }
+
+    public static EstadoClave estadoClave(String pegado) {
+        if (pegado == null || blankOrDefault(limpiarPegado(pegado).replaceAll(SEPARADOR, " "))) return EstadoClave.VACIA;
+        return normalizarClave(pegado) != null ? EstadoClave.VALIDA : EstadoClave.MAL_FORMADA;
+    }
+
+    private static final String SEPARADOR = "[\\s\\p{Z}]+";
+
+    private static String limpiarPegado(String s) {
+        return sinComillas(s.replaceAll("\\p{Cf}", ""));
+    }
+
+    private static String sinComillas(String s) {
+        return s.replaceAll("[\"'`\u201C\u201D\u2018\u2019\u00AB\u00BB<>]", " ");
     }
 
     private void copyDefault(Path target) throws IOException {
@@ -215,6 +305,12 @@ public final class ConfigManager {
             logger.warn("License key with invalid characters; not saved.");
             return false;
         }
+        String normalizada = normalizarClave(clean);
+        if (normalizada == null) {
+            logger.warn("That is not a license key; not saved.");
+            return false;
+        }
+        clean = normalizada;
         Path file = dataDirectory.resolve(FILE_NAME);
         Path tmp  = dataDirectory.resolve(FILE_NAME + ".tmp");
         String keyLine = "key: \"" + clean + "\"";
@@ -248,7 +344,7 @@ public final class ConfigManager {
             } catch (java.nio.file.AtomicMoveNotSupportedException notAtomic) {
                 Files.move(tmp, file, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
             }
-            load();
+            cargar(false);
             if (!clean.equals(getString("backend.license-key", ""))) {
                 logger.warn("The license key was written but it is not the one in use; check {} for a duplicate.",
                         FILE_NAME);

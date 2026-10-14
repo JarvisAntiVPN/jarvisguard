@@ -19,4 +19,17 @@ public enum ProtectionState {
     public boolean isProtecting() {
         return this == ACTIVE;
     }
+
+    public enum Causa {
+        RED("cmd.degradedWhy"),
+        LICENCIA("cmd.degradedAuth"),
+        LIMITE("cmd.degradedRate"),
+        FIRMA("cmd.degradedSig");
+
+        private final String clave;
+
+        Causa(String clave) { this.clave = clave; }
+
+        public String clave() { return clave; }
+    }
 }

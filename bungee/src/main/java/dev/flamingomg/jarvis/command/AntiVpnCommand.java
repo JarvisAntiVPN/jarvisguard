@@ -24,8 +24,8 @@ import java.util.stream.Collectors;
 
 public final class AntiVpnCommand extends Command implements TabExecutor {
 
-    private static final List<String> SUB = List.of("key", "stats", "doctor", "reload", "blacklist", "unblacklist",
-            "whitelist", "unwhitelist");
+    private static final List<String> SUB = List.of("key", "link", "stats", "doctor", "reload", "blacklist",
+            "unblacklist", "whitelist", "unwhitelist");
 
     private final JarvisClient client;
     private final ProxyServer proxy;
@@ -35,13 +35,23 @@ public final class AntiVpnCommand extends Command implements TabExecutor {
     private final FloodGuard floodGuard;
     private final SyncClient syncClient;
     private final dev.flamingomg.jarvis.listener.DetectionListener listener;
+    private final Runnable vincularSinClave;
+    private final java.util.function.Supplier<dev.flamingomg.jarvis.client.AvisoSinVincular.Vinculacion> vinculacion;
+    private final dev.flamingomg.jarvis.client.AvisoSinVincular.LineasDeLink<net.md_5.bungee.api.connection.ProxiedPlayer>
+            enlace;
 
     public AntiVpnCommand(JarvisClient client, ProxyServer proxy,
                           BanCache banCache, ConfigManager config,
                           Plugin plugin, FloodGuard floodGuard, SyncClient syncClient,
-                          dev.flamingomg.jarvis.listener.DetectionListener listener) {
+                          dev.flamingomg.jarvis.listener.DetectionListener listener, Runnable vincularSinClave,
+                          java.util.function.Supplier<dev.flamingomg.jarvis.client.AvisoSinVincular.Vinculacion> vinculacion,
+                          dev.flamingomg.jarvis.client.AvisoSinVincular.LineasDeLink<
+                                  net.md_5.bungee.api.connection.ProxiedPlayer> enlace) {
         super("antivpn", "jarvis.command", "jarvis", "avpn");
         this.listener = listener;
+        this.vincularSinClave = vincularSinClave;
+        this.vinculacion = vinculacion;
+        this.enlace = enlace;
         this.client = client;
         this.proxy = proxy;
         this.banCache = banCache;
@@ -59,6 +69,7 @@ public final class AntiVpnCommand extends Command implements TabExecutor {
         if (args.length == 0) { sendHelp(sender); return; }
         switch (args[0].toLowerCase(Locale.ROOT)) {
             case "key"       -> setKey(sender, args);
+            case "link"      -> link(sender);
             case "blacklist"   -> blacklist(sender, args, false);
             case "unblacklist" -> blacklist(sender, args, true);
             case "whitelist"   -> whitelist(sender, args, false);
@@ -68,10 +79,12 @@ public final class AntiVpnCommand extends Command implements TabExecutor {
             case "reload"    -> {
 
                 if (!sender.hasPermission("jarvis.admin")) { noPermission(sender); return; }
+                String claveAntes = config.getString("backend.license-key", "");
                 if (!config.reload()) {
                     send(sender, pre().append(Component.text(m("cmd.reloadFail"), NamedTextColor.RED)));
                     return;
                 }
+                client.claveRecargada(claveAntes);
                 floodGuard.reconfigure();
                 banCache.reconfigure();
                 client.cache().invalidateAll();
@@ -81,10 +94,43 @@ public final class AntiVpnCommand extends Command implements TabExecutor {
                     client.refreshConfig();
                     syncClient.reconnectIfKeyChanged();
                 });
+                if (isBlank(config.getString("backend.license-key", ""))) vincularSinClave.run();
+                if (config.estadoClave() == ConfigManager.EstadoClave.MAL_FORMADA) {
+                    send(sender, pre().append(Component.text("config.yml: " + m("cmd.invalidkey"),
+                            NamedTextColor.RED)));
+                    return;
+                }
                 send(sender, pre().append(Component.text(m("cmd.reloaded"), NamedTextColor.GREEN)));
             }
             default -> sendHelp(sender);
         }
+    }
+
+    private void link(CommandSender sender) {
+        if (!sender.hasPermission("jarvis.admin")) { noPermission(sender); return; }
+        net.md_5.bungee.api.connection.ProxiedPlayer p =
+                sender instanceof net.md_5.bungee.api.connection.ProxiedPlayer x ? x : null;
+        boolean consola = sender == proxy.getConsole();
+        Locale idioma = p == null ? null : p.getLocale();
+        String loc = idioma == null ? null : idioma.toLanguageTag();
+        proxy.getScheduler().runAsync(plugin, () -> {
+            for (dev.flamingomg.jarvis.client.AvisoSinVincular.Linea l : enlace.de(p, loc, consola)) {
+                send(sender, pintar(l));
+            }
+        });
+    }
+
+    private static Component pintar(dev.flamingomg.jarvis.client.AvisoSinVincular.Linea l) {
+        NamedTextColor color = switch (l.tono()) {
+            case ROJO  -> NamedTextColor.RED;
+            case AMBAR -> NamedTextColor.YELLOW;
+            case GRIS  -> NamedTextColor.GRAY;
+        };
+        Component linea = Component.text(l.texto(), color);
+        if (l.enlace() == null) return linea;
+        return linea.append(Component.text(" ")).append(Component.text(l.enlace(), NamedTextColor.AQUA)
+                .decorate(TextDecoration.UNDERLINED)
+                .clickEvent(net.kyori.adventure.text.event.ClickEvent.openUrl(l.enlace())));
     }
 
     private void setKey(CommandSender sender, String[] args) {
@@ -93,8 +139,8 @@ public final class AntiVpnCommand extends Command implements TabExecutor {
             send(sender, pre().append(Component.text(m("cmd.usage"), NamedTextColor.RED)));
             return;
         }
-        String newKey = args[1].trim();
-        if (newKey.isEmpty() || "CHANGE_ME".equalsIgnoreCase(newKey)) {
+        String newKey = ConfigManager.claveDeLosArgumentos(args);
+        if (newKey == null) {
             send(sender, pre().append(Component.text(m("cmd.invalidkey"), NamedTextColor.RED)));
             return;
         }
@@ -129,7 +175,7 @@ public final class AntiVpnCommand extends Command implements TabExecutor {
             switch (estado) {
                 case DEGRADED -> {
                     send(sender, pre().append(Component.text(m("cmd.degraded"), NamedTextColor.YELLOW)));
-                    send(sender, pre().append(Component.text(m("cmd.degradedWhy"), NamedTextColor.GRAY)));
+                    send(sender, pre().append(Component.text(m(client.causaDegradado().clave()), NamedTextColor.GRAY)));
                 }
                 case BEHIND_PROXY -> send(sender, pre().append(Component.text(m("cmd.behindProxy"), NamedTextColor.YELLOW)));
                 default -> {
@@ -162,7 +208,9 @@ public final class AntiVpnCommand extends Command implements TabExecutor {
                 listener.privateIpWatch().privadaReciente(ahora, VENTANA_IP_PRIVADA_MS),
                 listener.privateIpWatch().algunaVista(),
                 banCache.size(),
-                config.motivoCargaFallida());
+                config.motivoCargaFallida(),
+                vinculacion.get(),
+                client.causaDegradado());
 
         send(sender, pre().append(Component.text(m("cmd.doctorTitle"), NamedTextColor.AQUA)));
         var lineas = Diagnostico.revisar(datos);
@@ -199,6 +247,7 @@ public final class AntiVpnCommand extends Command implements TabExecutor {
     private void sendHelp(CommandSender sender) {
         send(sender, pre().append(Component.text(m("cmd.helpTitle"), NamedTextColor.AQUA)));
         send(sender, help("key <license>", m("cmd.descKey")));
+        send(sender, help("link",          m("cmd.descLink")));
         send(sender, help("stats",         m("cmd.descStats")));
         send(sender, help("doctor",        m("cmd.descDoctor")));
         send(sender, help("reload",        m("cmd.descReload")));
@@ -226,7 +275,7 @@ public final class AntiVpnCommand extends Command implements TabExecutor {
         if (sinFirma(sender)) return;
         send(sender, pre().append(Component.text(m("cmd.blacklistSending"), NamedTextColor.GRAY)));
         client.blacklistAsync(target, reason, actor, remove).thenAccept(r -> {
-            if (r.ok()) {
+            if (r.ok() || (remove && r.code() == 409 && Boolean.TRUE.equals(r.global()))) {
                 pintar(sender, resumirLista(r, remove, remove ? "cmd.unblacklistOk" : "cmd.blacklistOk",
                         target, null, this::m, System.currentTimeMillis()));
             } else {
@@ -263,6 +312,9 @@ public final class AntiVpnCommand extends Command implements TabExecutor {
                                      String claveOk, String objetivo, String ecoTiempo,
                                      java.util.function.UnaryOperator<String> tr, long ahoraMs) {
         List<String> detalles = new java.util.ArrayList<>(2);
+        if (remove && r.code() == 409 && Boolean.TRUE.equals(r.global())) {
+            return new ResumenLista(Tono.AVISO, tr.apply("cmd.networkBlock") + " " + objetivo, detalles);
+        }
         if (Boolean.FALSE.equals(r.saved())) {
             return new ResumenLista(Tono.FALLO, tr.apply("cmd.notSaved") + " " + objetivo, detalles);
         }

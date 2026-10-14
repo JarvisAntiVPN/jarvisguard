@@ -157,7 +157,7 @@ public final class SyncClient {
         HmacSigner signer = jarvisClient.signer();
         if (signer == null || !signer.hasSecret()) {
 
-            jarvisClient.ensureReady();
+            if (jarvisClient.tocaReintentarClave()) jarvisClient.ensureReady();
             long delaySec = jarvisClient.keyRejected() ? 60 : 5;
             scheduler.schedule(this::connect, delaySec, TimeUnit.SECONDS);
             return;

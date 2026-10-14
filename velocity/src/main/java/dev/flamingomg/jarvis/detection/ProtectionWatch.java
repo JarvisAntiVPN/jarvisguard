@@ -20,6 +20,10 @@ public final class ProtectionWatch {
     private ProtectionState estadoDelEpisodio = null;
 
     public synchronized String[] lineas(ProtectionState estado, long ahoraMs) {
+        return lineas(estado, ProtectionState.Causa.RED, ahoraMs);
+    }
+
+    public synchronized String[] lineas(ProtectionState estado, ProtectionState.Causa causa, long ahoraMs) {
         long hueco = paso(ahoraMs);
 
         if (estado == null || estado.isProtecting() || estado == ProtectionState.BEHIND_PROXY) {
@@ -40,7 +44,7 @@ public final class ProtectionWatch {
         if (acumuladoMs < GRACIA_MS) return new String[0];
         if (!reclamaTurno(ahoraMs)) return new String[0];
         long ventana = Math.max(acumuladoMs, ahoraMs - inicioEpisodio);
-        return texto(estado, acumuladoMs / 60_000L, ventana / 60_000L);
+        return texto(estado, causa, acumuladoMs / 60_000L, ventana / 60_000L);
     }
 
     private long paso(long ahoraMs) {
@@ -64,12 +68,25 @@ public final class ProtectionWatch {
         return true;
     }
 
-    private static String[] texto(ProtectionState estado, long minutosSinComprobar, long minutosVentana) {
+    private static String[] texto(ProtectionState estado, ProtectionState.Causa porque,
+                                  long minutosSinComprobar, long minutosVentana) {
         String causa, arreglo, segunda;
         if (estado == ProtectionState.NO_KEY) {
-            causa   = "  Your license key was rejected or no shared secret could be obtained,";
-            arreglo = "  Check the key in config.yml and run /antivpn reload. If it looks right,";
-            segunda = "  contact support: until then nobody is being checked.";
+            causa   = "  Your license key was rejected or could not be validated yet,";
+            arreglo = "  Check the key in config.yml and run /antivpn reload. If it is right,";
+            segunda = "  check in your panel that the license is active. Until then nobody is checked.";
+        } else if (porque == ProtectionState.Causa.LICENCIA) {
+            causa   = "  The Jarvis backend is rejecting this server's requests (license or secret),";
+            arreglo = "  Check in your panel that the license is active. If config.yml has a";
+            segunda = "  shared-secret line, delete it and restart the server.";
+        } else if (porque == ProtectionState.Causa.LIMITE) {
+            causa   = "  The Jarvis backend is receiving too many requests with this license,";
+            arreglo = "  This usually clears up on its own. If it keeps happening,";
+            segunda = "  check that this license key is only used on your own servers.";
+        } else if (porque == ProtectionState.Causa.FIRMA) {
+            causa   = "  The Jarvis backend's answers are failing the signature check here,";
+            arreglo = "  Update Jarvis to the latest version. If it is already up to date, check that";
+            segunda = "  nothing on this machine's network intercepts its HTTPS traffic.";
         } else {
             causa   = "  The Jarvis backend has not been reachable from this machine,";
             arreglo = "  Check this server's outbound connectivity and DNS. Protection returns on its own";

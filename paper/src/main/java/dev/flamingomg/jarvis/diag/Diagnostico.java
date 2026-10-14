@@ -1,5 +1,6 @@
 package dev.flamingomg.jarvis.diag;
 
+import dev.flamingomg.jarvis.client.AvisoSinVincular;
 import dev.flamingomg.jarvis.model.ProtectionState;
 
 import java.util.ArrayList;
@@ -17,7 +18,22 @@ public final class Diagnostico {
                         boolean claveConfigurada,
                         long desfaseRelojMs, boolean canalVivo, int ultimoRechazoSse,
                         String ipPrivadaVista, boolean ipsVistas, long bansLocales,
-                        String errorDeConfig) {}
+                        String errorDeConfig, AvisoSinVincular.Vinculacion vinculacion, ProtectionState.Causa causa) {
+
+        public Datos(ProtectionState estado, boolean claveRechazada, boolean vinculado, boolean claveConfigurada,
+                     long desfaseRelojMs, boolean canalVivo, int ultimoRechazoSse, String ipPrivadaVista,
+                     boolean ipsVistas, long bansLocales, String errorDeConfig, ProtectionState.Causa causa) {
+            this(estado, claveRechazada, vinculado, claveConfigurada, desfaseRelojMs, canalVivo, ultimoRechazoSse,
+                    ipPrivadaVista, ipsVistas, bansLocales, errorDeConfig, null, causa);
+        }
+
+        public Datos(ProtectionState estado, boolean claveRechazada, boolean vinculado, boolean claveConfigurada,
+                     long desfaseRelojMs, boolean canalVivo, int ultimoRechazoSse, String ipPrivadaVista,
+                     boolean ipsVistas, long bansLocales, String errorDeConfig) {
+            this(estado, claveRechazada, vinculado, claveConfigurada, desfaseRelojMs, canalVivo, ultimoRechazoSse,
+                    ipPrivadaVista, ipsVistas, bansLocales, errorDeConfig, ProtectionState.Causa.RED);
+        }
+    }
 
     public static final long DESFASE_AVISO_MS = 30_000L;
 
@@ -51,8 +67,17 @@ public final class Diagnostico {
     private static Linea licencia(Datos d) {
         if (d.claveRechazada()) return new Linea(Nivel.FALLO, "cmd.diagLicense", "cmd.keyrejected", null);
         if (!d.vinculado()) {
-            return new Linea(Nivel.FALLO, "cmd.diagLicense",
-                    d.claveConfigurada() ? "cmd.validatefail" : "cmd.notLinked", null);
+            if (d.claveConfigurada()) return new Linea(Nivel.FALLO, "cmd.diagLicense", "cmd.validatefail", null);
+            if (d.vinculacion() == AvisoSinVincular.Vinculacion.PROXY) {
+                return new Linea(Nivel.AVISO, "cmd.diagLicense", "log.link.proxy", null);
+            }
+            if (d.vinculacion() == AvisoSinVincular.Vinculacion.FALLIDA) {
+                return new Linea(Nivel.FALLO, "cmd.diagLicense", "cmd.diagLinkPending", null);
+            }
+            if (d.vinculacion() == AvisoSinVincular.Vinculacion.PARADA) {
+                return new Linea(Nivel.FALLO, "cmd.diagLicense", null, null);
+            }
+            return new Linea(Nivel.FALLO, "cmd.diagLicense", "cmd.diagNotLinked", null);
         }
         return new Linea(Nivel.OK, "cmd.diagLicense", null, null);
     }
@@ -63,8 +88,14 @@ public final class Diagnostico {
         if (e == ProtectionState.BEHIND_PROXY) {
             return new Linea(Nivel.AVISO, "cmd.diagBackend", "cmd.behindProxy", null);
         }
-        if (e == ProtectionState.DEGRADED) return new Linea(Nivel.FALLO, "cmd.diagBackend", "cmd.degradedWhy", null);
-        return new Linea(Nivel.FALLO, "cmd.diagBackend", "cmd.unprotected", null);
+        if (e == ProtectionState.DEGRADED) {
+            ProtectionState.Causa c = d.causa() == null ? ProtectionState.Causa.RED : d.causa();
+            return new Linea(Nivel.FALLO, "cmd.diagBackend", c.clave(), null);
+        }
+        if (d.vinculacion() == AvisoSinVincular.Vinculacion.PROXY) {
+            return new Linea(Nivel.AVISO, "cmd.diagBackend", null, null);
+        }
+        return new Linea(Nivel.FALLO, "cmd.diagBackend", null, null);
     }
 
     private static Linea reloj(Datos d) {
@@ -80,6 +111,9 @@ public final class Diagnostico {
         if (!d.vinculado()) return new Linea(Nivel.NEUTRO, "cmd.diagPanel", null, null);
         if (d.canalVivo())  return new Linea(Nivel.OK, "cmd.diagPanel", null, null);
         boolean auth = d.ultimoRechazoSse() == 401 || d.ultimoRechazoSse() == 403;
+        if (auth && d.estado() == ProtectionState.DEGRADED && d.causa() == ProtectionState.Causa.LICENCIA) {
+            return new Linea(Nivel.AVISO, "cmd.diagPanel", null, null);
+        }
         return new Linea(Nivel.AVISO, "cmd.diagPanel", auth ? "cmd.diagPanelAuth" : "cmd.diagPanelDown", null);
     }
 

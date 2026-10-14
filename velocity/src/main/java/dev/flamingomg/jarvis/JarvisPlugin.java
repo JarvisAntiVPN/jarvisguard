@@ -34,7 +34,7 @@ import java.nio.file.Path;
 )
 public final class JarvisPlugin {
 
-    public static final String VERSION = "0.5.26";
+    public static final String VERSION = "0.5.27";
 
     private static final int BSTATS_PLUGIN_ID = 31671;
 
@@ -52,6 +52,8 @@ public final class JarvisPlugin {
     private com.velocitypowered.api.scheduler.ScheduledTask pairTask;
     private volatile String pairDeviceCode;
     private volatile long pairExpiresAt;
+    private final dev.flamingomg.jarvis.client.PairingClient.Anteriores pairAnteriores =
+            new dev.flamingomg.jarvis.client.PairingClient.Anteriores();
     private String pairVerificationUri;
     private long pairBannerNextAt = 0L;
     private String pairLocale;
@@ -95,7 +97,7 @@ public final class JarvisPlugin {
 
         CommandMeta antivpnMeta = cm.metaBuilder("antivpn").aliases("jarvis", "avpn").plugin(this).build();
         cm.register(antivpnMeta, new AntiVpnCommand(jarvisClient, proxy, banCache, config, this, floodGuard, syncClient,
-                detectionListener));
+                detectionListener, this::vincularTrasRecargar, this::vinculacionAhora, this::lineasDeLink));
 
         syncClient.start();
         jarvisClient.fetchAndSyncBans(banCache);
@@ -115,13 +117,18 @@ public final class JarvisPlugin {
                 .schedule();
 
         this.pairing = new dev.flamingomg.jarvis.client.PairingClient(config, logger);
+        logger.info("Jarvis v{} loaded.", VERSION);
         switch (ConfigManager.arranque(configCargada, isBlank(config.getString("backend.license-key", "")))) {
-            case VINCULAR -> startPairingFlow();
+            case VINCULAR -> { avisoClaveMalFormada(); startPairingFlow(); }
             case CONFIG_ILEGIBLE -> avisoConfigIlegible();
             case PROTEGER -> { }
         }
+    }
 
-        logger.info("Jarvis v{} client active.", VERSION);
+    private void avisoClaveMalFormada() {
+        if (config.estadoClave() != ConfigManager.EstadoClave.MAL_FORMADA) return;
+        logger.warn("config.yml: {}", dev.flamingomg.jarvis.i18n.Messages.get(
+                dev.flamingomg.jarvis.i18n.Messages.localeDeLaMaquina(), "cmd.invalidkey"));
     }
 
     private boolean configCargada;
@@ -144,11 +151,26 @@ public final class JarvisPlugin {
                 .schedule();
     }
 
+    private synchronized void vincularTrasRecargar() {
+        if (pairing == null) return;
+        if (pairTask == null) startPairingFlow();
+        else pairBannerNextAt = 0L;
+    }
+
     private void requestAndPrintPairing() {
+        if (!pedirCodigo()) return;
+        printPairingBanner();
+        avisarSinVincularATodos();
+    }
+
+    private boolean pedirCodigo() {
         String server = "Velocity " + proxy.getVersion().getVersion();
         dev.flamingomg.jarvis.client.PairingClient.Start s = pairing.start(null, server, VERSION);
         if (s == null || s.verificationUri() == null) {
-            pairDeviceCode = null;
+            if (System.currentTimeMillis() > pairExpiresAt) {
+                pairAnteriores.guardar(pairDeviceCode, pairExpiresAt, System.currentTimeMillis());
+                pairDeviceCode = null;
+            }
             pairStartFails = Math.min(pairStartFails + 1, 6);
             pairNextStartAt = System.currentTimeMillis() + Math.min(300_000L, 5_000L * (1L << pairStartFails));
             if (!pairWarned) {
@@ -156,19 +178,66 @@ public final class JarvisPlugin {
                 logger.warn("Couldn't generate the linking link; retrying in the background. "
                         + "Alternative: /antivpn key <license>");
             }
-            return;
+            return false;
         }
         pairStartFails = 0;
         pairNextStartAt = 0L;
         pairWarned = false;
+        pairAnteriores.guardar(pairDeviceCode, pairExpiresAt, System.currentTimeMillis());
         pairDeviceCode = s.deviceCode();
         long ahoraPar = System.currentTimeMillis();
         pairExpiresAt = dev.flamingomg.jarvis.client.PairingClient.caducidadMs(ahoraPar, s.expiresIn());
         pairPollIntervalNanos = dev.flamingomg.jarvis.client.PairingClient.intervaloPollNanos(s.interval());
         pairNextPollAt = System.nanoTime();
         pairVerificationUri = s.verificationUri();
-        printPairingBanner();
-        avisarSinVincularATodos();
+        return true;
+    }
+
+    private dev.flamingomg.jarvis.client.AvisoSinVincular.Vinculacion vinculacionAhora() {
+        return dev.flamingomg.jarvis.client.AvisoSinVincular.vinculacion(
+                !isBlank(config.getString("backend.license-key", "")), pairTask != null,
+                pairStartFails == 0 || (pairDeviceCode != null && pairExpiresAt - System.currentTimeMillis()
+                        >= dev.flamingomg.jarvis.client.AvisoSinVincular.MARGEN_MIN_MS));
+    }
+
+    private java.util.List<dev.flamingomg.jarvis.client.AvisoSinVincular.Linea> lineasDeLink(
+            com.velocitypowered.api.proxy.Player quien, String idiomaDelCliente, boolean consola) {
+        boolean turno = dev.flamingomg.jarvis.client.AvisoSinVincular.esperarTurno(
+                pairTickEnCurso, dev.flamingomg.jarvis.client.AvisoSinVincular.ESPERA_TURNO_MS);
+        try {
+            boolean clave = !isBlank(config.getString("backend.license-key", ""));
+            dev.flamingomg.jarvis.client.AvisoSinVincular.Contenido que = quien != null
+                    ? dev.flamingomg.jarvis.client.AvisoSinVincular.queEnsenar(quien.isOnlineMode(), false)
+                    : consola ? dev.flamingomg.jarvis.client.AvisoSinVincular.Contenido.CON_ENLACE
+                    : dev.flamingomg.jarvis.client.AvisoSinVincular.queEnsenar(false, false);
+            long ahora = System.currentTimeMillis();
+            boolean nuevo = false;
+            if (turno && !clave && pairTask != null
+                    && que != dev.flamingomg.jarvis.client.AvisoSinVincular.Contenido.NADA
+                    && dev.flamingomg.jarvis.client.AvisoSinVincular.tocaCodigoNuevo(pairDeviceCode, pairExpiresAt, ahora)
+                    && ahora >= pairNextStartAt && pedirCodigo()) {
+                nuevo = true;
+                if (!consola) printPairingBanner();
+                else pairBannerNextAt = System.currentTimeMillis() + PAIR_BANNER_REPEAT_MS;
+            }
+            String enlace = pairVerificationUri;
+            boolean hay = pairDeviceCode != null && dev.flamingomg.jarvis.client.AvisoSinVincular.enlaceParaElComando(
+                    enlace, pairExpiresAt, System.currentTimeMillis(), nuevo);
+            dev.flamingomg.jarvis.client.AvisoSinVincular.Vinculacion v =
+                    dev.flamingomg.jarvis.client.AvisoSinVincular.vinculacion(clave, pairTask != null, hay);
+            if (quien != null && v == dev.flamingomg.jarvis.client.AvisoSinVincular.Vinculacion.CON_ENLACE) {
+                avisoSinVincular.tocaAvisar(quien.getUniqueId(), ahora);
+            }
+            if (nuevo) avisarSinVincularATodos();
+            String loc = quien == null
+                    ? (clave && jarvisClient != null ? jarvisClient.locale()
+                            : pairLocale != null ? pairLocale : dev.flamingomg.jarvis.i18n.Messages.localeDeLaMaquina())
+                    : (idiomaDelCliente != null ? idiomaDelCliente : pairLocale);
+            return dev.flamingomg.jarvis.client.AvisoSinVincular.respuestaDeLink(loc, v, que, hay ? enlace : null,
+                    config.motivoCargaFallida() != null);
+        } finally {
+            if (turno) pairTickEnCurso.set(false);
+        }
     }
 
     @Subscribe
@@ -190,22 +259,28 @@ public final class JarvisPlugin {
         if (que == dev.flamingomg.jarvis.client.AvisoSinVincular.Contenido.NADA) return;
         if (!avisoSinVincular.tocaAvisar(p.getUniqueId(), ahora)) return;
         java.util.Locale idioma = p.getEffectiveLocale();
-        java.util.List<String> l = dev.flamingomg.jarvis.client.AvisoSinVincular.lineas(
-                idioma != null ? idioma.toLanguageTag() : pairLocale);
+        java.util.List<dev.flamingomg.jarvis.client.AvisoSinVincular.Linea> l =
+                dev.flamingomg.jarvis.client.AvisoSinVincular.lineas(
+                        idioma != null ? idioma.toLanguageTag() : pairLocale, que, enlace);
         net.kyori.adventure.text.Component pre = net.kyori.adventure.text.Component.text("[Jarvis] ",
                 net.kyori.adventure.text.format.NamedTextColor.AQUA, net.kyori.adventure.text.format.TextDecoration.BOLD);
-        p.sendMessage(net.kyori.adventure.text.Component.empty().append(pre).append(net.kyori.adventure.text.Component
-                .text(l.get(0), net.kyori.adventure.text.format.NamedTextColor.RED)));
-        if (que == dev.flamingomg.jarvis.client.AvisoSinVincular.Contenido.CON_ENLACE) {
-            p.sendMessage(net.kyori.adventure.text.Component.empty().append(pre)
-                    .append(net.kyori.adventure.text.Component.text(l.get(1) + " ",
-                            net.kyori.adventure.text.format.NamedTextColor.YELLOW))
-                    .append(net.kyori.adventure.text.Component.text(enlace, net.kyori.adventure.text.format.NamedTextColor.AQUA)
-                            .decorate(net.kyori.adventure.text.format.TextDecoration.UNDERLINED)
-                            .clickEvent(net.kyori.adventure.text.event.ClickEvent.openUrl(enlace))));
+        for (dev.flamingomg.jarvis.client.AvisoSinVincular.Linea x : l) {
+            net.kyori.adventure.text.format.NamedTextColor color = switch (x.tono()) {
+                case ROJO  -> net.kyori.adventure.text.format.NamedTextColor.RED;
+                case AMBAR -> net.kyori.adventure.text.format.NamedTextColor.YELLOW;
+                case GRIS  -> net.kyori.adventure.text.format.NamedTextColor.GRAY;
+            };
+            net.kyori.adventure.text.Component linea = net.kyori.adventure.text.Component.empty().append(pre)
+                    .append(net.kyori.adventure.text.Component.text(x.texto(), color));
+            if (x.enlace() != null) {
+                linea = linea.append(net.kyori.adventure.text.Component.text(" "))
+                        .append(net.kyori.adventure.text.Component.text(x.enlace(),
+                                        net.kyori.adventure.text.format.NamedTextColor.AQUA)
+                                .decorate(net.kyori.adventure.text.format.TextDecoration.UNDERLINED)
+                                .clickEvent(net.kyori.adventure.text.event.ClickEvent.openUrl(x.enlace())));
+            }
+            p.sendMessage(linea);
         }
-        p.sendMessage(net.kyori.adventure.text.Component.empty().append(pre).append(net.kyori.adventure.text.Component
-                .text(l.get(2), net.kyori.adventure.text.format.NamedTextColor.GRAY)));
     }
 
     private void avisarSinVincularATodos() {
@@ -255,6 +330,10 @@ public final class JarvisPlugin {
 
         if (!isBlank(config.getString("backend.license-key", ""))) { stopPairing(); return; }
 
+        String aprobada = pairAnteriores.sondear(pairing::poll, System.currentTimeMillis(), System.nanoTime(),
+                pairPollIntervalNanos);
+        if (aprobada != null && applyPairedKey(aprobada)) { stopPairing(); return; }
+
         if (pairDeviceCode == null || System.currentTimeMillis() > pairExpiresAt) {
             if (System.currentTimeMillis() < pairNextStartAt) return;
             requestAndPrintPairing();
@@ -297,6 +376,7 @@ public final class JarvisPlugin {
         pairDeviceCode = null;
         pairVerificationUri = null;
         pairLocale = null;
+        pairAnteriores.olvidar();
         avisoSinVincular.olvidarTodo();
     }
 

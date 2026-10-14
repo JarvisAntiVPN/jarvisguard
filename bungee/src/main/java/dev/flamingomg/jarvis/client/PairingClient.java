@@ -105,4 +105,61 @@ public final class PairingClient {
 
     private static String str(Object o) { return o == null ? null : String.valueOf(o); }
     private static int num(Object o, int d) { return o instanceof Number n ? n.intValue() : d; }
+
+    public static final class Anteriores {
+
+        static final long RECOGIDA_MS = 180_000L;
+
+        static final int MAX = 2;
+
+        private record Codigo(String deviceCode, long hastaMs) {}
+
+        private final java.util.ArrayDeque<Codigo> codigos = new java.util.ArrayDeque<>();
+        private long proximoNanos;
+        private boolean conRitmo = false;
+
+        public synchronized void guardar(String deviceCode, long caducaMs, long ahoraMs) {
+            if (deviceCode == null || ahoraMs - caducaMs > RECOGIDA_MS) return;
+            codigos.removeIf(c -> c.deviceCode().equals(deviceCode));
+            codigos.addLast(new Codigo(deviceCode, caducaMs + RECOGIDA_MS));
+            while (codigos.size() > MAX) codigos.removeFirst();
+        }
+
+        public String sondear(java.util.function.Function<String, String[]> sondeo, long ahoraMs, long ahoraNanos,
+                              long intervaloNanos) {
+            java.util.List<String> lista;
+            synchronized (this) {
+                codigos.removeIf(c -> ahoraMs > c.hastaMs());
+                if (codigos.isEmpty() || (conRitmo && !tocaSondear(ahoraNanos, proximoNanos))) return null;
+                conRitmo = true;
+                proximoNanos = ahoraNanos + intervaloNanos;
+                lista = codigos.stream().map(Codigo::deviceCode).toList();
+            }
+            for (String dc : lista) {
+                String[] res = sondeo.apply(dc);
+                String estado = res == null || res.length == 0 || res[0] == null ? "error" : res[0];
+                switch (estado) {
+                    case "approved" -> {
+                        quitar(dc);
+                        if (res.length > 1 && res[1] != null && !res[1].isBlank()) return res[1];
+                    }
+                    case "denied", "expired" -> quitar(dc);
+                    default -> { }
+                }
+            }
+            return null;
+        }
+
+        public synchronized void quitar(String deviceCode) {
+            codigos.removeIf(c -> c.deviceCode().equals(deviceCode));
+        }
+
+        public synchronized void olvidar() {
+            codigos.clear();
+        }
+
+        public synchronized java.util.List<String> sondeados() {
+            return codigos.stream().map(Codigo::deviceCode).toList();
+        }
+    }
 }
