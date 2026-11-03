@@ -92,5 +92,19 @@
   "cmd.descLink": "visa länken igen för att koppla den här servern",
   "cmd.linkAlready": "Den här servern har redan en licensnyckel: det finns inget att länka. /antivpn doctor visar om den fungerar.",
   "cmd.linkPending": "Länken för att koppla den här servern kunde inte skapas ännu. Jarvis fortsätter försöka av sig självt; kör /antivpn link igen om några minuter.",
-  "cmd.diagLinkPending": "inte länkad ännu: länken för att koppla den här servern har inte kunnat skapas hittills. Jarvis fortsätter försöka av sig självt; kör /antivpn link igen om några minuter"
+  "cmd.diagLinkPending": "inte länkad ännu: länken för att koppla den här servern har inte kunnat skapas hittills. Jarvis fortsätter försöka av sig självt; kör /antivpn link igen om några minuter",
+  "cmd.descAlts": "konton som delar anslutning med en spelare på den här servern",
+  "cmd.usageAlts": "Anvandning: /antivpn alts <spelare>",
+  "cmd.altsTitle": "Konton som delar anslutning med {player}:",
+  "cmd.altsShared": "Gemensamma IP: {n}",
+  "cmd.altsTogether": "samtidigt",
+  "cmd.altsSeen": "senast sedd för {t} sedan",
+  "cmd.altsFamily": "samma familj",
+  "cmd.altsBanned": "blockerat",
+  "cmd.altsNone": "{player} delar inte anslutning med något annat konto på den här servern.",
+  "cmd.altsNotFound": "Den här servern har aldrig sett {player}.",
+  "cmd.altsProtected": "{player} står på guldlistan: länkade konton visas inte.",
+  "update.available": "En ny version av Jarvis finns: {latest} (du har {current}).",
+  "update.download": "Ladda ner den från din panel:",
+  "staff.sameConnection": "<gradient:#00ff9c:#22e0d8><bold>[Jarvis]</bold></gradient> <yellow>{name}</yellow> <gray>anslöt från samma anslutning som</gray> <yellow>{others}</yellow><gray>.</gray>"
 }

@@ -34,7 +34,7 @@ import java.nio.file.Path;
 )
 public final class JarvisPlugin {
 
-    public static final String VERSION = "0.5.27";
+    public static final String VERSION = "0.5.28";
 
     private static final int BSTATS_PLUGIN_ID = 31671;
 
@@ -81,6 +81,7 @@ public final class JarvisPlugin {
         this.configCargada = config.load();
 
         this.jarvisClient = new JarvisClient(config, logger);
+        jarvisClient.setVersionPropia(VERSION);
 
         BedrockDetector bedrockDetector = new BedrockDetector(proxy, config, logger);
         FloodGuard floodGuard = new FloodGuard(config);
@@ -243,9 +244,37 @@ public final class JarvisPlugin {
     @Subscribe
     public void onPostLogin(com.velocitypowered.api.event.connection.PostLoginEvent event) {
         com.velocitypowered.api.proxy.Player p = event.getPlayer();
-        if (pairDeviceCode == null) return;
-        proxy.getScheduler().buildTask(this, () -> { if (p.isActive()) avisarSinVincular(p); })
+        if (pairDeviceCode == null && (jarvisClient == null || jarvisClient.versionNueva() == null)) return;
+        proxy.getScheduler().buildTask(this, () -> { if (p.isActive()) { avisarSinVincular(p); avisarVersion(p); } })
                 .delay(5, java.util.concurrent.TimeUnit.SECONDS).schedule();
+    }
+
+    private void avisarVersion(com.velocitypowered.api.proxy.Player p) {
+        String nueva = jarvisClient == null ? null : jarvisClient.versionNueva();
+        if (nueva == null || !p.hasPermission("jarvis.admin")) return;
+        if (!jarvisClient.avisoVersion().tocaAvisar(p.getUniqueId(), nueva)) return;
+        java.util.Locale idioma = p.getEffectiveLocale();
+        java.util.List<dev.flamingomg.jarvis.client.AvisoSinVincular.Linea> l = dev.flamingomg.jarvis.client.AvisoVersion
+                .lineas(idioma != null ? idioma.toLanguageTag() : jarvisClient.locale(), VERSION, nueva);
+        net.kyori.adventure.text.Component pre = net.kyori.adventure.text.Component.text("[Jarvis] ",
+                net.kyori.adventure.text.format.NamedTextColor.AQUA, net.kyori.adventure.text.format.TextDecoration.BOLD);
+        for (dev.flamingomg.jarvis.client.AvisoSinVincular.Linea x : l) {
+            net.kyori.adventure.text.format.NamedTextColor color = switch (x.tono()) {
+                case ROJO  -> net.kyori.adventure.text.format.NamedTextColor.RED;
+                case AMBAR -> net.kyori.adventure.text.format.NamedTextColor.YELLOW;
+                case GRIS  -> net.kyori.adventure.text.format.NamedTextColor.GRAY;
+            };
+            net.kyori.adventure.text.Component linea = net.kyori.adventure.text.Component.empty().append(pre)
+                    .append(net.kyori.adventure.text.Component.text(x.texto(), color));
+            if (x.enlace() != null) {
+                linea = linea.append(net.kyori.adventure.text.Component.text(" "))
+                        .append(net.kyori.adventure.text.Component.text(x.enlace(),
+                                        net.kyori.adventure.text.format.NamedTextColor.AQUA)
+                                .decorate(net.kyori.adventure.text.format.TextDecoration.UNDERLINED)
+                                .clickEvent(net.kyori.adventure.text.event.ClickEvent.openUrl(x.enlace())));
+            }
+            p.sendMessage(linea);
+        }
     }
 
     private void avisarSinVincular(com.velocitypowered.api.proxy.Player p) {

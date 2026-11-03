@@ -92,5 +92,19 @@
   "cmd.descLink": "이 서버를 연결하는 링크를 다시 표시",
   "cmd.linkAlready": "이 서버에는 이미 라이선스 키가 있어 연결할 것이 없습니다. 정상 작동하는지는 /antivpn doctor 로 확인할 수 있습니다.",
   "cmd.linkPending": "이 서버를 연결하는 링크를 아직 생성하지 못했습니다. Jarvis가 자동으로 계속 시도하고 있습니다. 몇 분 뒤에 /antivpn link 를 다시 실행해 보세요.",
-  "cmd.diagLinkPending": "아직 연결되지 않음: 이 서버를 연결하는 링크를 지금까지 생성하지 못했습니다. Jarvis가 자동으로 계속 시도하고 있습니다. 몇 분 뒤에 /antivpn link 를 다시 실행해 보세요"
+  "cmd.diagLinkPending": "아직 연결되지 않음: 이 서버를 연결하는 링크를 지금까지 생성하지 못했습니다. Jarvis가 자동으로 계속 시도하고 있습니다. 몇 분 뒤에 /antivpn link 를 다시 실행해 보세요",
+  "cmd.descAlts": "이 서버에서 플레이어와 연결을 공유하는 계정",
+  "cmd.usageAlts": "사용법: /antivpn alts <플레이어>",
+  "cmd.altsTitle": "{player}와(과) 연결을 공유하는 계정:",
+  "cmd.altsShared": "공통 IP: {n}",
+  "cmd.altsTogether": "동시 접속",
+  "cmd.altsSeen": "마지막 접속 {t} 전",
+  "cmd.altsFamily": "같은 가족",
+  "cmd.altsBanned": "차단됨",
+  "cmd.altsNone": "{player}은(는) 이 서버에서 다른 계정과 연결을 공유하지 않습니다.",
+  "cmd.altsNotFound": "이 서버는 {player}을(를) 본 적이 없습니다.",
+  "cmd.altsProtected": "{player}은(는) 황금 목록에 있습니다: 연결된 계정은 표시되지 않습니다.",
+  "update.available": "Jarvis 새 버전이 있습니다: {latest} (현재 {current}).",
+  "update.download": "패널에서 다운로드하세요:",
+  "staff.sameConnection": "<gradient:#00ff9c:#22e0d8><bold>[Jarvis]</bold></gradient> <yellow>{name}</yellow> <gray>님이</gray> <yellow>{others}</yellow><gray> 님과 같은 연결로 접속했습니다.</gray>"
 }

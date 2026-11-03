@@ -92,5 +92,19 @@
   "cmd.descLink": "újra megmutatja a szerver összekapcsolásához szükséges linket",
   "cmd.linkAlready": "Ennek a szervernek már van licenckulcsa: nincs mit összekapcsolni. A /antivpn doctor megmutatja, hogy működik-e.",
   "cmd.linkPending": "A szerver összekapcsolásához szükséges linket még nem sikerült létrehozni. A Jarvis magától tovább próbálkozik; néhány perc múlva próbáld újra a /antivpn link parancsot.",
-  "cmd.diagLinkPending": "még nincs összekapcsolva: a szerver összekapcsolásához szükséges linket eddig nem sikerült létrehozni. A Jarvis magától tovább próbálkozik; néhány perc múlva próbáld újra a /antivpn link parancsot"
+  "cmd.diagLinkPending": "még nincs összekapcsolva: a szerver összekapcsolásához szükséges linket eddig nem sikerült létrehozni. A Jarvis magától tovább próbálkozik; néhány perc múlva próbáld újra a /antivpn link parancsot",
+  "cmd.descAlts": "fiókok, amelyek kapcsolatot osztanak meg egy játékossal ezen a szerveren",
+  "cmd.usageAlts": "Hasznalat: /antivpn alts <jatekos>",
+  "cmd.altsTitle": "{player} játékossal kapcsolatot megosztó fiókok:",
+  "cmd.altsShared": "Közös IP-k: {n}",
+  "cmd.altsTogether": "egyszerre",
+  "cmd.altsSeen": "utoljára {t} ezelőtt",
+  "cmd.altsFamily": "egy család",
+  "cmd.altsBanned": "letiltva",
+  "cmd.altsNone": "{player} ezen a szerveren nem oszt meg kapcsolatot más fiókkal.",
+  "cmd.altsNotFound": "Ez a szerver még soha nem látta {player} játékost.",
+  "cmd.altsProtected": "{player} az aranylistán van: a hozzá kapcsolt fiókok nem jelennek meg.",
+  "update.available": "Elérhető a Jarvis új verziója: {latest} (neked a {current} van).",
+  "update.download": "Töltsd le a paneledről:",
+  "staff.sameConnection": "<gradient:#00ff9c:#22e0d8><bold>[Jarvis]</bold></gradient> <yellow>{name}</yellow> <gray>ugyanarról a kapcsolatról lépett be, mint</gray> <yellow>{others}</yellow><gray>.</gray>"
 }

@@ -92,5 +92,19 @@
   "cmd.descLink": "bu sunucuyu bağlamak için gereken bağlantıyı yeniden gösterir",
   "cmd.linkAlready": "Bu sunucunun zaten bir lisans anahtarı var: bağlanacak bir şey yok. Çalışıp çalışmadığını /antivpn doctor gösterir.",
   "cmd.linkPending": "Bu sunucuyu bağlamak için gereken bağlantı henüz oluşturulamadı. Jarvis kendi kendine denemeye devam ediyor; birkaç dakika sonra /antivpn link komutunu tekrar dene.",
-  "cmd.diagLinkPending": "henüz bağlı değil: bu sunucuyu bağlamak için gereken bağlantı şimdiye kadar oluşturulamadı. Jarvis kendi kendine denemeye devam ediyor; birkaç dakika sonra /antivpn link komutunu tekrar dene"
+  "cmd.diagLinkPending": "henüz bağlı değil: bu sunucuyu bağlamak için gereken bağlantı şimdiye kadar oluşturulamadı. Jarvis kendi kendine denemeye devam ediyor; birkaç dakika sonra /antivpn link komutunu tekrar dene",
+  "cmd.descAlts": "bu sunucuda bir oyuncuyla bağlantı paylaşan hesaplar",
+  "cmd.usageAlts": "Kullanim: /antivpn alts <oyuncu>",
+  "cmd.altsTitle": "{player} ile bağlantı paylaşan hesaplar:",
+  "cmd.altsShared": "Ortak IP'ler: {n}",
+  "cmd.altsTogether": "aynı anda",
+  "cmd.altsSeen": "en son {t} önce",
+  "cmd.altsFamily": "aynı aile",
+  "cmd.altsBanned": "engellendi",
+  "cmd.altsNone": "{player} bu sunucuda başka hiçbir hesapla bağlantı paylaşmıyor.",
+  "cmd.altsNotFound": "Bu sunucu {player} oyuncusunu hiç görmedi.",
+  "cmd.altsProtected": "{player} altın listede: bağlantılı hesapları gösterilmiyor.",
+  "update.available": "Jarvis'in yeni bir sürümü var: {latest} (sizdeki {current}).",
+  "update.download": "Panelinizden indirin:",
+  "staff.sameConnection": "<gradient:#00ff9c:#22e0d8><bold>[Jarvis]</bold></gradient> <yellow>{name}</yellow> <gray>şu hesapla aynı bağlantıdan girdi:</gray> <yellow>{others}</yellow><gray>.</gray>"
 }

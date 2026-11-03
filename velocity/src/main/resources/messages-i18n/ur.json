@@ -92,5 +92,19 @@
   "cmd.descLink": "اس سرور کو جوڑنے کا لنک دوبارہ دکھائیں",
   "cmd.linkAlready": "اس سرور میں پہلے سے لائسنس کلید موجود ہے: لنک کرنے کے لیے کچھ نہیں ہے۔ یہ کام کر رہا ہے یا نہیں، /antivpn doctor آپ کو بتا دیتا ہے۔",
   "cmd.linkPending": "اس سرور کو جوڑنے کا لنک ابھی تک نہیں بن سکا۔ Jarvis خود ہی کوشش کرتا رہتا ہے؛ چند منٹ بعد /antivpn link دوبارہ آزمائیں۔",
-  "cmd.diagLinkPending": "ابھی لنک نہیں ہوا: اس سرور کو جوڑنے کا لنک اب تک نہیں بن سکا۔ Jarvis خود ہی کوشش کرتا رہتا ہے؛ چند منٹ بعد /antivpn link دوبارہ آزمائیں"
+  "cmd.diagLinkPending": "ابھی لنک نہیں ہوا: اس سرور کو جوڑنے کا لنک اب تک نہیں بن سکا۔ Jarvis خود ہی کوشش کرتا رہتا ہے؛ چند منٹ بعد /antivpn link دوبارہ آزمائیں",
+  "cmd.descAlts": "اس سرور پر کسی کھلاڑی کے ساتھ کنکشن شیئر کرنے والے اکاؤنٹس",
+  "cmd.usageAlts": "استعمال: /antivpn alts <کھلاڑی>",
+  "cmd.altsTitle": "{player} کے ساتھ کنکشن شیئر کرنے والے اکاؤنٹس:",
+  "cmd.altsShared": "مشترکہ IP: {n}",
+  "cmd.altsTogether": "بیک وقت",
+  "cmd.altsSeen": "آخری بار {t} پہلے",
+  "cmd.altsFamily": "ایک ہی خاندان",
+  "cmd.altsBanned": "بلاک شدہ",
+  "cmd.altsNone": "{player} اس سرور پر کسی اور اکاؤنٹ کے ساتھ کنکشن شیئر نہیں کرتا۔",
+  "cmd.altsNotFound": "اس سرور نے {player} کو کبھی نہیں دیکھا۔",
+  "cmd.altsProtected": "{player} گولڈ لسٹ میں ہے: اس کے منسلک اکاؤنٹس نہیں دکھائے جاتے۔",
+  "update.available": "Jarvis کا نیا ورژن دستیاب ہے: {latest} (آپ کے پاس {current} ہے)۔",
+  "update.download": "اسے اپنے پینل سے ڈاؤن لوڈ کریں:",
+  "staff.sameConnection": "<gradient:#00ff9c:#22e0d8><bold>[Jarvis]</bold></gradient> <yellow>{name}</yellow> <gray>اسی کنکشن سے داخل ہوا جس پر</gray> <yellow>{others}</yellow><gray> پہلے سے موجود ہے۔</gray>"
 }

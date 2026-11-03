@@ -24,7 +24,7 @@ import java.util.Map;
 
 public final class JarvisPaperPlugin extends JavaPlugin {
 
-    public static final String VERSION = "0.5.27";
+    public static final String VERSION = "0.5.28";
     private static final int BSTATS_PLUGIN_ID = 31883;
 
     private Log logger;
@@ -102,6 +102,7 @@ public final class JarvisPaperPlugin extends JavaPlugin {
         }
 
         this.jarvisClient = new JarvisClient(config, logger);
+        jarvisClient.setVersionPropia(VERSION);
 
         jarvisClient.setIpCheckDisabled(proxyForced);
         BedrockDetector bedrockDetector = new BedrockDetector(config, logger);
@@ -384,6 +385,36 @@ public final class JarvisPaperPlugin extends JavaPlugin {
         }
     }
 
+    private void avisarVersion(Player p) {
+        String nueva = jarvisClient == null ? null : jarvisClient.versionNueva();
+        if (nueva == null || detrasDeProxyLeido() || !p.hasPermission("jarvis.admin")) return;
+        if (!jarvisClient.avisoVersion().tocaAvisar(p.getUniqueId(), nueva)) return;
+        String idioma = dev.flamingomg.jarvis.util.IdiomaJugador.de(p);
+        List<dev.flamingomg.jarvis.client.AvisoSinVincular.Linea> l = dev.flamingomg.jarvis.client.AvisoVersion
+                .lineas(idioma != null ? idioma : jarvisClient.locale(), VERSION, nueva);
+        String pre = "§b§l[Jarvis]§r ";
+        for (dev.flamingomg.jarvis.client.AvisoSinVincular.Linea x : l) {
+            String color = switch (x.tono()) {
+                case ROJO  -> "§c";
+                case AMBAR -> "§e";
+                case GRIS  -> "§7";
+            };
+            if (x.enlace() == null) {
+                p.sendMessage(pre + color + x.texto());
+                continue;
+            }
+            net.md_5.bungee.api.chat.TextComponent clic = new net.md_5.bungee.api.chat.TextComponent(x.enlace());
+            clic.setColor(net.md_5.bungee.api.ChatColor.AQUA);
+            clic.setUnderlined(true);
+            clic.setClickEvent(new net.md_5.bungee.api.chat.ClickEvent(
+                    net.md_5.bungee.api.chat.ClickEvent.Action.OPEN_URL, x.enlace()));
+            List<net.md_5.bungee.api.chat.BaseComponent> linea = new ArrayList<>(List.of(
+                    net.md_5.bungee.api.chat.TextComponent.fromLegacyText(pre + color + x.texto() + " ")));
+            linea.add(clic);
+            p.spigot().sendMessage(linea.toArray(new net.md_5.bungee.api.chat.BaseComponent[0]));
+        }
+    }
+
     public static final class AvisoAlEntrar implements org.bukkit.event.Listener {
         private final JarvisPaperPlugin plugin;
         AvisoAlEntrar(JarvisPaperPlugin plugin) { this.plugin = plugin; }
@@ -392,7 +423,9 @@ public final class JarvisPaperPlugin extends JavaPlugin {
             Player p = e.getPlayer();
             Schedulers.asyncRetrasada(plugin, () -> {
                 try {
-                    Schedulers.deEntidad(plugin, p, () -> { if (Bukkit.getPlayer(p.getUniqueId()) == p) plugin.avisarSinVincular(p); });
+                    Schedulers.deEntidad(plugin, p, () -> {
+                        if (Bukkit.getPlayer(p.getUniqueId()) == p) { plugin.avisarSinVincular(p); plugin.avisarVersion(p); }
+                    });
                 } catch (Throwable apagando) {
                 }
             }, 100L);

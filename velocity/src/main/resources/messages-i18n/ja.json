@@ -92,5 +92,19 @@
   "cmd.descLink": "このサーバーを連携するためのリンクをもう一度表示",
   "cmd.linkAlready": "このサーバーにはすでにライセンスキーがあるため、連携の必要はありません。正常に動作しているかは /antivpn doctor で確認できます。",
   "cmd.linkPending": "このサーバーを連携するためのリンクはまだ生成できていません。Jarvis が自動で試行を続けています。数分後にもう一度 /antivpn link を試してください。",
-  "cmd.diagLinkPending": "まだ連携されていません: このサーバーを連携するためのリンクは今のところ生成できていません。Jarvis が自動で試行を続けています。数分後にもう一度 /antivpn link を試してください"
+  "cmd.diagLinkPending": "まだ連携されていません: このサーバーを連携するためのリンクは今のところ生成できていません。Jarvis が自動で試行を続けています。数分後にもう一度 /antivpn link を試してください",
+  "cmd.descAlts": "このサーバーでプレイヤーと接続を共有しているアカウント",
+  "cmd.usageAlts": "使い方: /antivpn alts <プレイヤー>",
+  "cmd.altsTitle": "{player} と接続を共有しているアカウント:",
+  "cmd.altsShared": "共通IP: {n}",
+  "cmd.altsTogether": "同時接続",
+  "cmd.altsSeen": "最終 {t} 前",
+  "cmd.altsFamily": "同じ家族",
+  "cmd.altsBanned": "ブロック済み",
+  "cmd.altsNone": "{player} はこのサーバーで他のアカウントと接続を共有していません。",
+  "cmd.altsNotFound": "このサーバーは {player} を一度も確認していません。",
+  "cmd.altsProtected": "{player} はゴールドリストに入っています: 関連アカウントは表示されません。",
+  "update.available": "Jarvis の新しいバージョンがあります: {latest}（現在は {current}）。",
+  "update.download": "パネルからダウンロードしてください:",
+  "staff.sameConnection": "<gradient:#00ff9c:#22e0d8><bold>[Jarvis]</bold></gradient> <yellow>{name}</yellow> <gray>が</gray> <yellow>{others}</yellow><gray> と同じ接続から入りました。</gray>"
 }

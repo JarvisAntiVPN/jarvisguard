@@ -92,5 +92,19 @@
   "cmd.descLink": "نمایش دوباره لینک اتصال این سرور",
   "cmd.linkAlready": "این سرور از قبل کلید لایسنس دارد: چیزی برای پیوند دادن نیست. /antivpn doctor به شما نشان می‌دهد که کار می‌کند یا نه.",
   "cmd.linkPending": "ساختن لینک اتصال این سرور هنوز ممکن نشده است. Jarvis خودش به تلاش ادامه می‌دهد؛ چند دقیقه دیگر دوباره /antivpn link را امتحان کنید.",
-  "cmd.diagLinkPending": "هنوز پیوند داده نشده است: ساختن لینک اتصال این سرور تاکنون ممکن نشده است. Jarvis خودش به تلاش ادامه می‌دهد؛ چند دقیقه دیگر دوباره /antivpn link را امتحان کنید"
+  "cmd.diagLinkPending": "هنوز پیوند داده نشده است: ساختن لینک اتصال این سرور تاکنون ممکن نشده است. Jarvis خودش به تلاش ادامه می‌دهد؛ چند دقیقه دیگر دوباره /antivpn link را امتحان کنید",
+  "cmd.descAlts": "حساب‌هایی که در این سرور با یک بازیکن اتصال مشترک دارند",
+  "cmd.usageAlts": "استفاده: /antivpn alts <بازیکن>",
+  "cmd.altsTitle": "حساب‌هایی که با {player} اتصال مشترک دارند:",
+  "cmd.altsShared": "IPهای مشترک: {n}",
+  "cmd.altsTogether": "هم‌زمان",
+  "cmd.altsSeen": "آخرین بار {t} پیش",
+  "cmd.altsFamily": "یک خانواده",
+  "cmd.altsBanned": "مسدود",
+  "cmd.altsNone": "{player} در این سرور با هیچ حساب دیگری اتصال مشترک ندارد.",
+  "cmd.altsNotFound": "این سرور هرگز {player} را ندیده است.",
+  "cmd.altsProtected": "{player} در لیست طلایی است: حساب‌های مرتبط او نمایش داده نمی‌شوند.",
+  "update.available": "نسخه جدیدی از Jarvis موجود است: {latest} (نسخه شما {current} است).",
+  "update.download": "آن را از پنل خود دانلود کنید:",
+  "staff.sameConnection": "<gradient:#00ff9c:#22e0d8><bold>[Jarvis]</bold></gradient> <yellow>{name}</yellow> <gray>از همان اتصالِ</gray> <yellow>{others}</yellow><gray> وارد شد.</gray>"
 }

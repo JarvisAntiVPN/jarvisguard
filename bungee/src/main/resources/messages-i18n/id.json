@@ -92,5 +92,19 @@
   "cmd.descLink": "tampilkan lagi tautan untuk menghubungkan server ini",
   "cmd.linkAlready": "Server ini sudah memiliki kunci lisensi: tidak ada yang perlu ditautkan. /antivpn doctor memberi tahu Anda apakah semuanya berjalan.",
   "cmd.linkPending": "Tautan untuk menghubungkan server ini belum bisa dibuat. Jarvis terus mencobanya sendiri; coba /antivpn link lagi dalam beberapa menit.",
-  "cmd.diagLinkPending": "belum tertaut: sampai sekarang tautan untuk menghubungkan server ini belum bisa dibuat. Jarvis terus mencobanya sendiri; coba /antivpn link lagi dalam beberapa menit"
+  "cmd.diagLinkPending": "belum tertaut: sampai sekarang tautan untuk menghubungkan server ini belum bisa dibuat. Jarvis terus mencobanya sendiri; coba /antivpn link lagi dalam beberapa menit",
+  "cmd.descAlts": "akun yang berbagi koneksi dengan seorang pemain di server ini",
+  "cmd.usageAlts": "Penggunaan: /antivpn alts <pemain>",
+  "cmd.altsTitle": "Akun yang berbagi koneksi dengan {player}:",
+  "cmd.altsShared": "IP bersama: {n}",
+  "cmd.altsTogether": "bersamaan",
+  "cmd.altsSeen": "terakhir {t} lalu",
+  "cmd.altsFamily": "keluarga yang sama",
+  "cmd.altsBanned": "diblokir",
+  "cmd.altsNone": "{player} tidak berbagi koneksi dengan akun lain mana pun di server ini.",
+  "cmd.altsNotFound": "Server ini belum pernah melihat {player}.",
+  "cmd.altsProtected": "{player} ada di daftar emas: akun yang terkait tidak ditampilkan.",
+  "update.available": "Versi baru Jarvis tersedia: {latest} (Anda memakai {current}).",
+  "update.download": "Unduh dari panel Anda:",
+  "staff.sameConnection": "<gradient:#00ff9c:#22e0d8><bold>[Jarvis]</bold></gradient> <yellow>{name}</yellow> <gray>masuk dari koneksi yang sama dengan</gray> <yellow>{others}</yellow><gray>.</gray>"
 }

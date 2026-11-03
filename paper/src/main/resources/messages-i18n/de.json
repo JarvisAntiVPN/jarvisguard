@@ -92,5 +92,19 @@
   "cmd.descLink": "zeigt den Link zum Verknüpfen dieses Servers erneut an",
   "cmd.linkAlready": "Dieser Server hat bereits einen Lizenzschlüssel: Es gibt nichts zu verknüpfen. /antivpn doctor zeigt dir, ob alles funktioniert.",
   "cmd.linkPending": "Der Link zum Verknüpfen dieses Servers konnte noch nicht erstellt werden. Jarvis versucht es von selbst weiter; führe /antivpn link in ein paar Minuten erneut aus.",
-  "cmd.diagLinkPending": "noch nicht verknüpft: der Link zum Verknüpfen dieses Servers konnte bisher nicht erstellt werden. Jarvis versucht es von selbst weiter; führe /antivpn link in ein paar Minuten erneut aus"
+  "cmd.diagLinkPending": "noch nicht verknüpft: der Link zum Verknüpfen dieses Servers konnte bisher nicht erstellt werden. Jarvis versucht es von selbst weiter; führe /antivpn link in ein paar Minuten erneut aus",
+  "cmd.descAlts": "Konten, die sich mit einem Spieler auf diesem Server eine Verbindung teilen",
+  "cmd.usageAlts": "Nutzung: /antivpn alts <Spieler>",
+  "cmd.altsTitle": "Konten, die sich eine Verbindung mit {player} teilen:",
+  "cmd.altsShared": "Gemeinsame IPs: {n}",
+  "cmd.altsTogether": "gleichzeitig",
+  "cmd.altsSeen": "zuletzt vor {t}",
+  "cmd.altsFamily": "gleiche Familie",
+  "cmd.altsBanned": "gesperrt",
+  "cmd.altsNone": "{player} teilt auf diesem Server mit keinem anderen Konto eine Verbindung.",
+  "cmd.altsNotFound": "Dieser Server hat {player} noch nie gesehen.",
+  "cmd.altsProtected": "{player} steht auf der Goldliste: verknüpfte Konten werden nicht angezeigt.",
+  "update.available": "Eine neue Jarvis-Version ist verfügbar: {latest} (du hast {current}).",
+  "update.download": "Lade sie in deinem Panel herunter:",
+  "staff.sameConnection": "<gradient:#00ff9c:#22e0d8><bold>[Jarvis]</bold></gradient> <yellow>{name}</yellow> <gray>ist über dieselbe Verbindung beigetreten wie</gray> <yellow>{others}</yellow><gray>.</gray>"
 }

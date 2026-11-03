@@ -92,5 +92,19 @@
   "cmd.descLink": "ipakita ulit ang link para ikonekta ang server na ito",
   "cmd.linkAlready": "May license key na ang server na ito: walang kailangang i-link. Sasabihin sa iyo ng /antivpn doctor kung gumagana ito.",
   "cmd.linkPending": "Hindi pa magawa ang link para ikonekta ang server na ito. Patuloy na sumusubok nang kusa ang Jarvis; subukan ulit ang /antivpn link pagkalipas ng ilang minuto.",
-  "cmd.diagLinkPending": "hindi pa naka-link: hanggang ngayon ay hindi magawa ang link para ikonekta ang server na ito. Patuloy na sumusubok nang kusa ang Jarvis; subukan ulit ang /antivpn link pagkalipas ng ilang minuto"
+  "cmd.diagLinkPending": "hindi pa naka-link: hanggang ngayon ay hindi magawa ang link para ikonekta ang server na ito. Patuloy na sumusubok nang kusa ang Jarvis; subukan ulit ang /antivpn link pagkalipas ng ilang minuto",
+  "cmd.descAlts": "mga account na kahati sa koneksyon ng isang player sa server na ito",
+  "cmd.usageAlts": "Paggamit: /antivpn alts <player>",
+  "cmd.altsTitle": "Mga account na kahati sa koneksyon ni {player}:",
+  "cmd.altsShared": "Magkaparehong IP: {n}",
+  "cmd.altsTogether": "sabay",
+  "cmd.altsSeen": "huling nakita {t} na ang nakalipas",
+  "cmd.altsFamily": "iisang pamilya",
+  "cmd.altsBanned": "na-block",
+  "cmd.altsNone": "Walang ibang account na kahati sa koneksyon ni {player} sa server na ito.",
+  "cmd.altsNotFound": "Hindi pa kailanman nakita ng server na ito si {player}.",
+  "cmd.altsProtected": "Nasa gold list si {player}: hindi ipinapakita ang mga naka-link niyang account.",
+  "update.available": "May bagong bersyon ng Jarvis: {latest} (ang gamit mo ay {current}).",
+  "update.download": "I-download ito mula sa iyong panel:",
+  "staff.sameConnection": "<gradient:#00ff9c:#22e0d8><bold>[Jarvis]</bold></gradient> <yellow>{name}</yellow> <gray>ay pumasok mula sa parehong koneksyon ni</gray> <yellow>{others}</yellow><gray>.</gray>"
 }

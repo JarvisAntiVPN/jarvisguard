@@ -92,5 +92,19 @@
   "cmd.descLink": "vis linket igen til at tilknytte denne server",
   "cmd.linkAlready": "Denne server har allerede en licensnøgle: der er intet at tilknytte. /antivpn doctor viser, om den virker.",
   "cmd.linkPending": "Linket til at tilknytte denne server kunne ikke oprettes endnu. Jarvis bliver ved med at prøve af sig selv; kør /antivpn link igen om et par minutter.",
-  "cmd.diagLinkPending": "endnu ikke tilknyttet: linket til at tilknytte denne server har ikke kunnet oprettes indtil nu. Jarvis bliver ved med at prøve af sig selv; kør /antivpn link igen om et par minutter"
+  "cmd.diagLinkPending": "endnu ikke tilknyttet: linket til at tilknytte denne server har ikke kunnet oprettes indtil nu. Jarvis bliver ved med at prøve af sig selv; kør /antivpn link igen om et par minutter",
+  "cmd.descAlts": "konti, der deler forbindelse med en spiller på denne server",
+  "cmd.usageAlts": "Brug: /antivpn alts <spiller>",
+  "cmd.altsTitle": "Konti, der deler forbindelse med {player}:",
+  "cmd.altsShared": "Fælles IP'er: {n}",
+  "cmd.altsTogether": "samtidig",
+  "cmd.altsSeen": "sidst set for {t} siden",
+  "cmd.altsFamily": "samme familie",
+  "cmd.altsBanned": "blokeret",
+  "cmd.altsNone": "{player} deler ikke forbindelse med nogen anden konto på denne server.",
+  "cmd.altsNotFound": "Denne server har aldrig set {player}.",
+  "cmd.altsProtected": "{player} er på guldlisten: tilknyttede konti vises ikke.",
+  "update.available": "Der er en ny version af Jarvis: {latest} (du har {current}).",
+  "update.download": "Download den fra dit panel:",
+  "staff.sameConnection": "<gradient:#00ff9c:#22e0d8><bold>[Jarvis]</bold></gradient> <yellow>{name}</yellow> <gray>kom ind fra samme forbindelse som</gray> <yellow>{others}</yellow><gray>.</gray>"
 }

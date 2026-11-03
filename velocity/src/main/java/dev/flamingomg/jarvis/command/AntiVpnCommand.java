@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
 public final class AntiVpnCommand implements SimpleCommand {
 
     private static final List<String> SUB = List.of("key", "link", "stats", "doctor", "reload", "blacklist",
-            "unblacklist", "whitelist", "unwhitelist");
+            "unblacklist", "whitelist", "unwhitelist", "alts");
 
     private final JarvisClient client;
     private final ProxyServer proxy;
@@ -72,6 +72,7 @@ public final class AntiVpnCommand implements SimpleCommand {
             case "unblacklist" -> blacklist(src, args, true);
             case "whitelist"   -> whitelist(src, args, false);
             case "unwhitelist" -> whitelist(src, args, true);
+            case "alts"        -> alts(src, args);
             case "reload"    -> {
 
                 if (!src.hasPermission("jarvis.admin")) { noPermission(src); return; }
@@ -250,6 +251,7 @@ public final class AntiVpnCommand implements SimpleCommand {
         src.sendMessage(help("unblacklist <player>",        m("cmd.descUnblacklist")));
         src.sendMessage(help("whitelist <player> [time] [reason]", m("cmd.descWhitelist")));
         src.sendMessage(help("unwhitelist <player>",               m("cmd.descUnwhitelist")));
+        src.sendMessage(help("alts <player>",                      m("cmd.descAlts")));
     }
 
     static boolean pareceTiempo(String arg) {
@@ -297,6 +299,38 @@ public final class AntiVpnCommand implements SimpleCommand {
         return new ResumenLista(nadaQueQuitar || yaEstaba ? Tono.AVISO : Tono.HECHO, titular, detalles);
     }
 
+    static ResumenLista resumirAlts(dev.flamingomg.jarvis.client.JarvisClient.RespuestaAlts r, String objetivo,
+                                    java.util.function.UnaryOperator<String> tr, long ahoraMs) {
+        List<String> detalles = new java.util.ArrayList<>();
+        if (!r.ok() || r.found() == null) {
+            return new ResumenLista(Tono.FALLO, tr.apply("cmd.blacklistFail"), detalles);
+        }
+        String nombre = sinColor((r.name() == null || r.name().isBlank()) ? objetivo : r.name());
+        if (!r.found()) {
+            return new ResumenLista(Tono.AVISO, tr.apply("cmd.altsNotFound").replace("{player}", nombre), detalles);
+        }
+        if (Boolean.TRUE.equals(r.protegido())) {
+            return new ResumenLista(Tono.AVISO, tr.apply("cmd.altsProtected").replace("{player}", nombre), detalles);
+        }
+        if (r.accounts().isEmpty()) {
+            return new ResumenLista(Tono.HECHO, tr.apply("cmd.altsNone").replace("{player}", nombre), detalles);
+        }
+        for (dev.flamingomg.jarvis.client.JarvisClient.CuentaVinculada c : r.accounts()) {
+            StringBuilder l = new StringBuilder(sinColor(c.name()));
+            l.append(" · ").append(tr.apply("cmd.altsShared").replace("{n}", String.valueOf(c.shared())));
+            if (c.together()) l.append(" · ").append(tr.apply("cmd.altsTogether"));
+            if (c.lastSeen() != null && c.lastSeen() > 0) {
+                l.append(" · ").append(tr.apply("cmd.altsSeen").replace("{t}", tiempoRelativo(ahoraMs - c.lastSeen())));
+            }
+            if (c.family()) l.append(" · ").append(tr.apply("cmd.altsFamily"));
+            if (c.banned()) l.append(" · ").append(tr.apply("cmd.altsBanned"));
+            detalles.add(l.toString());
+        }
+        return new ResumenLista(Tono.HECHO, tr.apply("cmd.altsTitle").replace("{player}", nombre), detalles);
+    }
+
+    static String sinColor(String s) { return s == null ? "" : s.replace("§", ""); }
+
     static String tiempoRelativo(long ms) {
         if (ms < 60_000L) return "<1m";
         long dias = ms / 86_400_000L;
@@ -307,7 +341,7 @@ public final class AntiVpnCommand implements SimpleCommand {
     }
 
     private static final java.util.Set<String> SUB_JUGADOR =
-            java.util.Set.of("blacklist", "unblacklist", "whitelist", "unwhitelist");
+            java.util.Set.of("blacklist", "unblacklist", "whitelist", "unwhitelist", "alts");
 
     private static final int TOPE_SUGERENCIAS = 50;
 
@@ -385,6 +419,22 @@ public final class AntiVpnCommand implements SimpleCommand {
                 src.sendMessage(pre().append(Component.text(m("cmd.blacklistFail"), NamedTextColor.RED)));
             }
         });
+    }
+
+    private void alts(CommandSource src, String[] args) {
+        if (!puedeModerar(src)) { noPermission(src); return; }
+        if (args.length < 2 || args[1].isBlank()) {
+            src.sendMessage(pre().append(Component.text(m("cmd.usageAlts"), NamedTextColor.YELLOW)));
+            return;
+        }
+        String target = args[1];
+        if (target.length() > 32) {
+            src.sendMessage(pre().append(Component.text(m("cmd.blacklistTooLong"), NamedTextColor.RED)));
+            return;
+        }
+        if (sinFirma(src)) return;
+        src.sendMessage(pre().append(Component.text(m("cmd.blacklistSending"), NamedTextColor.GRAY)));
+        client.altsAsync(target).thenAccept(r -> pintar(src, resumirAlts(r, target, this::m, System.currentTimeMillis())));
     }
 
     private void pintar(CommandSource src, ResumenLista res) {

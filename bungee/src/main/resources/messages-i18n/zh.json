@@ -92,5 +92,19 @@
   "cmd.descLink": "重新显示用于关联此服务器的链接",
   "cmd.linkAlready": "此服务器已经有许可证密钥：无需关联。/antivpn doctor 会告诉你它是否正常工作。",
   "cmd.linkPending": "暂时还无法生成用于关联此服务器的链接。Jarvis 会自动继续尝试；请过几分钟再试一次 /antivpn link。",
-  "cmd.diagLinkPending": "尚未关联：到目前为止还无法生成用于关联此服务器的链接。Jarvis 会自动继续尝试；请过几分钟再试一次 /antivpn link"
+  "cmd.diagLinkPending": "尚未关联：到目前为止还无法生成用于关联此服务器的链接。Jarvis 会自动继续尝试；请过几分钟再试一次 /antivpn link",
+  "cmd.descAlts": "在本服务器上与某玩家共用连接的账户",
+  "cmd.usageAlts": "用法: /antivpn alts <玩家>",
+  "cmd.altsTitle": "与 {player} 共用连接的账户：",
+  "cmd.altsShared": "共同 IP：{n}",
+  "cmd.altsTogether": "同时在线",
+  "cmd.altsSeen": "最后一次 {t} 前",
+  "cmd.altsFamily": "同一家庭",
+  "cmd.altsBanned": "已封锁",
+  "cmd.altsNone": "{player} 在本服务器上没有与其他账户共用连接。",
+  "cmd.altsNotFound": "本服务器从未见过 {player}。",
+  "cmd.altsProtected": "{player} 在金名单中：不显示其关联账户。",
+  "update.available": "Jarvis 有新版本：{latest}（当前为 {current}）。",
+  "update.download": "请在你的面板中下载：",
+  "staff.sameConnection": "<gradient:#00ff9c:#22e0d8><bold>[Jarvis]</bold></gradient> <yellow>{name}</yellow> <gray>刚刚进入，与</gray> <yellow>{others}</yellow><gray> 来自同一连接。</gray>"
 }

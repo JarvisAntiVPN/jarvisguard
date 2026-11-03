@@ -92,5 +92,19 @@
   "cmd.descLink": "इस सर्वर को कनेक्ट करने का लिंक फिर से दिखाएँ",
   "cmd.linkAlready": "इस सर्वर में पहले से लाइसेंस कुंजी है: लिंक करने के लिए कुछ नहीं है। /antivpn doctor आपको बताता है कि यह काम कर रहा है या नहीं।",
   "cmd.linkPending": "इस सर्वर को कनेक्ट करने का लिंक अभी तक नहीं बन पाया है। Jarvis अपने-आप कोशिश करता रहता है; कुछ मिनट बाद /antivpn link फिर से आज़माएँ।",
-  "cmd.diagLinkPending": "अभी लिंक नहीं है: इस सर्वर को कनेक्ट करने का लिंक अब तक नहीं बन पाया है। Jarvis अपने-आप कोशिश करता रहता है; कुछ मिनट बाद /antivpn link फिर से आज़माएँ"
+  "cmd.diagLinkPending": "अभी लिंक नहीं है: इस सर्वर को कनेक्ट करने का लिंक अब तक नहीं बन पाया है। Jarvis अपने-आप कोशिश करता रहता है; कुछ मिनट बाद /antivpn link फिर से आज़माएँ",
+  "cmd.descAlts": "इस सर्वर पर किसी खिलाड़ी के साथ कनेक्शन साझा करने वाले अकाउंट",
+  "cmd.usageAlts": "उपयोग: /antivpn alts <खिलाड़ी>",
+  "cmd.altsTitle": "{player} के साथ कनेक्शन साझा करने वाले अकाउंट:",
+  "cmd.altsShared": "साझा IP: {n}",
+  "cmd.altsTogether": "एक साथ",
+  "cmd.altsSeen": "आखिरी बार {t} पहले",
+  "cmd.altsFamily": "एक ही परिवार",
+  "cmd.altsBanned": "ब्लॉक किया गया",
+  "cmd.altsNone": "{player} इस सर्वर पर किसी और अकाउंट के साथ कनेक्शन साझा नहीं करता।",
+  "cmd.altsNotFound": "इस सर्वर ने {player} को कभी नहीं देखा।",
+  "cmd.altsProtected": "{player} गोल्ड लिस्ट में है: उसके जुड़े अकाउंट नहीं दिखाए जाते।",
+  "update.available": "Jarvis का नया वर्ज़न उपलब्ध है: {latest} (आपके पास {current} है)।",
+  "update.download": "इसे अपने पैनल से डाउनलोड करें:",
+  "staff.sameConnection": "<gradient:#00ff9c:#22e0d8><bold>[Jarvis]</bold></gradient> <yellow>{name}</yellow> <gray>ने</gray> <yellow>{others}</yellow><gray> वाले ही कनेक्शन से प्रवेश किया।</gray>"
 }

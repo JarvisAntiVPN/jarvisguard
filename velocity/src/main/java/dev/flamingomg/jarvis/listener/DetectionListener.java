@@ -146,7 +146,7 @@ public final class DetectionListener {
             }
 
             int maxPerIp = client.maxAccountsPerIp();
-            if (maxPerIp > 0 && ipDeInternet) {
+            if (maxPerIp > 0 && ipDeInternet && !client.fueraDelAforo(ip, name)) {
                 int connecting = connectingByIp.merge(ip, 1, Integer::sum);
                 reservedIp = true;
                 if (superaAforo(connecting, connectedByIp.getOrDefault(ip, 0), maxPerIp)) {
@@ -232,6 +232,7 @@ public final class DetectionListener {
 
         sessionStart.put(player.getUniqueId(), new long[]{System.currentTimeMillis()});
         recordConnected(player);
+        avisarMismaConexion(player);
         maybeRecordPlayerSeen(player);
 
         String lname = player.getUsername().toLowerCase(java.util.Locale.ROOT);
@@ -404,6 +405,7 @@ public final class DetectionListener {
         InetSocketAddress addr = player.getRemoteAddress();
         if (addr == null || addr.getAddress() == null) return;
         String ip = addr.getAddress().getHostAddress();
+        if (client.fueraDelAforo(ip, player.getUsername())) return;
         sessionIp.put(player.getUniqueId(), ip);
         connectedByIp.merge(ip, 1, Integer::sum);
     }
@@ -418,7 +420,9 @@ public final class DetectionListener {
         for (Player p : proxy.getAllPlayers()) {
             InetSocketAddress a = p.getRemoteAddress();
             if (a != null && a.getAddress() != null) {
-                truth.merge(a.getAddress().getHostAddress(), 1, Integer::sum);
+                String ip = a.getAddress().getHostAddress();
+                if (client.fueraDelAforo(ip, p.getUsername())) continue;
+                truth.merge(ip, 1, Integer::sum);
             }
         }
         reconciliar(connectedByIp, truth);
@@ -498,6 +502,30 @@ public final class DetectionListener {
         proxy.getAllPlayers().stream()
                 .filter(p -> p.hasPermission(client.notifyPermission()) || p.hasPermission("jarvis.admin"))
                 .forEach(p -> p.sendMessage(notification));
+    }
+
+    private void avisarMismaConexion(Player player) {
+        if (!client.avisoMismaConexion()) return;
+        InetSocketAddress addr = player.getRemoteAddress();
+        if (addr == null || addr.getAddress() == null) return;
+        String ip = addr.getAddress().getHostAddress();
+        if (dev.flamingomg.jarvis.detection.PrivateIpWatch.noEsDeInternet(ip)) return;
+        java.util.List<String> dentro = new java.util.ArrayList<>();
+        for (Player p : proxy.getAllPlayers()) {
+            if (p.getUniqueId().equals(player.getUniqueId())) continue;
+            InetSocketAddress a = p.getRemoteAddress();
+            if (a != null && a.getAddress() != null && ip.equals(a.getAddress().getHostAddress())) dentro.add(p.getUsername());
+        }
+        if (dentro.isEmpty()) return;
+        java.util.List<String> otros = client.avisoConexion()
+                .aQuienNombrar(player.getUsername(), dentro, n -> client.callarAvisoConexion(ip, n));
+        if (otros.isEmpty()) return;
+        net.kyori.adventure.text.Component aviso = MM.deserialize(dev.flamingomg.jarvis.client.AvisoMismaConexion.texto(
+                dev.flamingomg.jarvis.i18n.Messages.get(client.locale(), "staff.sameConnection"),
+                player.getUsername(), otros, MM::escapeTags));
+        proxy.getAllPlayers().stream()
+                .filter(p -> p.hasPermission(client.notifyPermission()) || p.hasPermission("jarvis.admin"))
+                .forEach(p -> p.sendMessage(aviso));
     }
 
     @Subscribe

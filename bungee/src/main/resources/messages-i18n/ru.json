@@ -92,5 +92,19 @@
   "cmd.descLink": "снова показывает ссылку для подключения этого сервера",
   "cmd.linkAlready": "У этого сервера уже есть лицензионный ключ: привязывать нечего. /antivpn doctor покажет, работает ли он.",
   "cmd.linkPending": "Ссылку для подключения этого сервера пока не удалось создать. Jarvis продолжает попытки сам; попробуйте /antivpn link ещё раз через несколько минут.",
-  "cmd.diagLinkPending": "ещё не привязана: ссылку для подключения этого сервера пока не удалось создать. Jarvis продолжает попытки сам; попробуйте /antivpn link ещё раз через несколько минут"
+  "cmd.diagLinkPending": "ещё не привязана: ссылку для подключения этого сервера пока не удалось создать. Jarvis продолжает попытки сам; попробуйте /antivpn link ещё раз через несколько минут",
+  "cmd.descAlts": "аккаунты, которые делят подключение с игроком на этом сервере",
+  "cmd.usageAlts": "Использование: /antivpn alts <игрок>",
+  "cmd.altsTitle": "Аккаунты, делящие подключение с {player}:",
+  "cmd.altsShared": "Общих IP: {n}",
+  "cmd.altsTogether": "одновременно",
+  "cmd.altsSeen": "последний раз {t} назад",
+  "cmd.altsFamily": "одна семья",
+  "cmd.altsBanned": "заблокирован",
+  "cmd.altsNone": "{player} не делит подключение ни с одним другим аккаунтом на этом сервере.",
+  "cmd.altsNotFound": "Этот сервер никогда не видел {player}.",
+  "cmd.altsProtected": "{player} в золотом списке: связанные аккаунты не показываются.",
+  "update.available": "Доступна новая версия Jarvis: {latest} (у вас {current}).",
+  "update.download": "Скачайте её в своей панели:",
+  "staff.sameConnection": "<gradient:#00ff9c:#22e0d8><bold>[Jarvis]</bold></gradient> <yellow>{name}</yellow> <gray>зашёл с того же подключения, что и</gray> <yellow>{others}</yellow><gray>.</gray>"
 }

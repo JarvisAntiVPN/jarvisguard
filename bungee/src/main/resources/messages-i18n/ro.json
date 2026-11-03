@@ -92,5 +92,19 @@
   "cmd.descLink": "afișează din nou linkul pentru a conecta acest server",
   "cmd.linkAlready": "Acest server are deja o cheie de licență: nu e nimic de asociat. /antivpn doctor îți arată dacă totul funcționează.",
   "cmd.linkPending": "Linkul pentru a conecta acest server nu a putut fi generat încă. Jarvis continuă să încerce singur; încearcă din nou /antivpn link peste câteva minute.",
-  "cmd.diagLinkPending": "încă neasociată: linkul pentru a conecta acest server nu a putut fi generat până acum. Jarvis continuă să încerce singur; încearcă din nou /antivpn link peste câteva minute"
+  "cmd.diagLinkPending": "încă neasociată: linkul pentru a conecta acest server nu a putut fi generat până acum. Jarvis continuă să încerce singur; încearcă din nou /antivpn link peste câteva minute",
+  "cmd.descAlts": "conturi care partajează conexiunea cu un jucător pe acest server",
+  "cmd.usageAlts": "Utilizare: /antivpn alts <jucator>",
+  "cmd.altsTitle": "Conturi care partajează conexiunea cu {player}:",
+  "cmd.altsShared": "IP-uri comune: {n}",
+  "cmd.altsTogether": "simultan",
+  "cmd.altsSeen": "văzut acum {t}",
+  "cmd.altsFamily": "aceeași familie",
+  "cmd.altsBanned": "blocat",
+  "cmd.altsNone": "{player} nu partajează conexiunea cu niciun alt cont pe acest server.",
+  "cmd.altsNotFound": "Acest server nu l-a văzut niciodată pe {player}.",
+  "cmd.altsProtected": "{player} este în lista aurie: conturile asociate nu sunt afișate.",
+  "update.available": "Este disponibilă o versiune nouă de Jarvis: {latest} (ai {current}).",
+  "update.download": "Descarc-o din panoul tău:",
+  "staff.sameConnection": "<gradient:#00ff9c:#22e0d8><bold>[Jarvis]</bold></gradient> <yellow>{name}</yellow> <gray>a intrat de pe aceeași conexiune ca</gray> <yellow>{others}</yellow><gray>.</gray>"
 }

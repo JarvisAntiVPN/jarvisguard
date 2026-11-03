@@ -18,7 +18,7 @@ public final class JarvisBungeePlugin extends Plugin {
 
     private static final int BSTATS_PLUGIN_ID = 31796;
 
-    public static final String VERSION = "0.5.27";
+    public static final String VERSION = "0.5.28";
 
     private dev.flamingomg.jarvis.util.Log logger;
 
@@ -52,6 +52,7 @@ public final class JarvisBungeePlugin extends Plugin {
         this.configCargada = config.load();
 
         this.jarvisClient = new JarvisClient(config, logger);
+        jarvisClient.setVersionPropia(VERSION);
 
         BedrockDetector bedrockDetector = new BedrockDetector(getProxy(), config, logger);
         FloodGuard floodGuard = new FloodGuard(config);
@@ -215,9 +216,39 @@ public final class JarvisBungeePlugin extends Plugin {
     }
 
     private void alEntrar(ProxiedPlayer p) {
-        if (pairDeviceCode == null) return;
-        getProxy().getScheduler().schedule(this, () -> { if (p.isConnected()) avisarSinVincular(p); },
+        if (pairDeviceCode == null && (jarvisClient == null || jarvisClient.versionNueva() == null)) return;
+        getProxy().getScheduler().schedule(this, () -> { if (p.isConnected()) { avisarSinVincular(p); avisarVersion(p); } },
                 5, TimeUnit.SECONDS);
+    }
+
+    private void avisarVersion(ProxiedPlayer p) {
+        String nueva = jarvisClient == null ? null : jarvisClient.versionNueva();
+        if (nueva == null || !p.hasPermission("jarvis.admin")) return;
+        if (!jarvisClient.avisoVersion().tocaAvisar(p.getUniqueId(), nueva)) return;
+        java.util.Locale idioma = p.getLocale();
+        java.util.List<dev.flamingomg.jarvis.client.AvisoSinVincular.Linea> l = dev.flamingomg.jarvis.client.AvisoVersion
+                .lineas(idioma != null ? idioma.toLanguageTag() : jarvisClient.locale(), VERSION, nueva);
+        String pre = "§b§l[Jarvis]§r ";
+        for (dev.flamingomg.jarvis.client.AvisoSinVincular.Linea x : l) {
+            String color = switch (x.tono()) {
+                case ROJO  -> "§c";
+                case AMBAR -> "§e";
+                case GRIS  -> "§7";
+            };
+            if (x.enlace() == null) {
+                p.sendMessage(net.md_5.bungee.api.chat.TextComponent.fromLegacyText(pre + color + x.texto()));
+                continue;
+            }
+            net.md_5.bungee.api.chat.TextComponent clic = new net.md_5.bungee.api.chat.TextComponent(x.enlace());
+            clic.setColor(net.md_5.bungee.api.ChatColor.AQUA);
+            clic.setUnderlined(true);
+            clic.setClickEvent(new net.md_5.bungee.api.chat.ClickEvent(
+                    net.md_5.bungee.api.chat.ClickEvent.Action.OPEN_URL, x.enlace()));
+            java.util.List<net.md_5.bungee.api.chat.BaseComponent> linea = new java.util.ArrayList<>(java.util.List.of(
+                    net.md_5.bungee.api.chat.TextComponent.fromLegacyText(pre + color + x.texto() + " ")));
+            linea.add(clic);
+            p.sendMessage(linea.toArray(new net.md_5.bungee.api.chat.BaseComponent[0]));
+        }
     }
 
     private void avisarSinVincular(ProxiedPlayer p) {

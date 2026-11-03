@@ -92,5 +92,19 @@
   "cmd.descLink": "znovu zobraziť odkaz na prepojenie tohto servera",
   "cmd.linkAlready": "Tento server už má licenčný kľúč: nie je čo prepájať. /antivpn doctor ti povie, či všetko funguje.",
   "cmd.linkPending": "Odkaz na prepojenie tohto servera sa zatiaľ nepodarilo vytvoriť. Jarvis to ďalej skúša sám; skús /antivpn link znova o pár minút.",
-  "cmd.diagLinkPending": "zatiaľ neprepojená: odkaz na prepojenie tohto servera sa doteraz nepodarilo vytvoriť. Jarvis to ďalej skúša sám; skús /antivpn link znova o pár minút"
+  "cmd.diagLinkPending": "zatiaľ neprepojená: odkaz na prepojenie tohto servera sa doteraz nepodarilo vytvoriť. Jarvis to ďalej skúša sám; skús /antivpn link znova o pár minút",
+  "cmd.descAlts": "účty, ktoré zdieľajú pripojenie s hráčom na tomto serveri",
+  "cmd.usageAlts": "Pouzitie: /antivpn alts <hrac>",
+  "cmd.altsTitle": "Účty zdieľajúce pripojenie s hráčom {player}:",
+  "cmd.altsShared": "Spoločné IP: {n}",
+  "cmd.altsTogether": "súčasne",
+  "cmd.altsSeen": "naposledy pred {t}",
+  "cmd.altsFamily": "rovnaká rodina",
+  "cmd.altsBanned": "zablokovaný",
+  "cmd.altsNone": "{player} na tomto serveri nezdieľa pripojenie so žiadnym iným účtom.",
+  "cmd.altsNotFound": "Tento server hráča {player} nikdy nevidel.",
+  "cmd.altsProtected": "{player} je na zlatom zozname: prepojené účty sa nezobrazujú.",
+  "update.available": "Je dostupná nová verzia Jarvisu: {latest} (máte {current}).",
+  "update.download": "Stiahnite si ju vo svojom paneli:",
+  "staff.sameConnection": "<gradient:#00ff9c:#22e0d8><bold>[Jarvis]</bold></gradient> <yellow>{name}</yellow> <gray>sa pripojil z rovnakého pripojenia ako</gray> <yellow>{others}</yellow><gray>.</gray>"
 }

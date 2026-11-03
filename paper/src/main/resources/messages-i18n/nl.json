@@ -92,5 +92,19 @@
   "cmd.descLink": "toon opnieuw de link om deze server te koppelen",
   "cmd.linkAlready": "Deze server heeft al een licentiesleutel: er valt niets te koppelen. /antivpn doctor laat je zien of alles werkt.",
   "cmd.linkPending": "De link om deze server te koppelen kon nog niet worden aangemaakt. Jarvis blijft het zelf proberen; probeer /antivpn link over een paar minuten opnieuw.",
-  "cmd.diagLinkPending": "nog niet gekoppeld: de link om deze server te koppelen kon tot nu toe niet worden aangemaakt. Jarvis blijft het zelf proberen; probeer /antivpn link over een paar minuten opnieuw"
+  "cmd.diagLinkPending": "nog niet gekoppeld: de link om deze server te koppelen kon tot nu toe niet worden aangemaakt. Jarvis blijft het zelf proberen; probeer /antivpn link over een paar minuten opnieuw",
+  "cmd.descAlts": "accounts die een verbinding delen met een speler op deze server",
+  "cmd.usageAlts": "Gebruik: /antivpn alts <speler>",
+  "cmd.altsTitle": "Accounts die een verbinding delen met {player}:",
+  "cmd.altsShared": "Gedeelde IP's: {n}",
+  "cmd.altsTogether": "tegelijk",
+  "cmd.altsSeen": "laatst gezien {t} geleden",
+  "cmd.altsFamily": "zelfde gezin",
+  "cmd.altsBanned": "geblokkeerd",
+  "cmd.altsNone": "{player} deelt op deze server geen verbinding met een ander account.",
+  "cmd.altsNotFound": "Deze server heeft {player} nog nooit gezien.",
+  "cmd.altsProtected": "{player} staat op de gouden lijst: gekoppelde accounts worden niet getoond.",
+  "update.available": "Er is een nieuwe versie van Jarvis beschikbaar: {latest} (je hebt {current}).",
+  "update.download": "Download hem via je paneel:",
+  "staff.sameConnection": "<gradient:#00ff9c:#22e0d8><bold>[Jarvis]</bold></gradient> <yellow>{name}</yellow> <gray>kwam binnen via dezelfde verbinding als</gray> <yellow>{others}</yellow><gray>.</gray>"
 }

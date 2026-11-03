@@ -92,5 +92,19 @@
   "cmd.descLink": "ສະແດງລິ້ງສຳລັບເຊື່ອມຕໍ່ເຊີບເວີນີ້ອີກຄັ້ງ",
   "cmd.linkAlready": "ເຊີບເວີນີ້ມີຄີໃບອະນຸຍາດແລ້ວ: ບໍ່ມີຫຍັງຕ້ອງເຊື່ອມໂຍງ /antivpn doctor ຈະບອກທ່ານວ່າມັນເຮັດວຽກຢູ່ຫຼືບໍ່",
   "cmd.linkPending": "ຍັງບໍ່ສາມາດສ້າງລິ້ງສຳລັບເຊື່ອມຕໍ່ເຊີບເວີນີ້ໄດ້ເທື່ອ Jarvis ກຳລັງລອງໃໝ່ເອງຢູ່ ກະລຸນາລອງ /antivpn link ອີກຄັ້ງໃນອີກສອງສາມນາທີ",
-  "cmd.diagLinkPending": "ຍັງບໍ່ໄດ້ເຊື່ອມໂຍງ: ຈົນເຖິງຕອນນີ້ຍັງບໍ່ສາມາດສ້າງລິ້ງສຳລັບເຊື່ອມຕໍ່ເຊີບເວີນີ້ໄດ້ Jarvis ກຳລັງລອງໃໝ່ເອງຢູ່ ກະລຸນາລອງ /antivpn link ອີກຄັ້ງໃນອີກສອງສາມນາທີ"
+  "cmd.diagLinkPending": "ຍັງບໍ່ໄດ້ເຊື່ອມໂຍງ: ຈົນເຖິງຕອນນີ້ຍັງບໍ່ສາມາດສ້າງລິ້ງສຳລັບເຊື່ອມຕໍ່ເຊີບເວີນີ້ໄດ້ Jarvis ກຳລັງລອງໃໝ່ເອງຢູ່ ກະລຸນາລອງ /antivpn link ອີກຄັ້ງໃນອີກສອງສາມນາທີ",
+  "cmd.descAlts": "ບັນຊີທີ່ໃຊ້ການເຊື່ອມຕໍ່ຮ່ວມກັບຜູ້ຫຼິ້ນໃນເຊີບເວີນີ້",
+  "cmd.usageAlts": "ວິທີໃຊ້: /antivpn alts <ຜູ້ຫຼິ້ນ>",
+  "cmd.altsTitle": "ບັນຊີທີ່ໃຊ້ການເຊື່ອມຕໍ່ຮ່ວມກັບ {player}:",
+  "cmd.altsShared": "IP ທີ່ໃຊ້ຮ່ວມກັນ: {n}",
+  "cmd.altsTogether": "ພ້ອມກັນ",
+  "cmd.altsSeen": "ເຫັນຫຼ້າສຸດ {t} ກ່ອນ",
+  "cmd.altsFamily": "ຄອບຄົວດຽວກັນ",
+  "cmd.altsBanned": "ຖືກບລັອກ",
+  "cmd.altsNone": "{player} ບໍ່ໄດ້ໃຊ້ການເຊື່ອມຕໍ່ຮ່ວມກັບບັນຊີອື່ນໃນເຊີບເວີນີ້.",
+  "cmd.altsNotFound": "ເຊີບເວີນີ້ບໍ່ເຄີຍເຫັນ {player}.",
+  "cmd.altsProtected": "{player} ຢູ່ໃນລາຍຊື່ສີຄຳ: ບໍ່ສະແດງບັນຊີທີ່ເຊື່ອມໂຍງ.",
+  "update.available": "ມີ Jarvis ເວີຊັນໃໝ່ແລ້ວ: {latest} (ຂອງທ່ານແມ່ນ {current}).",
+  "update.download": "ດາວໂຫຼດໄດ້ຈາກແຜງຄວບຄຸມຂອງທ່ານ:",
+  "staff.sameConnection": "<gradient:#00ff9c:#22e0d8><bold>[Jarvis]</bold></gradient> <yellow>{name}</yellow> <gray>ເຂົ້າມາຈາກການເຊື່ອມຕໍ່ດຽວກັນກັບ</gray> <yellow>{others}</yellow><gray></gray>"
 }

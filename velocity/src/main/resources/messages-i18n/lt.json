@@ -92,5 +92,19 @@
   "cmd.descLink": "vėl parodo nuorodą šiam serveriui susieti",
   "cmd.linkAlready": "Šis serveris jau turi licencijos raktą: nėra ką susieti. /antivpn doctor parodys, ar jis veikia.",
   "cmd.linkPending": "Nuorodos šiam serveriui susieti kol kas nepavyko sugeneruoti. Jarvis toliau bando pats; po kelių minučių dar kartą paleiskite /antivpn link.",
-  "cmd.diagLinkPending": "dar nesusieta: nuorodos šiam serveriui susieti iki šiol nepavyko sugeneruoti. Jarvis toliau bando pats; po kelių minučių dar kartą paleiskite /antivpn link"
+  "cmd.diagLinkPending": "dar nesusieta: nuorodos šiam serveriui susieti iki šiol nepavyko sugeneruoti. Jarvis toliau bando pats; po kelių minučių dar kartą paleiskite /antivpn link",
+  "cmd.descAlts": "paskyros, kurios dalijasi ryšiu su žaidėju šiame serveryje",
+  "cmd.usageAlts": "Naudojimas: /antivpn alts <zaidejas>",
+  "cmd.altsTitle": "Paskyros, kurios dalijasi ryšiu su {player}:",
+  "cmd.altsShared": "Bendri IP: {n}",
+  "cmd.altsTogether": "tuo pačiu metu",
+  "cmd.altsSeen": "paskutinį kartą prieš {t}",
+  "cmd.altsFamily": "ta pati šeima",
+  "cmd.altsBanned": "užblokuota",
+  "cmd.altsNone": "{player} šiame serveryje nesidalija ryšiu su jokia kita paskyra.",
+  "cmd.altsNotFound": "Šis serveris niekada nematė {player}.",
+  "cmd.altsProtected": "{player} yra aukso sąraše: susietos paskyros nerodomos.",
+  "update.available": "Yra nauja Jarvis versija: {latest} (jūs turite {current}).",
+  "update.download": "Atsisiųskite ją savo skydelyje:",
+  "staff.sameConnection": "<gradient:#00ff9c:#22e0d8><bold>[Jarvis]</bold></gradient> <yellow>{name}</yellow> <gray>prisijungė iš to paties ryšio kaip</gray> <yellow>{others}</yellow><gray>.</gray>"
 }

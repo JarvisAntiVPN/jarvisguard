@@ -92,5 +92,19 @@
   "cmd.descLink": "再次顯示用來綁定此伺服器的連結",
   "cmd.linkAlready": "此伺服器已經有授權金鑰：無需綁定。/antivpn doctor 會告訴你它是否正常運作。",
   "cmd.linkPending": "暫時還無法產生用來綁定此伺服器的連結。Jarvis 會自動持續嘗試；請過幾分鐘再試一次 /antivpn link。",
-  "cmd.diagLinkPending": "尚未連結：到目前為止仍無法產生用來綁定此伺服器的連結。Jarvis 會自動持續嘗試；請過幾分鐘再試一次 /antivpn link"
+  "cmd.diagLinkPending": "尚未連結：到目前為止仍無法產生用來綁定此伺服器的連結。Jarvis 會自動持續嘗試；請過幾分鐘再試一次 /antivpn link",
+  "cmd.descAlts": "在本伺服器上與某玩家共用連線的帳戶",
+  "cmd.usageAlts": "用法: /antivpn alts <玩家>",
+  "cmd.altsTitle": "與 {player} 共用連線的帳戶：",
+  "cmd.altsShared": "共同 IP：{n}",
+  "cmd.altsTogether": "同時在線",
+  "cmd.altsSeen": "最後一次 {t} 前",
+  "cmd.altsFamily": "同一家庭",
+  "cmd.altsBanned": "已封鎖",
+  "cmd.altsNone": "{player} 在本伺服器上沒有與其他帳戶共用連線。",
+  "cmd.altsNotFound": "本伺服器從未見過 {player}。",
+  "cmd.altsProtected": "{player} 在金名單中：不顯示其關聯帳戶。",
+  "update.available": "Jarvis 有新版本：{latest}（目前為 {current}）。",
+  "update.download": "請在你的面板中下載：",
+  "staff.sameConnection": "<gradient:#00ff9c:#22e0d8><bold>[Jarvis]</bold></gradient> <yellow>{name}</yellow> <gray>剛剛進入，與</gray> <yellow>{others}</yellow><gray> 來自同一連線。</gray>"
 }

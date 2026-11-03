@@ -128,7 +128,7 @@ public final class DetectionListener implements Listener, PluginMessageListener 
                 return;
             }
             int maxPerIp = client.maxAccountsPerIp();
-            if (maxPerIp > 0 && ipDeInternet) {
+            if (maxPerIp > 0 && ipDeInternet && !client.fueraDelAforo(ip, name)) {
                 int connecting = connectingByIp.merge(ip, 1, Integer::sum);
                 reservedIp = true;
                 if (superaAforo(connecting, connectedByIp.getOrDefault(ip, 0), maxPerIp)) {
@@ -210,6 +210,7 @@ public final class DetectionListener implements Listener, PluginMessageListener 
         sessionStart.put(player.getUniqueId(), System.currentTimeMillis());
         sesionesSembradas.remove(player.getUniqueId());
         recordConnected(player);
+        avisarMismaConexion(player);
         String lname = player.getName().toLowerCase(java.util.Locale.ROOT);
         if (player.hasPermission("jarvis.bypass")) bypassNames.recordar(lname);
         else bypassNames.olvidar(lname);
@@ -492,6 +493,7 @@ public final class DetectionListener implements Listener, PluginMessageListener 
         InetSocketAddress addr = player.getAddress();
         if (addr == null || addr.getAddress() == null) return;
         String ip = addr.getAddress().getHostAddress();
+        if (client.fueraDelAforo(ip, player.getName())) return;
         sessionIp.put(player.getUniqueId(), ip);
         connectedByIp.merge(ip, 1, Integer::sum);
     }
@@ -512,7 +514,9 @@ public final class DetectionListener implements Listener, PluginMessageListener 
         for (Player p : Bukkit.getOnlinePlayers()) {
             InetSocketAddress a = p.getAddress();
             if (a != null && a.getAddress() != null) {
-                truth.merge(a.getAddress().getHostAddress(), 1, Integer::sum);
+                String ip = a.getAddress().getHostAddress();
+                if (client.fueraDelAforo(ip, p.getName())) continue;
+                truth.merge(ip, 1, Integer::sum);
             }
         }
         reconciliar(connectedByIp, truth);
@@ -587,6 +591,35 @@ public final class DetectionListener implements Listener, PluginMessageListener 
         String template = config.getString("messages.staff-notify", Messages.get(client.locale(), "staff"));
         String text = LEGACY.serialize(MM.deserialize(textoStaff(template, safeName, safeIp, motivoLegible(msgKey))));
         Schedulers.global(plugin, () -> {
+            for (Player p : Bukkit.getOnlinePlayers())
+                Schedulers.deEntidad(plugin, p, () -> {
+                    if (p.hasPermission(client.notifyPermission()) || p.hasPermission("jarvis.admin"))
+                        p.sendMessage(text);
+                });
+        });
+    }
+
+    private void avisarMismaConexion(Player player) {
+        if (!client.avisoMismaConexion() || config.getBoolean("server.behind-proxy", false)) return;
+        InetSocketAddress addr = player.getAddress();
+        if (addr == null || addr.getAddress() == null) return;
+        String ip = addr.getAddress().getHostAddress();
+        if (dev.flamingomg.jarvis.detection.PrivateIpWatch.noEsDeInternet(ip)) return;
+        UUID quien = player.getUniqueId();
+        String nombre = player.getName();
+        Schedulers.global(plugin, () -> {
+            java.util.List<String> dentro = new java.util.ArrayList<>();
+            for (Player p : Bukkit.getOnlinePlayers()) {
+                if (p.getUniqueId().equals(quien)) continue;
+                InetSocketAddress a = p.getAddress();
+                if (a != null && a.getAddress() != null && ip.equals(a.getAddress().getHostAddress())) dentro.add(p.getName());
+            }
+            if (dentro.isEmpty()) return;
+            java.util.List<String> otros = client.avisoConexion()
+                    .aQuienNombrar(nombre, dentro, n -> client.callarAvisoConexion(ip, n));
+            if (otros.isEmpty()) return;
+            String text = LEGACY.serialize(MM.deserialize(dev.flamingomg.jarvis.client.AvisoMismaConexion.texto(
+                    Messages.get(client.locale(), "staff.sameConnection"), nombre, otros, MM::escapeTags)));
             for (Player p : Bukkit.getOnlinePlayers())
                 Schedulers.deEntidad(plugin, p, () -> {
                     if (p.hasPermission(client.notifyPermission()) || p.hasPermission("jarvis.admin"))

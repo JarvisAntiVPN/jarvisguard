@@ -92,5 +92,19 @@
   "cmd.descLink": "הצג שוב את הקישור לחיבור השרת הזה",
   "cmd.linkAlready": "לשרת הזה כבר יש מפתח רישיון: אין מה לקשר. /antivpn doctor אומר לך אם הוא עובד.",
   "cmd.linkPending": "עדיין לא ניתן היה ליצור את הקישור לחיבור השרת הזה. Jarvis ממשיך לנסות בעצמו; נסה שוב /antivpn link בעוד כמה דקות.",
-  "cmd.diagLinkPending": "עדיין לא מקושר: עד עכשיו לא ניתן היה ליצור את הקישור לחיבור השרת הזה. Jarvis ממשיך לנסות בעצמו; נסה שוב /antivpn link בעוד כמה דקות"
+  "cmd.diagLinkPending": "עדיין לא מקושר: עד עכשיו לא ניתן היה ליצור את הקישור לחיבור השרת הזה. Jarvis ממשיך לנסות בעצמו; נסה שוב /antivpn link בעוד כמה דקות",
+  "cmd.descAlts": "חשבונות שחולקים חיבור עם שחקן בשרת הזה",
+  "cmd.usageAlts": "שימוש: /antivpn alts <שחקן>",
+  "cmd.altsTitle": "חשבונות שחולקים חיבור עם {player}:",
+  "cmd.altsShared": "כתובות IP משותפות: {n}",
+  "cmd.altsTogether": "בו-זמנית",
+  "cmd.altsSeen": "נראה לאחרונה לפני {t}",
+  "cmd.altsFamily": "אותה משפחה",
+  "cmd.altsBanned": "חסום",
+  "cmd.altsNone": "{player} לא חולק חיבור עם אף חשבון אחר בשרת הזה.",
+  "cmd.altsNotFound": "השרת הזה מעולם לא ראה את {player}.",
+  "cmd.altsProtected": "{player} ברשימה הזהובה: החשבונות המקושרים שלו לא מוצגים.",
+  "update.available": "יש גרסה חדשה של Jarvis: {latest} (אצלך {current}).",
+  "update.download": "הורד אותה מהפאנל שלך:",
+  "staff.sameConnection": "<gradient:#00ff9c:#22e0d8><bold>[Jarvis]</bold></gradient> <yellow>{name}</yellow> <gray>נכנס מאותו חיבור כמו</gray> <yellow>{others}</yellow><gray>.</gray>"
 }

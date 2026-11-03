@@ -52,6 +52,14 @@ public final class JarvisClient {
     private volatile String notifyPermission = "jarvis.admin";
     private volatile boolean bedrockSoloApi = false;
     private volatile boolean sesionesAlApagar = false;
+    private volatile java.util.Set<String> aforoNombresFuera = java.util.Set.of();
+    private volatile java.util.Set<String> aforoIpsFuera = java.util.Set.of();
+    private volatile String ultimaVersion = null;
+    private volatile String versionPropia = null;
+    private final AvisoVersion avisoVersion = new AvisoVersion();
+    private volatile boolean avisoMismaConexion = false;
+    private volatile java.util.Set<String> familiaFuera = java.util.Set.of();
+    private final AvisoMismaConexion avisoConexion = new AvisoMismaConexion();
     private volatile java.util.Map<String, String> offlineMessages = java.util.Map.of();
     private volatile int    cbFailureThreshold = 5;
     private volatile long   cbOpenDurationMs   = 30_000L;
@@ -321,6 +329,37 @@ public final class JarvisClient {
 
     public void setMaxAccountsPerIp(int v) { this.maxAccountsPerIp = Math.max(0, v); }
 
+    public boolean fueraDelAforo(String ip, String nombre) {
+        return fueraDelAforo(ip, nombre, aforoNombresFuera, aforoIpsFuera);
+    }
+
+    static boolean fueraDelAforo(String ip, String nombre, java.util.Set<String> nombres, java.util.Set<String> ips) {
+        if (nombre != null && !nombres.isEmpty() && nombres.contains(nombre.toLowerCase(java.util.Locale.ROOT))) return true;
+        return ip != null && !ips.isEmpty() && ips.contains(ipCanonica(ip));
+    }
+
+    public void setVersionPropia(String v) { this.versionPropia = v; }
+
+    public String versionNueva() {
+        if (!config.getBoolean("updates.notify", true)) return null;
+        String u = ultimaVersion;
+        return AvisoVersion.hayNueva(versionPropia, u) ? u : null;
+    }
+
+    public String versionPropia() { return versionPropia; }
+
+    public AvisoVersion avisoVersion() { return avisoVersion; }
+
+    public boolean avisoMismaConexion() { return avisoMismaConexion; }
+
+    public AvisoMismaConexion avisoConexion() { return avisoConexion; }
+
+    public boolean callarAvisoConexion(String ip, String nombre) {
+        if (fueraDelAforo(ip, nombre)) return true;
+        java.util.Set<String> f = familiaFuera;
+        return nombre != null && !f.isEmpty() && f.contains(nombre.toLowerCase(java.util.Locale.ROOT));
+    }
+
     public String locale() { return locale; }
 
     public void setLocale(String v) { this.locale = dev.flamingomg.jarvis.i18n.Messages.normalize(v); }
@@ -354,10 +393,53 @@ public final class JarvisClient {
         this.offlineMessages = offlineTrasConfig(body.get("offlineMessages"), this.offlineMessages);
         this.bedrockSoloApi = soloApiTrasConfig(body.get("bedrockRequiresApi"), this.bedrockSoloApi);
         this.sesionesAlApagar = soloApiTrasConfig(body.get("shutdownSessions"), this.sesionesAlApagar);
+        this.aforoNombresFuera = conjuntoTrasConfig(body.get("maxPerIpExemptNames"), this.aforoNombresFuera, false);
+        this.aforoIpsFuera = conjuntoTrasConfig(body.get("maxPerIpExemptIps"), this.aforoIpsFuera, true);
+        this.avisoMismaConexion = soloApiTrasConfig(body.get("altsNotify"), this.avisoMismaConexion);
+        this.familiaFuera = conjuntoTrasConfig(body.get("altFamilyNames"), this.familiaFuera, false);
+        this.ultimaVersion = versionTrasConfig(body.get("latestConnector"), this.ultimaVersion);
+        String nueva = versionNueva();
+        if (nueva != null && avisoVersion.tocaConsola(nueva)) {
+            logger.info(AvisoVersion.lineaDeConsola(locale, versionPropia, nueva));
+        }
     }
 
     static boolean soloApiTrasConfig(Object delBackend, boolean actual) {
         return (delBackend instanceof Boolean b) ? b : actual;
+    }
+
+    static final int AFORO_MAX = 5_000;
+
+    static java.util.Set<String> conjuntoTrasConfig(Object delBackend, java.util.Set<String> actual, boolean sonIps) {
+        if (!(delBackend instanceof java.util.Collection<?> c)) return actual;
+        java.util.Set<String> out = new java.util.HashSet<>();
+        for (Object o : c) {
+            if (out.size() >= AFORO_MAX) break;
+            if (!(o instanceof String s) || s.isBlank() || s.length() > 64) continue;
+            String v = s.trim();
+            out.add(sonIps ? ipCanonica(v) : v.toLowerCase(java.util.Locale.ROOT));
+        }
+        return java.util.Set.copyOf(out);
+    }
+
+    static String ipCanonica(String ip) {
+        if (ip == null || ip.indexOf(':') < 0) return ip;
+        for (int i = 0; i < ip.length(); i++) {
+            char ch = ip.charAt(i);
+            if (Character.digit(ch, 16) < 0 && ch != ':' && ch != '.') return ip;
+        }
+        try {
+            return java.net.InetAddress.getByName(ip).getHostAddress();
+        } catch (Exception e) {
+            return ip;
+        }
+    }
+
+    static String versionTrasConfig(Object delBackend, String actual) {
+        if (!(delBackend instanceof String s)) return actual;
+        String v = s.trim();
+        if (v.isEmpty()) return null;
+        return AvisoVersion.tramos(v) != null ? v : actual;
     }
 
     static java.util.Map<String, String> offlineTrasConfig(Object delPanel, java.util.Map<String, String> actual) {
@@ -1274,6 +1356,66 @@ public final class JarvisClient {
                 .exceptionally(e -> {
                     logger.debug("whitelist {}: {}", username, e.toString());
                     return RespuestaLista.sinRed();
+                });
+    }
+
+    public record CuentaVinculada(String name, int shared, boolean together, Long lastSeen, boolean family,
+                                  boolean banned) {}
+
+    public record RespuestaAlts(int code, Boolean found, String name, Boolean protegido,
+                                java.util.List<CuentaVinculada> accounts) {
+        public boolean ok() { return code >= 200 && code < 300; }
+        static RespuestaAlts sinRed() { return new RespuestaAlts(0, null, null, null, java.util.List.of()); }
+    }
+
+    static RespuestaAlts leerRespuestaAlts(int code, String body) {
+        if (body == null || body.isEmpty()) return new RespuestaAlts(code, null, null, null, java.util.List.of());
+        try {
+            com.google.gson.JsonObject o = GSON.fromJson(body, com.google.gson.JsonObject.class);
+            if (o == null) return new RespuestaAlts(code, null, null, null, java.util.List.of());
+            java.util.List<CuentaVinculada> cuentas = new java.util.ArrayList<>();
+            com.google.gson.JsonElement lista = o.get("accounts");
+            if (lista != null && lista.isJsonArray()) {
+                for (com.google.gson.JsonElement e : lista.getAsJsonArray()) {
+                    if (!e.isJsonObject()) continue;
+                    com.google.gson.JsonObject a = e.getAsJsonObject();
+                    com.google.gson.JsonPrimitive n = prim(a, "name");
+                    if (n == null || !n.isString() || n.getAsString().isBlank()) continue;
+                    Integer shared = entero(a, "shared");
+                    cuentas.add(new CuentaVinculada(n.getAsString(), shared == null ? 0 : shared,
+                            Boolean.TRUE.equals(booleano(a, "together")), largo(a, "lastSeen"),
+                            Boolean.TRUE.equals(booleano(a, "family")), Boolean.TRUE.equals(booleano(a, "banned"))));
+                }
+            }
+            com.google.gson.JsonPrimitive nombre = prim(o, "name");
+            return new RespuestaAlts(code, booleano(o, "found"),
+                    nombre != null && nombre.isString() ? nombre.getAsString() : null,
+                    booleano(o, "protected"), java.util.List.copyOf(cuentas));
+        } catch (RuntimeException e) {
+            return new RespuestaAlts(code, null, null, null, java.util.List.of());
+        }
+    }
+
+    public java.util.concurrent.CompletableFuture<RespuestaAlts> altsAsync(String username) {
+        if (signer == null || !signer.hasSecret() || username == null || username.isBlank()) {
+            return java.util.concurrent.CompletableFuture.completedFuture(RespuestaAlts.sinRed());
+        }
+        long   ts  = clock.now();
+        String sig = signer.sign(HmacSigner.requestPayload(ts, "alts", username));
+        long timeoutMs = Math.max(5000L, config.getInt("backend.connect-timeout-ms", 8000) + 5000L);
+        HttpRequest req = HttpRequest.newBuilder(URI.create(ConfigManager.DEFAULT_BACKEND_URL + "/api/v1/alts?name="
+                        + java.net.URLEncoder.encode(username, StandardCharsets.UTF_8)))
+                .timeout(Duration.ofMillis(timeoutMs))
+                .header("X-License-Key", licenseKey)
+                .header("X-Timestamp",   String.valueOf(ts))
+                .header("X-Signature",   sig)
+                .GET()
+                .build();
+        return http.sendAsync(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8))
+                .thenApply(r -> leerRespuestaAlts(r.statusCode(), r.body()))
+                .exceptionally(e -> {
+                    logger.debug("alts {}: {}", username, e.toString());
+                    return RespuestaAlts.sinRed();
                 });
     }
 

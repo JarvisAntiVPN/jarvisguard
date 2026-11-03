@@ -92,5 +92,19 @@
   "cmd.descLink": "এই সার্ভারটি সংযুক্ত করার লিংক আবার দেখান",
   "cmd.linkAlready": "এই সার্ভারে আগে থেকেই লাইসেন্স কী আছে: লিংক করার কিছু নেই। এটি কাজ করছে কিনা, /antivpn doctor আপনাকে জানিয়ে দেয়।",
   "cmd.linkPending": "এই সার্ভারটি সংযুক্ত করার লিংক এখনো তৈরি করা যায়নি। Jarvis নিজে থেকেই চেষ্টা চালিয়ে যাচ্ছে; কয়েক মিনিট পরে আবার /antivpn link চেষ্টা করুন।",
-  "cmd.diagLinkPending": "এখনো লিংক করা হয়নি: এই সার্ভারটি সংযুক্ত করার লিংক এখন পর্যন্ত তৈরি করা যায়নি। Jarvis নিজে থেকেই চেষ্টা চালিয়ে যাচ্ছে; কয়েক মিনিট পরে আবার /antivpn link চেষ্টা করুন"
+  "cmd.diagLinkPending": "এখনো লিংক করা হয়নি: এই সার্ভারটি সংযুক্ত করার লিংক এখন পর্যন্ত তৈরি করা যায়নি। Jarvis নিজে থেকেই চেষ্টা চালিয়ে যাচ্ছে; কয়েক মিনিট পরে আবার /antivpn link চেষ্টা করুন",
+  "cmd.descAlts": "এই সার্ভারে কোনো খেলোয়াড়ের সঙ্গে সংযোগ শেয়ার করা অ্যাকাউন্ট",
+  "cmd.usageAlts": "ব্যবহার: /antivpn alts <খেলোয়াড়>",
+  "cmd.altsTitle": "{player}-এর সঙ্গে সংযোগ শেয়ার করা অ্যাকাউন্ট:",
+  "cmd.altsShared": "শেয়ার করা IP: {n}",
+  "cmd.altsTogether": "একই সময়ে",
+  "cmd.altsSeen": "শেষ দেখা {t} আগে",
+  "cmd.altsFamily": "একই পরিবার",
+  "cmd.altsBanned": "ব্লক করা",
+  "cmd.altsNone": "{player} এই সার্ভারে অন্য কোনো অ্যাকাউন্টের সঙ্গে সংযোগ শেয়ার করে না।",
+  "cmd.altsNotFound": "এই সার্ভার {player}-কে কখনো দেখেনি।",
+  "cmd.altsProtected": "{player} সোনালি তালিকায় আছে: তাঁর সংযুক্ত অ্যাকাউন্ট দেখানো হয় না।",
+  "update.available": "Jarvis-এর নতুন সংস্করণ এসেছে: {latest} (আপনার আছে {current})।",
+  "update.download": "আপনার প্যানেল থেকে ডাউনলোড করুন:",
+  "staff.sameConnection": "<gradient:#00ff9c:#22e0d8><bold>[Jarvis]</bold></gradient> <yellow>{name}</yellow> <gray>ঢুকেছে, একই সংযোগে আছে:</gray> <yellow>{others}</yellow><gray>।</gray>"
 }

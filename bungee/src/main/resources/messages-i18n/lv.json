@@ -92,5 +92,19 @@
   "cmd.descLink": "vēlreiz parādīt saiti šī servera piesaistīšanai",
   "cmd.linkAlready": "Šim serverim jau ir licences atslēga: nav ko piesaistīt. /antivpn doctor parādīs, vai tas darbojas.",
   "cmd.linkPending": "Saiti šī servera piesaistīšanai vēl neizdevās izveidot. Jarvis turpina mēģināt pats; pēc dažām minūtēm vēlreiz izpildiet /antivpn link.",
-  "cmd.diagLinkPending": "vēl nav piesaistīta: saiti šī servera piesaistīšanai līdz šim neizdevās izveidot. Jarvis turpina mēģināt pats; pēc dažām minūtēm vēlreiz izpildiet /antivpn link"
+  "cmd.diagLinkPending": "vēl nav piesaistīta: saiti šī servera piesaistīšanai līdz šim neizdevās izveidot. Jarvis turpina mēģināt pats; pēc dažām minūtēm vēlreiz izpildiet /antivpn link",
+  "cmd.descAlts": "konti, kas dala savienojumu ar spēlētāju šajā serverī",
+  "cmd.usageAlts": "Lietojums: /antivpn alts <spēlētājs>",
+  "cmd.altsTitle": "Konti, kas dala savienojumu ar {player}:",
+  "cmd.altsShared": "Kopīgās IP: {n}",
+  "cmd.altsTogether": "vienlaikus",
+  "cmd.altsSeen": "pēdējo reizi pirms {t}",
+  "cmd.altsFamily": "viena ģimene",
+  "cmd.altsBanned": "bloķēts",
+  "cmd.altsNone": "{player} šajā serverī nedala savienojumu ne ar vienu citu kontu.",
+  "cmd.altsNotFound": "Šis serveris nekad nav redzējis {player}.",
+  "cmd.altsProtected": "{player} ir zelta sarakstā: saistītie konti netiek rādīti.",
+  "update.available": "Ir pieejama jauna Jarvis versija: {latest} (jums ir {current}).",
+  "update.download": "Lejupielādējiet to savā panelī:",
+  "staff.sameConnection": "<gradient:#00ff9c:#22e0d8><bold>[Jarvis]</bold></gradient> <yellow>{name}</yellow> <gray>pievienojās no tā paša savienojuma kā</gray> <yellow>{others}</yellow><gray>.</gray>"
 }

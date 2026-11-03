@@ -92,5 +92,19 @@
   "cmd.descLink": "show the link to connect this server again",
   "cmd.linkAlready": "This server already has a license key: there is nothing to link. /antivpn doctor tells you whether it is working.",
   "cmd.linkPending": "The link to connect this server couldn't be generated yet. Jarvis keeps trying on its own; try /antivpn link again in a few minutes.",
-  "cmd.diagLinkPending": "not linked yet: so far it hasn't been possible to generate the link to connect this server. Jarvis keeps trying on its own; try /antivpn link again in a few minutes"
+  "cmd.diagLinkPending": "not linked yet: so far it hasn't been possible to generate the link to connect this server. Jarvis keeps trying on its own; try /antivpn link again in a few minutes",
+  "cmd.descAlts": "accounts that share a connection with a player on this server",
+  "cmd.usageAlts": "Usage: /antivpn alts <player>",
+  "cmd.altsTitle": "Accounts sharing a connection with {player}:",
+  "cmd.altsShared": "Shared IPs: {n}",
+  "cmd.altsTogether": "at the same time",
+  "cmd.altsSeen": "last seen {t} ago",
+  "cmd.altsFamily": "same family",
+  "cmd.altsBanned": "blocked",
+  "cmd.altsNone": "{player} doesn't share a connection with any other account on this server.",
+  "cmd.altsNotFound": "This server has never seen {player}.",
+  "cmd.altsProtected": "{player} is on the gold list: their linked accounts are not shown.",
+  "update.available": "A new Jarvis version is available: {latest} (you have {current}).",
+  "update.download": "Download it from your panel:",
+  "staff.sameConnection": "<gradient:#00ff9c:#22e0d8><bold>[Jarvis]</bold></gradient> <yellow>{name}</yellow> <gray>joined from the same connection as</gray> <yellow>{others}</yellow><gray>.</gray>"
 }

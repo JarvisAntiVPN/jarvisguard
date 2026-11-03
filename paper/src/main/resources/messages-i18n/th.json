@@ -92,5 +92,19 @@
   "cmd.descLink": "แสดงลิงก์สำหรับเชื่อมต่อเซิร์ฟเวอร์นี้อีกครั้ง",
   "cmd.linkAlready": "เซิร์ฟเวอร์นี้มีคีย์ license แล้ว จึงไม่มีอะไรต้องเชื่อมต่อ ใช้ /antivpn doctor เพื่อดูว่าทำงานอยู่หรือไม่",
   "cmd.linkPending": "ยังสร้างลิงก์สำหรับเชื่อมต่อเซิร์ฟเวอร์นี้ไม่ได้ Jarvis กำลังลองใหม่เองอยู่ ลองสั่ง /antivpn link อีกครั้งในอีกไม่กี่นาที",
-  "cmd.diagLinkPending": "ยังไม่ได้เชื่อมต่อ: จนถึงตอนนี้ยังสร้างลิงก์สำหรับเชื่อมต่อเซิร์ฟเวอร์นี้ไม่ได้ Jarvis กำลังลองใหม่เองอยู่ ลองสั่ง /antivpn link อีกครั้งในอีกไม่กี่นาที"
+  "cmd.diagLinkPending": "ยังไม่ได้เชื่อมต่อ: จนถึงตอนนี้ยังสร้างลิงก์สำหรับเชื่อมต่อเซิร์ฟเวอร์นี้ไม่ได้ Jarvis กำลังลองใหม่เองอยู่ ลองสั่ง /antivpn link อีกครั้งในอีกไม่กี่นาที",
+  "cmd.descAlts": "บัญชีที่ใช้การเชื่อมต่อร่วมกับผู้เล่นในเซิร์ฟเวอร์นี้",
+  "cmd.usageAlts": "วิธีใช้: /antivpn alts <ผู้เล่น>",
+  "cmd.altsTitle": "บัญชีที่ใช้การเชื่อมต่อร่วมกับ {player}:",
+  "cmd.altsShared": "IP ที่ใช้ร่วมกัน: {n}",
+  "cmd.altsTogether": "พร้อมกัน",
+  "cmd.altsSeen": "เห็นล่าสุด {t} ที่แล้ว",
+  "cmd.altsFamily": "ครอบครัวเดียวกัน",
+  "cmd.altsBanned": "ถูกบล็อก",
+  "cmd.altsNone": "{player} ไม่ได้ใช้การเชื่อมต่อร่วมกับบัญชีอื่นในเซิร์ฟเวอร์นี้",
+  "cmd.altsNotFound": "เซิร์ฟเวอร์นี้ไม่เคยเห็น {player}",
+  "cmd.altsProtected": "{player} อยู่ในลิสต์ทอง: ไม่แสดงบัญชีที่เชื่อมโยง",
+  "update.available": "มี Jarvis เวอร์ชันใหม่แล้ว: {latest} (ของคุณคือ {current})",
+  "update.download": "ดาวน์โหลดได้จากแผงควบคุมของคุณ:",
+  "staff.sameConnection": "<gradient:#00ff9c:#22e0d8><bold>[Jarvis]</bold></gradient> <yellow>{name}</yellow> <gray>เข้ามาจากการเชื่อมต่อเดียวกับ</gray> <yellow>{others}</yellow><gray></gray>"
 }

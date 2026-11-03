@@ -92,5 +92,19 @@
   "cmd.descLink": "pokazuje ponownie link do połączenia tego serwera",
   "cmd.linkAlready": "Ten serwer ma już klucz licencji: nie ma nic do połączenia. /antivpn doctor pokaże ci, czy wszystko działa.",
   "cmd.linkPending": "Nie udało się jeszcze wygenerować linku do połączenia tego serwera. Jarvis sam próbuje dalej; spróbuj ponownie /antivpn link za kilka minut.",
-  "cmd.diagLinkPending": "jeszcze niepowiązana: jak dotąd nie udało się wygenerować linku do połączenia tego serwera. Jarvis sam próbuje dalej; spróbuj ponownie /antivpn link za kilka minut"
+  "cmd.diagLinkPending": "jeszcze niepowiązana: jak dotąd nie udało się wygenerować linku do połączenia tego serwera. Jarvis sam próbuje dalej; spróbuj ponownie /antivpn link za kilka minut",
+  "cmd.descAlts": "konta, które współdzielą połączenie z graczem na tym serwerze",
+  "cmd.usageAlts": "Uzycie: /antivpn alts <gracz>",
+  "cmd.altsTitle": "Konta współdzielące połączenie z {player}:",
+  "cmd.altsShared": "Wspólne IP: {n}",
+  "cmd.altsTogether": "jednocześnie",
+  "cmd.altsSeen": "ostatnio {t} temu",
+  "cmd.altsFamily": "ta sama rodzina",
+  "cmd.altsBanned": "zablokowane",
+  "cmd.altsNone": "{player} nie współdzieli połączenia z żadnym innym kontem na tym serwerze.",
+  "cmd.altsNotFound": "Ten serwer nigdy nie widział gracza {player}.",
+  "cmd.altsProtected": "{player} jest na złotej liście: powiązane konta nie są wyświetlane.",
+  "update.available": "Dostępna jest nowa wersja Jarvisa: {latest} (masz {current}).",
+  "update.download": "Pobierz ją ze swojego panelu:",
+  "staff.sameConnection": "<gradient:#00ff9c:#22e0d8><bold>[Jarvis]</bold></gradient> <yellow>{name}</yellow> <gray>wszedł z tego samego połączenia co</gray> <yellow>{others}</yellow><gray>.</gray>"
 }

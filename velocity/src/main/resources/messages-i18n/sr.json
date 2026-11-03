@@ -92,5 +92,19 @@
   "cmd.descLink": "поново приказује линк за повезивање овог сервера",
   "cmd.linkAlready": "Овај сервер већ има лиценцни кључ: нема шта да се повезује. /antivpn doctor ће вам рећи да ли ради.",
   "cmd.linkPending": "Линк за повезивање овог сервера још није могао да се генерише. Jarvis и даље покушава сам; покрените /antivpn link поново за неколико минута.",
-  "cmd.diagLinkPending": "још није повезана: линк за повезивање овог сервера до сада није могао да се генерише. Jarvis и даље покушава сам; покрените /antivpn link поново за неколико минута"
+  "cmd.diagLinkPending": "још није повезана: линк за повезивање овог сервера до сада није могао да се генерише. Jarvis и даље покушава сам; покрените /antivpn link поново за неколико минута",
+  "cmd.descAlts": "налози који деле везу са играчем на овом серверу",
+  "cmd.usageAlts": "Употреба: /antivpn alts <играч>",
+  "cmd.altsTitle": "Налози који деле везу са {player}:",
+  "cmd.altsShared": "Заједничке IP адресе: {n}",
+  "cmd.altsTogether": "истовремено",
+  "cmd.altsSeen": "последњи пут пре {t}",
+  "cmd.altsFamily": "иста породица",
+  "cmd.altsBanned": "блокиран",
+  "cmd.altsNone": "{player} не дели везу ни са једним другим налогом на овом серверу.",
+  "cmd.altsNotFound": "Овај сервер никада није видео {player}.",
+  "cmd.altsProtected": "{player} је на златној листи: повезани налози се не приказују.",
+  "update.available": "Доступна је нова верзија Jarvis-а: {latest} (ви имате {current}).",
+  "update.download": "Преузмите је са свог панела:",
+  "staff.sameConnection": "<gradient:#00ff9c:#22e0d8><bold>[Jarvis]</bold></gradient> <yellow>{name}</yellow> <gray>је ушао са исте везе као</gray> <yellow>{others}</yellow><gray>.</gray>"
 }

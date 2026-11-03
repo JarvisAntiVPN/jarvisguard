@@ -92,5 +92,19 @@
   "cmd.descLink": "عرض رابط ربط هذا الخادم مرة أخرى",
   "cmd.linkAlready": "لدى هذا الخادم مفتاح ترخيص بالفعل: لا يوجد ما يلزم ربطه. يخبرك /antivpn doctor إن كان يعمل.",
   "cmd.linkPending": "تعذّر إنشاء رابط ربط هذا الخادم حتى الآن. يواصل Jarvis المحاولة من تلقاء نفسه؛ جرّب /antivpn link مجدداً بعد بضع دقائق.",
-  "cmd.diagLinkPending": "غير مرتبط بعد: تعذّر حتى الآن إنشاء رابط ربط هذا الخادم. يواصل Jarvis المحاولة من تلقاء نفسه؛ جرّب /antivpn link مجدداً بعد بضع دقائق"
+  "cmd.diagLinkPending": "غير مرتبط بعد: تعذّر حتى الآن إنشاء رابط ربط هذا الخادم. يواصل Jarvis المحاولة من تلقاء نفسه؛ جرّب /antivpn link مجدداً بعد بضع دقائق",
+  "cmd.descAlts": "الحسابات التي تتشارك الاتصال مع لاعب على هذا الخادم",
+  "cmd.usageAlts": "الاستخدام: /antivpn alts <اللاعب>",
+  "cmd.altsTitle": "الحسابات التي تتشارك الاتصال مع {player}:",
+  "cmd.altsShared": "عناوين IP مشتركة: {n}",
+  "cmd.altsTogether": "في الوقت نفسه",
+  "cmd.altsSeen": "آخر ظهور قبل {t}",
+  "cmd.altsFamily": "العائلة نفسها",
+  "cmd.altsBanned": "محظور",
+  "cmd.altsNone": "لا يتشارك {player} الاتصال مع أي حساب آخر على هذا الخادم.",
+  "cmd.altsNotFound": "لم يرَ هذا الخادم {player} من قبل.",
+  "cmd.altsProtected": "{player} في القائمة الذهبية: لا تُعرض حساباته المرتبطة.",
+  "update.available": "يتوفر إصدار جديد من Jarvis: {latest} (لديك {current}).",
+  "update.download": "نزّله من لوحتك:",
+  "staff.sameConnection": "<gradient:#00ff9c:#22e0d8><bold>[Jarvis]</bold></gradient> <yellow>{name}</yellow> <gray>دخل من نفس اتصال</gray> <yellow>{others}</yellow><gray>.</gray>"
 }

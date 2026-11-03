@@ -92,5 +92,19 @@
   "cmd.descLink": "hiển thị lại đường dẫn để liên kết máy chủ này",
   "cmd.linkAlready": "Máy chủ này đã có khóa giấy phép: không có gì để liên kết. /antivpn doctor sẽ cho bạn biết nó có đang hoạt động không.",
   "cmd.linkPending": "Chưa thể tạo đường dẫn để liên kết máy chủ này. Jarvis vẫn đang tự thử lại; hãy chạy lại /antivpn link sau vài phút.",
-  "cmd.diagLinkPending": "chưa được liên kết: đến giờ vẫn chưa thể tạo đường dẫn để liên kết máy chủ này. Jarvis vẫn đang tự thử lại; hãy chạy lại /antivpn link sau vài phút"
+  "cmd.diagLinkPending": "chưa được liên kết: đến giờ vẫn chưa thể tạo đường dẫn để liên kết máy chủ này. Jarvis vẫn đang tự thử lại; hãy chạy lại /antivpn link sau vài phút",
+  "cmd.descAlts": "các tài khoản dùng chung kết nối với một người chơi trên máy chủ này",
+  "cmd.usageAlts": "Cach dung: /antivpn alts <nguoi choi>",
+  "cmd.altsTitle": "Tài khoản dùng chung kết nối với {player}:",
+  "cmd.altsShared": "IP chung: {n}",
+  "cmd.altsTogether": "cùng lúc",
+  "cmd.altsSeen": "lần cuối {t} trước",
+  "cmd.altsFamily": "cùng gia đình",
+  "cmd.altsBanned": "đã chặn",
+  "cmd.altsNone": "{player} không dùng chung kết nối với tài khoản nào khác trên máy chủ này.",
+  "cmd.altsNotFound": "Máy chủ này chưa từng thấy {player}.",
+  "cmd.altsProtected": "{player} có trong danh sách vàng: các tài khoản liên kết không được hiển thị.",
+  "update.available": "Đã có phiên bản Jarvis mới: {latest} (bạn đang dùng {current}).",
+  "update.download": "Tải về từ bảng điều khiển của bạn:",
+  "staff.sameConnection": "<gradient:#00ff9c:#22e0d8><bold>[Jarvis]</bold></gradient> <yellow>{name}</yellow> <gray>đã vào từ cùng kết nối với</gray> <yellow>{others}</yellow><gray>.</gray>"
 }

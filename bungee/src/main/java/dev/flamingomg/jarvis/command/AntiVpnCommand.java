@@ -25,7 +25,7 @@ import java.util.stream.Collectors;
 public final class AntiVpnCommand extends Command implements TabExecutor {
 
     private static final List<String> SUB = List.of("key", "link", "stats", "doctor", "reload", "blacklist",
-            "unblacklist", "whitelist", "unwhitelist");
+            "unblacklist", "whitelist", "unwhitelist", "alts");
 
     private final JarvisClient client;
     private final ProxyServer proxy;
@@ -74,6 +74,7 @@ public final class AntiVpnCommand extends Command implements TabExecutor {
             case "unblacklist" -> blacklist(sender, args, true);
             case "whitelist"   -> whitelist(sender, args, false);
             case "unwhitelist" -> whitelist(sender, args, true);
+            case "alts"        -> alts(sender, args);
             case "stats"     -> stats(sender);
             case "doctor"    -> doctor(sender);
             case "reload"    -> {
@@ -255,6 +256,7 @@ public final class AntiVpnCommand extends Command implements TabExecutor {
         send(sender, help("unblacklist <player>",        m("cmd.descUnblacklist")));
         send(sender, help("whitelist <player> [time] [reason]", m("cmd.descWhitelist")));
         send(sender, help("unwhitelist <player>",               m("cmd.descUnwhitelist")));
+        send(sender, help("alts <player>",                      m("cmd.descAlts")));
     }
 
     private void blacklist(CommandSender sender, String[] args, boolean remove) {
@@ -282,6 +284,22 @@ public final class AntiVpnCommand extends Command implements TabExecutor {
                 send(sender, pre().append(Component.text(m("cmd.blacklistFail"), NamedTextColor.RED)));
             }
         });
+    }
+
+    private void alts(CommandSender sender, String[] args) {
+        if (!puedeModerar(sender)) { noPermission(sender); return; }
+        if (args.length < 2 || args[1].isBlank()) {
+            send(sender, pre().append(Component.text(m("cmd.usageAlts"), NamedTextColor.YELLOW)));
+            return;
+        }
+        String target = args[1];
+        if (target.length() > 32) {
+            send(sender, pre().append(Component.text(m("cmd.blacklistTooLong"), NamedTextColor.RED)));
+            return;
+        }
+        if (sinFirma(sender)) return;
+        send(sender, pre().append(Component.text(m("cmd.blacklistSending"), NamedTextColor.GRAY)));
+        client.altsAsync(target).thenAccept(r -> pintar(sender, resumirAlts(r, target, this::m, System.currentTimeMillis())));
     }
 
     private void pintar(CommandSender sender, ResumenLista res) {
@@ -341,6 +359,38 @@ public final class AntiVpnCommand extends Command implements TabExecutor {
         return new ResumenLista(nadaQueQuitar || yaEstaba ? Tono.AVISO : Tono.HECHO, titular, detalles);
     }
 
+    static ResumenLista resumirAlts(dev.flamingomg.jarvis.client.JarvisClient.RespuestaAlts r, String objetivo,
+                                    java.util.function.UnaryOperator<String> tr, long ahoraMs) {
+        List<String> detalles = new java.util.ArrayList<>();
+        if (!r.ok() || r.found() == null) {
+            return new ResumenLista(Tono.FALLO, tr.apply("cmd.blacklistFail"), detalles);
+        }
+        String nombre = sinColor((r.name() == null || r.name().isBlank()) ? objetivo : r.name());
+        if (!r.found()) {
+            return new ResumenLista(Tono.AVISO, tr.apply("cmd.altsNotFound").replace("{player}", nombre), detalles);
+        }
+        if (Boolean.TRUE.equals(r.protegido())) {
+            return new ResumenLista(Tono.AVISO, tr.apply("cmd.altsProtected").replace("{player}", nombre), detalles);
+        }
+        if (r.accounts().isEmpty()) {
+            return new ResumenLista(Tono.HECHO, tr.apply("cmd.altsNone").replace("{player}", nombre), detalles);
+        }
+        for (dev.flamingomg.jarvis.client.JarvisClient.CuentaVinculada c : r.accounts()) {
+            StringBuilder l = new StringBuilder(sinColor(c.name()));
+            l.append(" · ").append(tr.apply("cmd.altsShared").replace("{n}", String.valueOf(c.shared())));
+            if (c.together()) l.append(" · ").append(tr.apply("cmd.altsTogether"));
+            if (c.lastSeen() != null && c.lastSeen() > 0) {
+                l.append(" · ").append(tr.apply("cmd.altsSeen").replace("{t}", tiempoRelativo(ahoraMs - c.lastSeen())));
+            }
+            if (c.family()) l.append(" · ").append(tr.apply("cmd.altsFamily"));
+            if (c.banned()) l.append(" · ").append(tr.apply("cmd.altsBanned"));
+            detalles.add(l.toString());
+        }
+        return new ResumenLista(Tono.HECHO, tr.apply("cmd.altsTitle").replace("{player}", nombre), detalles);
+    }
+
+    static String sinColor(String s) { return s == null ? "" : s.replace("§", ""); }
+
     static String tiempoRelativo(long ms) {
         if (ms < 60_000L) return "<1m";
         long dias = ms / 86_400_000L;
@@ -351,7 +401,7 @@ public final class AntiVpnCommand extends Command implements TabExecutor {
     }
 
     private static final java.util.Set<String> SUB_JUGADOR =
-            java.util.Set.of("blacklist", "unblacklist", "whitelist", "unwhitelist");
+            java.util.Set.of("blacklist", "unblacklist", "whitelist", "unwhitelist", "alts");
 
     private static final int TOPE_SUGERENCIAS = 50;
 

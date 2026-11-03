@@ -92,5 +92,19 @@
   "cmd.descLink": "mostra de novo o link para conectar este servidor",
   "cmd.linkAlready": "Este servidor já tem uma chave de licença: não há nada para vincular. O /antivpn doctor mostra se está tudo funcionando.",
   "cmd.linkPending": "Ainda não foi possível gerar o link para conectar este servidor. O Jarvis continua tentando sozinho; tente /antivpn link de novo daqui a alguns minutos.",
-  "cmd.diagLinkPending": "ainda não vinculada: até agora não foi possível gerar o link para conectar este servidor. O Jarvis continua tentando sozinho; tente /antivpn link de novo daqui a alguns minutos"
+  "cmd.diagLinkPending": "ainda não vinculada: até agora não foi possível gerar o link para conectar este servidor. O Jarvis continua tentando sozinho; tente /antivpn link de novo daqui a alguns minutos",
+  "cmd.descAlts": "contas que compartilham conexão com um jogador neste servidor",
+  "cmd.usageAlts": "Uso: /antivpn alts <jogador>",
+  "cmd.altsTitle": "Contas que compartilham conexão com {player}:",
+  "cmd.altsShared": "IPs em comum: {n}",
+  "cmd.altsTogether": "ao mesmo tempo",
+  "cmd.altsSeen": "visto há {t}",
+  "cmd.altsFamily": "mesma família",
+  "cmd.altsBanned": "bloqueada",
+  "cmd.altsNone": "{player} não compartilha conexão com nenhuma outra conta neste servidor.",
+  "cmd.altsNotFound": "Este servidor nunca viu {player}.",
+  "cmd.altsProtected": "{player} está na lista dourada: as contas vinculadas não são exibidas.",
+  "update.available": "Está disponível uma nova versão do Jarvis: {latest} (tem a {current}).",
+  "update.download": "Faça o download no seu painel:",
+  "staff.sameConnection": "<gradient:#00ff9c:#22e0d8><bold>[Jarvis]</bold></gradient> <yellow>{name}</yellow> <gray>entrou pela mesma conexão que</gray> <yellow>{others}</yellow><gray>.</gray>"
 }
